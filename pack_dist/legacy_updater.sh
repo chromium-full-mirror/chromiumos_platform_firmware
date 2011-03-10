@@ -1529,6 +1529,7 @@ general options:
         factory_final | todev | bootok )
           alert "Warning: mode [$arg_value] is not available on this platform."
           exit 0
+	  ;;
         * )
           alert "Warning: mode [$arg_value] is not supported."
           exit 0
