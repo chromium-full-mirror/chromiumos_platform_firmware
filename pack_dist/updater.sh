@@ -267,6 +267,24 @@ prepare_ec_current_image() {
   prepare_current_image "$TYPE_EC" "$IMAGE_EC" "$TARGET_OPT_EC" "$@"
 }
 
+is_mainfw_write_protected() {
+  if ! cros_is_hardware_write_protected; then
+    false
+  else
+    flashrom $TARGET_OPT_MAIN --wp-status 2>/dev/null |
+      grep -q write\ protect\ is\ enabled
+  fi
+}
+
+is_ecfw_write_protected() {
+  if ! cros_is_hardware_write_protected; then
+    false
+  else
+    flashrom $TARGET_OPT_EC --wp-status 2>/dev/null |
+      grep -q write\ protect\ is\ enabled
+  fi
+}
+
 # ----------------------------------------------------------------------------
 # Core logic in different modes
 
@@ -381,7 +399,7 @@ mode_recovery() {
   if [ "${FLAGS_update_main}" = "${FLAGS_TRUE}" ]; then
     prepare_main_image
     debug_msg "mode_recovery: udpate main"
-    if ! cros_is_hardware_write_protected;  then
+    if ! is_mainfw_write_protected;  then
       # HWID should be already preserved
       debug_msg "mode_recovery: update main/RO"
       update_mainfw "$SLOT_RO"
@@ -398,7 +416,7 @@ mode_recovery() {
   if [ "${FLAGS_update_ec}" = "${FLAGS_TRUE}" ]; then
     prepare_ec_image
     debug_msg "mode_recovery: update ec"
-    if ! cros_is_hardware_write_protected; then
+    if ! is_ecfw_write_protected; then
       debug_msg "mode_recovery: update ec/RO"
       update_ecfw "$SLOT_EC_RO"
     fi
@@ -412,7 +430,7 @@ mode_recovery() {
 
 # Factory Installer
 mode_factory_install() {
-  if cros_is_hardware_write_protected; then
+  if is_mainfw_write_protected || is_ecfw_write_protected; then
     # TODO(hungte) check if we really need to stop user by comparing firmware
     # image, bit-by-bit.
     err_die "You need to first disable hardware write protection switch."
