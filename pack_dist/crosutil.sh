@@ -40,16 +40,21 @@ cros_query_prop() {
 cros_set_startup_update_tries() {
   local startup_update_tries="$1"
   # for now, we store StartupUpdateTries in kern_nv[3:0]
-  local kern_nv=$(crossystem kern_nv || echo 0)
-  # mask out existing StartupUpdateTries value
-  kern_nv=$(( $kern_nv & 0xfffffff0 ))
-  kern_nv=$(( $kern_nv | $startup_update_tries ))
-  cros_set_prop kern_nv=$kern_nv
+  local kern_nv=$(crossystem kern_nv)
+  if [ -n "$kern_nv" ]; then
+    # mask out existing StartupUpdateTries value
+    kern_nv=$(( kern_nv & 0xfffffff0 ))
+    kern_nv=$(( kern_nv | $startup_update_tries ))
+    cros_set_prop kern_nv=$kern_nv
+  else
+    echo $1 > /mnt/stateful_partition/.need_firmware_update
+  fi
 }
 
 # Gets the "startup update tries" counter.
 cros_get_startup_update_tries() {
-  local kern_nv=$(crossystem kern_nv || echo 0)
+  local kern_nv=$(crossystem kern_nv ||
+                  cat /mnt/stateful_partition/.need_firmware_update || echo 0)
   local startup_update_tries=$(( $kern_nv & 0x0000000f ))
   echo $startup_update_tries
 }
