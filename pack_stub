@@ -106,6 +106,9 @@ case "$1" in
     TMP_DIR=""
     exit 0
     ;;
+  --force)
+    force_flag=1
+    ;;
   -h|"-?"|--help)
     echo "Shellball -- self-extract and install"
     echo ""
@@ -132,6 +135,12 @@ case "$1" in
     shift
     ;;
 esac
+
+# Do nothing if we're debugging BIOS changes, unless forced
+if [ -e /root/.leave_firmware_alone ] && [ -z "${force_flag:-}" ]; then
+  echo "WARNING: $0 is disabled"
+  exit 0
+fi
 
 # Prepare execution environment
 make_temp
