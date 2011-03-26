@@ -168,6 +168,17 @@ preserve_hwid() {
   silent_invoke "gbb_utility -s --hwid='$HWID' $IMAGE_MAIN"
 }
 
+obtain_bmpfv() {
+  silent_invoke "flashrom $TARGET_OPT_MAIN -i GBB:gbb.bin -r temp.rom"
+  silent_invoke "gbb_utility -r -b bmpfv.bin gbb.bin"
+}
+
+preserve_bmpfv() {
+  [ -s "$IMAGE_MAIN" ] || err_die "preserve_bmpfv: no main firmware."
+  [ -s bmpfv.bin ] || return
+  silent_invoke "gbb_utility -s --bmpfv=bmpfv.bin $IMAGE_MAIN"
+}
+
 # Compares two slots from current and target folder.
 is_equal_slot() {
   check_param "is_equal_slot(type, slot)" "$@"
@@ -403,6 +414,9 @@ mode_recovery() {
     prepare_main_image
     debug_msg "mode_recovery: udpate main"
     if ! is_mainfw_write_protected;  then
+      # Preserve BMPFV
+      obtain_bmpfv
+      preserve_bmpfv
       # HWID should be already preserved
       debug_msg "mode_recovery: update main/RO"
       update_mainfw "$SLOT_RO"
@@ -459,6 +473,25 @@ mode_factory_final() {
   # verify_write_protection
 }
 
+# Updates from incompatible firmware versions
+mode_incompatible_update() {
+  if is_mainfw_write_protected || is_ecfw_write_protected; then
+    # TODO(hungte) check if we really need to stop user by comparing firmware
+    # image, bit-by-bit.
+    err_die "You need to first disable hardware write protection switch."
+  fi
+  if [ "${FLAGS_update_main}" = "${FLAGS_TRUE}" ]; then
+    preserve_vpd
+    # Preserve BMPFV
+    obtain_bmpfv
+    preserve_bmpfv
+    update_mainfw
+  fi
+  if [ "${FLAGS_update_ec}" = "${FLAGS_TRUE}" ]; then
+    update_ecfw
+  fi
+}
+
 # ----------------------------------------------------------------------------
 # Main Entry
 
@@ -502,7 +535,7 @@ main() {
 
   case "${FLAGS_mode}" in
     startup | bootok | autoupdate | todev | recovery | \
-    factory_install | factory_final )
+    incompatible_update | factory_install | factory_final )
       debug_msg "mode: ${FLAGS_mode}"
       mode_"${FLAGS_mode}"
       ;;
