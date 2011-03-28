@@ -170,7 +170,7 @@ preserve_hwid() {
 
 obtain_bmpfv() {
   silent_invoke "flashrom $TARGET_OPT_MAIN -i GBB:gbb.bin -r temp.rom"
-  silent_invoke "gbb_utility -r -b bmpfv.bin gbb.bin"
+  silent_invoke "gbb_utility -g --bmpfv=bmpfv.bin gbb.bin"
 }
 
 preserve_bmpfv() {
