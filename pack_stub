@@ -21,6 +21,9 @@ IS_VERBOSE=
 SCRIPT=./updater.sh
 LEGACY_SCRIPT=./legacy_updater.sh
 
+SHELLBALL_FWVERSION="REPLACE_FWVERSION"
+SHELLBALL_ECVERSION="REPLACE_ECVERSION"
+
 # Prints a message and return an error code.
 error_exit() {
   echo $1
@@ -106,6 +109,19 @@ case "$1" in
     TMP_DIR=""
     exit 0
     ;;
+  --mode=devstartup)
+    eval `mosys -k ec info`
+    version=$(crossystem fwid)
+    if [ "$SHELLBALL_FWVERSION" != "$version" ] &&
+       [ "$SHELLBALL_FWVERSION" != "IGNORE" ]; then
+      echo "System firmware update available ($SHELLBALL_FWVERSION)."
+      echo "Currently installed system firmware: $version"
+    fi
+    if [ "$SHELLBALL_ECVERSION" != "$fw_version"] &&
+       [ "$SHELLBALL_ECVERSION" != "IGNORE" ]; then
+      echo "EC firmware update available ($SHELLBALL_ECVERSION)."
+      echo "Currently installed EC firmware: $fw_version"
+    fi
   --force)
     force_flag=1
     ;;

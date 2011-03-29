@@ -18,7 +18,9 @@ SHFLAGS_FILE="$script_base/lib/shflags/shflags"
 
 # DEFINE_string name default_value description flag
 DEFINE_string bios_image "" "Path of input BIOS firmware image" "b"
+DEFINE_string bios_version "IGNORE" "Version of input BIOS firmware image"
 DEFINE_string ec_image "" "Path of input EC firmware image" "e"
+DEFINE_string ec_version "IGNORE" "Version of input EC firmware image"
 DEFINE_string output "-" "Path of output filename; '-' for stdout" "o"
 DEFINE_string extra "" "Directory list (separated by :) of files to be merged"
 
@@ -154,12 +156,14 @@ Package Content:" >> "$version_file"
 # TODO(hungte) use 'shar' instead?
 output="${FLAGS_output}"
 if [ "$output" == "-" ]; then
-  (cat "$stub_file" &&
+  (cat "$stub_file"  | sed -e "s/REPLACE_FWVERSION/${FLAGS_bios_version}/" \
+     -e "s/REPLACE_ECVERSION/${FLAGS_ec_version}/" &&
    tar zcf - -C "$tmpbase" . | uuencode firmware_package.tgz) ||
   err_die "ERROR: Failed to archive firmware package"
 else
   # we can provide more information when output is not stdout
-  (cat "$stub_file" &&
+  (cat "$stub_file"  | sed -e "s/REPLACE_FWVERSION/${FLAGS_bios_version}/" \
+     -e "s/REPLACE_ECVERSION/${FLAGS_ec_version}/" &&
    tar zcf - -C "$tmpbase" . | uuencode firmware_package.tgz) > "$output" ||
    err_die "ERROR: Failed to archive firmware package"
   chmod a+rx "$output"
