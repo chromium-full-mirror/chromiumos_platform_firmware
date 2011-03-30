@@ -117,7 +117,7 @@ case "$1" in
       echo "System firmware update available ($SHELLBALL_FWVERSION)."
       echo "Currently installed system firmware: $version"
     fi
-    if [ "$SHELLBALL_ECVERSION" != "$fw_version"] &&
+    if [ "$SHELLBALL_ECVERSION" != "$fw_version" ] &&
        [ "$SHELLBALL_ECVERSION" != "IGNORE" ]; then
       echo "EC firmware update available ($SHELLBALL_ECVERSION)."
       echo "Currently installed EC firmware: $fw_version"
