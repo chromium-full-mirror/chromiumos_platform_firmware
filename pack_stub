@@ -122,6 +122,8 @@ case "$1" in
       echo "EC firmware update available ($SHELLBALL_ECVERSION)."
       echo "Currently installed EC firmware: $fw_version"
     fi
+    exit 0
+    ;;
   --force)
     force_flag=1
     ;;
