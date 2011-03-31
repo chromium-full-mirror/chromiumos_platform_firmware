@@ -406,6 +406,8 @@ mode_todev() {
   prepare_main_image
   # TODO(hungte) make sure the keys are compatible.
   update_mainfw "$SLOT_A" "$FWSRC_DEVELOPER"
+  cros_set_fwb_tries 0
+  cros_reboot
 }
 
 # Recovery Installer
@@ -473,6 +475,10 @@ mode_factory_final() {
   # verify_write_protection
 }
 
+drop_lock() {
+  rm -f /tmp/chromeos-firmwareupdate-running
+}
+
 # Updates from incompatible firmware versions
 mode_incompatible_update() {
   if is_mainfw_write_protected || is_ecfw_write_protected; then
@@ -496,6 +502,14 @@ mode_incompatible_update() {
 # Main Entry
 
 main() {
+  if [ -r /tmp/chromeos-firmwareupdate-running ]; then
+    err_die "chromeos-firmwareupdate is already running. Please retry later."
+  fi
+  touch /tmp/chromeos-firmwareupdate-running
+
+  # Clean up on regular or error exits.
+  trap drop_lock EXIT
+
   # factory compatibility
   if [ "${FLAGS_factory}" = "${FLAGS_TRUE}" ]; then
     FLAGS_mode=factory_install
