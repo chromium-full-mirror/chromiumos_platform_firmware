@@ -427,7 +427,11 @@ mode_recovery() {
       check_compatible_keys
     fi
     debug_msg "mode_recovery: update main/RW:A,B,SHARED"
-    update_mainfw "$SLOT_A" "$FWSRC_NORMAL"
+    if [ "$(cros_get_prop mainfw_type)" = "developer" ]; then
+      update_mainfw "$SLOT_A" "$FWSRC_DEVELOPER"
+    else
+      update_mainfw "$SLOT_A" "$FWSRC_NORMAL"
+    fi
     update_mainfw "$SLOT_B" "$FWSRC_NORMAL"
     update_mainfw "$SLOT_RW_SHARED"
   fi
@@ -487,11 +491,16 @@ mode_incompatible_update() {
     err_die "You need to first disable hardware write protection switch."
   fi
   if [ "${FLAGS_update_main}" = "${FLAGS_TRUE}" ]; then
+    prepare_main_image
     preserve_vpd
     # Preserve BMPFV
     obtain_bmpfv
     preserve_bmpfv
     update_mainfw
+    if [ "$(cros_get_prop mainfw_type)" != "developer" ]; then
+      # and now overwrite slot a firmware with normal
+      update_mainfw "$SLOT_A" "$FWSRC_NORMAL"
+    fi
   fi
   if [ "${FLAGS_update_ec}" = "${FLAGS_TRUE}" ]; then
     update_ecfw
