@@ -415,7 +415,8 @@ mode_recovery() {
   if [ "${FLAGS_update_main}" = "${FLAGS_TRUE}" ]; then
     prepare_main_image
     debug_msg "mode_recovery: udpate main"
-    if ! is_mainfw_write_protected;  then
+    if [ "${FLAGS_update_ro_main}" = "${FLAGS_TRUE}" ] &&
+       ! is_mainfw_write_protected; then
       # Preserve BMPFV
       obtain_bmpfv
       preserve_bmpfv
