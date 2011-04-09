@@ -105,6 +105,10 @@ case "$1" in
     TMP_DIR=""
     exit 0
     ;;
+  --force)
+    force_flag=1
+    shift
+    ;;
   -h|"-?"|--help)
     echo "Shellball -- self-extract and install"
     echo ""
@@ -142,6 +146,13 @@ BINF1='/sys/devices/platform/chromeos_acpi/BINF.1'
 # and caused nvram to disappear for a while.  Since we cannot wait for
 # delayed-loading, mknod provides a quick solution.
 
+# for all other cases, invoke carried script
+# Do nothing if we're debugging BIOS changes, unless forced
+if [ -e /root/.leave_firmware_alone ] && [ -z "${force_flag:-}" ]; then
+  echo "WARNING: $0 is disabled"
+  exit 0
+fi
+
 [ -e /dev/nvram ] || mknod /dev/nvram c 10 144
 
 if [ -f "$NEED_FIRMWARE_TRYB" ]; then
@@ -163,7 +174,7 @@ if [ -f "$NEED_FIRMWARE_TRYB" ]; then
   fi
 fi
 
-# for all other cases, invoke carried script
+# Prepare execution environment
 make_temp
 allow_temp_exec
 untar_and_chdir "$SELF"
