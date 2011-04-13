@@ -126,6 +126,7 @@ case "$1" in
     ;;
   --force)
     force_flag=1
+    shift
     ;;
   -h|"-?"|--help)
     echo "Shellball -- self-extract and install"
