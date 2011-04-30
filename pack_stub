@@ -149,29 +149,34 @@ case "$1" in
     exit 0
     ;;
   --mode=autoupdate)
-    # This command is inside the stub for quick launch.
-    fw_version="$(crossystem fwid)"
-    ec_info="$(mosys -k ec info 2>/dev/null)" || ec_info=""
-    ec_version="$(eval "$ec_info"; echo "$fw_version")"
-    notify_update=0
-    verbose_message "ec_version: $ec_version ; ec_info: $ec_info"
-    if [ "$SHELLBALL_FWVERSION" != "$fw_version" ] &&
-       [ "$SHELLBALL_FWVERSION" != "IGNORE" ]; then
-      echo "System firmware update available: [$SHELLBALL_FWVERSION]"
-      echo "Currently installed system firmware: [$fw_version]"
-      notify_update=1
-    fi
-    if [ "$SHELLBALL_ECVERSION" != "$ec_version" ] &&
-       [ "$SHELLBALL_ECVERSION" != "IGNORE" ]; then
-      echo "EC firmware update available: [$SHELLBALL_ECVERSION]"
-      echo "Currently installed EC firmware: [$ec_version]"
-      notify_update=1
-    fi
-    if [ $notify_update -eq 0 ]; then
-      echo "
-      No firmware auto update is available. Returning gracefully.
-      "
-      exit 0
+    PLATFORM="$(/usr/sbin/mosys platform name 2>/dev/null || true)"
+    # Mario uses the old updater.
+    if [ "$PLATFORM" != "Mario" ] &&
+       [ "$PLATFORM" != "ZGA" ]; then
+      # This command is inside the stub for quick launch.
+      fw_version="$(crossystem fwid)"
+      ec_info="$(mosys -k ec info 2>/dev/null)" || ec_info=""
+      ec_version="$(eval "$ec_info"; echo "$fw_version")"
+      notify_update=0
+      verbose_message "ec_version: $ec_version ; ec_info: $ec_info"
+      if [ "$SHELLBALL_FWVERSION" != "$fw_version" ] &&
+         [ "$SHELLBALL_FWVERSION" != "IGNORE" ]; then
+        echo "System firmware update available: [$SHELLBALL_FWVERSION]"
+        echo "Currently installed system firmware: [$fw_version]"
+        notify_update=1
+      fi
+      if [ "$SHELLBALL_ECVERSION" != "$ec_version" ] &&
+         [ "$SHELLBALL_ECVERSION" != "IGNORE" ]; then
+        echo "EC firmware update available: [$SHELLBALL_ECVERSION]"
+        echo "Currently installed EC firmware: [$ec_version]"
+        notify_update=1
+      fi
+      if [ $notify_update -eq 0 ]; then
+        echo "
+        No firmware auto update is available. Returning gracefully.
+        "
+        exit 0
+      fi
     fi
     break
     ;;
