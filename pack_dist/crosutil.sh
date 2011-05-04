@@ -17,6 +17,12 @@ cros_compare_file() {
   [ -n "$hash1" ] && [ "$hash1" = "$hash2" ]
 }
 
+# Gets file size.
+cros_get_file_size() {
+  [ -e "$1" ] || err_die "cros_get_file_size: invalid file: $1"
+  stat -c "%s" "$1" 2>/dev/null
+}
+
 # Gets a Chrome OS system property (must exist).
 cros_get_prop() {
   crossystem "$@" || err_die "cannot get crossystem property: $@"

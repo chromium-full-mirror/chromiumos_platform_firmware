@@ -171,10 +171,34 @@ update_ecfw() {
 # ----------------------------------------------------------------------------
 # Helper functions
 
+# Preserve VPD data by merging sections from current system into target
+# firmware. Note this will change $IMAGE_MAIN so any processing to the file (ex,
+# prepare_image) must be invoked AFTER this call.
 preserve_vpd() {
-  # TODO(hungte) pull VPD from system live firmware and dupe into $IMAGE_MAIN.
-  # NOTE: live may not have FMAP if it's not H2C, so backup+restore won't work.
-  alert "Warning: VPD preserving is not implemented yet."
+  # Preserve VPD when updating an existing system (maya be legacy firmware or
+  # ChromeOS firmware). The system may not have FMAP, so we need to use
+  # emulation mode otherwise reading sections may fail.
+  if [ "${FLAGS_update_main}" = ${FLAGS_FALSE} ]; then
+    debug_msg "not updating main firmware, skip preserving VPD..."
+    return $FLAGS_TRUE
+  fi
+  debug_msg "preserving VPD..."
+  local temp_file="_vpd_temp.bin"
+  local vpd_list="-i RO_VPD -i RW_VPD"
+  silent_invoke "flashrom $TARGET_OPT_MAIN -r $temp_file" ||
+    die "Failed to read current main firmware."
+  local size_current="$(cros_get_file_size "$temp_file")"
+  local size_target="$(cros_get_file_size "$IMAGE_MAIN")"
+  if [ -z "$size_current" ] ||
+     [ "$size_current" = "0" ] ||
+     [ "$size_current" != "$size_target" ]; then
+     err_die "Failed to read preserve VPD content. Abort."
+  fi
+
+  local param="dummy:emulate=VARIABLE_SIZE,image=$IMAGE_MAIN,size=$size_current"
+  silent_invoke "flashrom -p $param $vpd_list -w $temp_file" ||
+    die "Failed to update VPD from existing system."
+  debug_msg "preserve_vpd: $IMAGE_MAIN updated."
 }
 
 preserve_hwid() {
@@ -572,8 +596,8 @@ mode_incompatible_update() {
     err_die "You need to first disable hardware write protection switch."
   fi
   if [ "${FLAGS_update_main}" = "${FLAGS_TRUE}" ]; then
-    prepare_main_image
     preserve_vpd
+    prepare_main_image
     # Preserve BMPFV
     obtain_bmpfv
     preserve_bmpfv
