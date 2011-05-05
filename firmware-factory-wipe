@@ -8,65 +8,19 @@
 # the "normal" firmware image from RW_SECTION_B over the "developer"
 # firmware in RW_SECTION_A.
 
-# Warning: This script assumes that RW_SECTION_A is located before RW_SECTION_B
+TMP_IMAGE=$(mktemp)
+TMP_SECTION=$(mktemp)
+OPT_MAIN="-p internal:bus=spi"
+RESULT=0
 
-MOSYS=/usr/sbin/mosys
-FLASHROM=/usr/sbin/flashrom
+# Wipe developer firmware (in section A) by normal firmware (in section B)
+flashrom $OPT_MAIN -r "$TMP_IMAGE" -i "RW_SECTION_B:$TMP_SECTION" &&
+flashrom $OPT_MAIN -w "$TMP_IMAGE" -i "RW_SECTION_A:$TMP_SECTION" ||
+RESULT=$?
 
-BIOSIMG=`mktemp`
-NEWIMG=`mktemp`
-SECTIONB=`mktemp`
-PART1=`mktemp`
-PART2=`mktemp`
-
-RW_SECTIONS=$( echo `$MOSYS eeprom map 2>/dev/null | \
-		grep RW_SECTION_ | cut -f2 -d\|` )
-
-# Execute developer mode firmware wipe only if there are exactly two
-# RW_SECTIONs and they're named RW_SECTION_A and RW_SECTION_B
-
-if [ "$RW_SECTIONS" = "RW_SECTION_A RW_SECTION_B" ]; then
-  eval `$MOSYS -k eeprom map 2>/dev/null | grep RW_SECTION_A`
-  RW_SECTION_A_OFFSET=$area_offset
-  RW_SECTION_A_SIZE=$area_size
-  eval `$MOSYS -k eeprom map 2>/dev/null | grep RW_SECTION_B`
-  RW_SECTION_B_OFFSET=$area_offset
-  RW_SECTION_B_SIZE=$area_size
-  ROM_SIZE=`$FLASHROM -p internal:bus=spi --get-size 2>/dev/null | tail -1`
-
-  $FLASHROM -p internal:bus=spi -r $BIOSIMG
-  test $? -ne 0 && exit 1
-
-  # Extract normal image from RW_SECTION_B
-  dd if=$BIOSIMG of=$SECTIONB bs=1 \
-  	count=$(( $RW_SECTION_B_SIZE )) skip=$(( $RW_SECTION_B_OFFSET ))
-
-  # Construct a new image for now. Don't wait until the partial 
-  # read/write patches are in.
-  #
-  # <- O1[S1] ->              <------------ O2[S3] ---------->
-  # | ........ | RW_SECTION_A | ..... | RW_SECTION_B | ..... |
-
-  O1=0
-  S1=$RW_SECTION_A_OFFSET
-  O2=$(( $RW_SECTION_A_OFFSET + $RW_SECTION_A_SIZE ))
-  S2=$(( $ROM_SIZE - $O2 ))
-
-  dd if=$BIOSIMG of=$PART1 bs=$(( $S1 )) count=1
-  dd if=$BIOSIMG of=$PART2 bs=1 count=$(( $S2 )) skip=$(( O2 ))
-
-  cat $PART1 $SECTIONB $PART2 > $NEWIMG
-
-  $FLASHROM -p internal:bus=spi -w $NEWIMG
-  test $? -ne 0 && exit 1
-
-  # We are done. Clean up.
-  rm -f $BIOSIMG $NEWIMG $SECTIONB $PART1 $PART2
-
-  # Later on this script could be replaced by something along these lines:
-  # $FLASHROM -i RW_SECTION_B:/tmp/normal.img -r /tmp/image.img
-  # $FLASHROM -i RW_SECTION_A:/tmp/normal.img -w /tmp/image.img
-else
-  echo 'Firmware does not provide RW_SECTION_[AB] in FMAP.'
-  echo 'Not attempting to wipe developer mode firmware.\n'
+rm -f "$TMP_IMAGE" "$TMP_SECTION"
+if [ "$RESULT" != "0" ]; then
+  echo "Warning: firmware wiping failed with error code $RESULT."
 fi
+
+exit "$RESULT"
