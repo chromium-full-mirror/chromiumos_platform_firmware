@@ -78,7 +78,7 @@ TARGET_OPT_EC="-p internal:bus=lpc"
 # Current HWID, FWID (may be empty if running on non-H2C systems)
 HWID="$(crossystem hwid 2>/dev/null || true)"
 FWID="$(crossystem fwid 2>/dev/null || true)"
-PLATFORM="$(crossystem ro_fwid 2>/dev/null | sed 's/\..*//' || true)"
+PLATFORM="$(crossystem ro_fwid 2>/dev/null | sed 's/[. ].*//' || true)"
 [ -n "$PLATFORM" ] || PLATFORM="<Unknown>"
 
 # ----------------------------------------------------------------------------
