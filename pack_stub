@@ -181,8 +181,11 @@ if [ "$TARGET_PLATFORM" = "Mario" ]; then
 fi
 
 verbose_message "Run built-in script ($SCRIPT) ..."
-if ! $SCRIPT "$@"; then
-  error_exit "ERROR: $SCRIPT failed."
+$SCRIPT "$@"
+RC="$?"
+if [ "$RC" -ne 0 ]; then
+  echo "ERROR: $SCRIPT failed."
+  exit "$RC"
 fi
 exit 0
 
