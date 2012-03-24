@@ -248,3 +248,32 @@ cros_clear_nvdata() {
   mosys nvram clear >/dev/null 2>&1 ||
     debug_msg " - (NVData not cleared)."
 }
+
+# Adds path to PATH if given tool is available (and supports empty param).
+cros_add_tool_path() {
+  local path="$1"
+  local tool="$2"
+  if [ -x "$path/$tool" ] && "$path/$tool" >/dev/null 2>&1; then
+    debug_msg "$path/$tool works fine."
+    PATH="$path:$PATH"; export PATH
+    return $FLAGS_TRUE
+  fi
+  return $FLAGS_FALSE
+}
+
+# Configures PATH by detecting if current architecture is compatible with
+# bundled executable binaries, then "32b" (if exist) or system default ones.
+cros_setup_path() {
+  local base="$(readlink -f "$SCRIPT_BASE")"
+  if cros_add_tool_path "$base" "crossystem"; then
+    debug_msg "Using programs in $base."
+    return
+  fi
+
+  if cros_add_tool_path "$base/32b" "crossystem"; then
+    debug_msg "Using programs in $base/32b."
+    return
+  fi
+
+  debug_msg "Using programs in system."
+}

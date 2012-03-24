@@ -226,7 +226,7 @@ LAYOUT_OFFSET=""
 set -e
 
 # Use bundled tools with highest priority, to prevent dependency when updating
-PATH=".:$PATH"; export PATH
+cros_setup_path
 
 # ----------------------------------------------------------------------------
 # Firmware Update Procedure

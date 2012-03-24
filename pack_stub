@@ -91,7 +91,7 @@ exec_bundle_script() {
   [ -x "$TMP_DIR/$SCRIPT" ] || die "Missing program in bundle: $SCRIPT"
 
   debug "Start running script: $SCRIPT $@"
-  (cd "$TMP_DIR" && PATH="$TMP_DIR:$PATH" "$SCRIPT" "$@") || rc="$?"
+  (cd "$TMP_DIR" && "$SCRIPT" "$@") || rc="$?"
 
   if [ "$rc" -ne 0 -a -z "$IS_IGNORE_RC" ]; then
     die_as "$rc" "Execution failed: $SCRIPT (error code = $rc)"

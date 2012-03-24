@@ -28,7 +28,7 @@ SCRIPT_BASE="$(dirname "$0")"
 . "$SCRIPT_BASE/common.sh"
 
 # Use bundled tools with highest priority, to prevent dependency when updating
-PATH=".:$PATH"; export PATH
+cros_setup_path
 
 # ----------------------------------------------------------------------------
 # Customization Section
