@@ -208,12 +208,16 @@ if [ "${FLAGS_unstable}" = "${FLAGS_TRUE}" ]; then
 fi
 
 cp -f "$stub_file" "$output"
+
+# Our substitution strings may contain '/', which will confuse sed
+# Instead, use ascii char 1 (SOH/Start of Heading) as sed delimiter char
+dc=$'\001'
 sed -in "
-  s/REPLACE_FWID/${bios_version}/;
-  s/REPLACE_ECID/${ec_version}/;
-  s/REPLACE_PLATFORM/${FLAGS_platform}/;
-  s/REPLACE_UNSTABLE/${unstable}/;
-  s/REPLACE_SCRIPT/${FLAGS_script}/;
+  s${dc}REPLACE_FWID${dc}${bios_version}${dc};
+  s${dc}REPLACE_ECID${dc}${ec_version}${dc};
+  s${dc}REPLACE_PLATFORM${dc}${FLAGS_platform}${dc};
+  s${dc}REPLACE_UNSTABLE${dc}${unstable}${dc};
+  s${dc}REPLACE_SCRIPT${dc}${FLAGS_script}${dc};
   " "$output"
 sh "$output" --sb_repack "$tmpbase" ||
   die "Failed to archive firmware package"
