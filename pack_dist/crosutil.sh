@@ -101,8 +101,9 @@ cros_is_hardware_write_protected() {
 # Returns if the software write-protection register is enabled.
 cros_is_software_write_protected() {
   local opt="$1"
-  flashrom $opt --wp-status 2>/dev/null |
-    grep -q "write protect is enabled"
+  # Do not pipe flashrom stdout to grep to prevent SIGPIPE
+  FLASHROM_OUT=$(flashrom $opt --wp-status 2>/dev/null)
+  echo $FLASHROM_OUT | grep -q "write protect is enabled"
 }
 
 # Reports write protection status
