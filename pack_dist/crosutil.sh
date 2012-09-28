@@ -22,6 +22,32 @@ cros_compare_file() {
   [ -n "$hash1" ] && [ "$hash1" = "$hash2" ]
 }
 
+# Compares two version string on Chrome OS
+cros_compare_version() {
+  local base="$1"
+  local target="$2"
+
+  # Return directly if exact match.
+  if [ "$base" = "$target" ]; then
+    echo "0"
+    return
+  fi
+
+  # Now, compare each token by magic "sort -V" (--version-sort).
+  local prior="$( (echo "$base"; echo "$target") | sort -V | head -n 1)"
+  if [ "$prior" = "$base" ]; then
+    echo "-1"
+  else
+    echo "1"
+  fi
+}
+
+# Shortcut to compare version compatibility.
+# Ex: cros_version_greater_than "$mp_fwid" "$RO_FWID" && die "Need update"
+cros_version_greater_than() {
+  [ "$(cros_compare_version "$1" "$2")" = "1" ]
+}
+
 # Gets file size.
 cros_get_file_size() {
   [ -e "$1" ] || die "cros_get_file_size: invalid file: $1"
