@@ -487,11 +487,11 @@ mode_recovery() {
     if ! is_ecfw_write_protected; then
       verbose_msg "$prefix: update ec/RO+RW"
       update_ecfw
-    else
-      prepare_ec_image
-      verbose_msg "$prefix: update ec/RW"
-      update_ecfw "$SLOT_EC_RW"
     fi
+    # If EC is write-protected, software sync will lock RW EC after kernel
+    # starts (left firmware boot stage). We can't "recovery" EC RW in this case.
+    # Ref: crosbug.com/p/16087.
+    verbose_msg "$prefix: EC may be restored or updated in next boot."
   fi
 
   clear_update_cookies
