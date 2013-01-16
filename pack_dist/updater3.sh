@@ -47,6 +47,10 @@ CUSTOMIZATION_MAIN="updater_custom_main"
 # if RW is not compatible (i.e., need incompatible_update mode)
 CUSTOMIZATION_RW_COMPATIBLE_CHECK=""
 
+# Overrides this with any function name to perform special tasks when EC is
+# updated (Ex, notify EC to check battery firmware updates)
+CUSTOMIZATION_EC_POST_UPDATE=""
+
 # ----------------------------------------------------------------------------
 # Constants
 
@@ -176,6 +180,7 @@ update_ecfw() {
   else
     invoke "flashrom $TARGET_OPT_EC $WRITE_OPT -w $IMAGE_EC"
   fi
+  [ -z "$CUSTOMIZATION_EC_POST_UPDATE" ] || "$CUSTOMIZATION_EC_POST_UPDATE"
 }
 
 # ----------------------------------------------------------------------------
@@ -371,8 +376,11 @@ mode_startup() {
   if [ "${FLAGS_update_ec}" = ${FLAGS_TRUE} ]; then
     if need_update_ec; then
       # EC image already prepared in need_update_ec
-      is_ecfw_write_protected || update_ecfw "$SLOT_EC_RO"
-      update_ecfw "$SLOT_EC_RW"
+      if is_ecfw_write_protected; then
+        update_ecfw "$SLOT_EC_RW"
+      else
+        update_ecfw
+      fi
     fi
     cros_set_startup_update_tries 0
     cros_reboot
