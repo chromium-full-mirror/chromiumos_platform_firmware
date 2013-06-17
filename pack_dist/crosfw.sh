@@ -14,9 +14,9 @@
 DIR_CURRENT="_current"
 DIR_TARGET="_target"
 
-# Parametes for flashrom command
-TARGET_OPT_MAIN="-p internal:bus=spi"
-TARGET_OPT_EC="-p internal:bus=lpc"
+# Parameters for flashrom command
+TARGET_OPT_MAIN="-p host"
+TARGET_OPT_EC="-p ec"
 WRITE_OPT="--fast-verify"
 
 # Unpacks target image, in full image and unpacked form.
