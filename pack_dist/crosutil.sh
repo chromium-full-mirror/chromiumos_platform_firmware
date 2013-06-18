@@ -337,6 +337,15 @@ cros_setup_path() {
   fi
 
   debug_msg "Using programs in system."
+
+  # flashrom has changed its syntax (crosbug.com/p/16211). When we're upgrading
+  # with programs in previous system, it is possible the old flashrom does not
+  # support new syntax so we must check.
+  if ! flashrom $TARGET_OPT_MAIN --version >/dev/null 2>&1; then
+    alert "Using flashrom in current system rootfs with legacy target syntax."
+    TARGET_OPT_MAIN="-p internal:bus=spi"
+    TARGET_OPT_EC="-p internal:bus=lpc"
+  fi
 }
 
 # Reset lock file variable.
