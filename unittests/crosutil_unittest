@@ -222,4 +222,38 @@ test_cros_check_stable_firmware() {
   assertFalse "wp=0,en" cros_check_stable_firmware
 }
 
+test_cros_override_rw_firmware_by_version() {
+  local min_ro="Google_Snow_2695.90.0"
+  local need_update="Google_Snow_2695.87"
+  local no_update="Google_Snow_2695.132.0"
+
+  IMAGE_MAIN_RW=""
+  FLAGS_mode=factory_install
+  assertTrue "Modes without RW-only update" \
+    "cros_override_rw_firmware_by_version ${need_update} ${min_ro}"
+
+  FLAGS_mode=recovery
+  FLAGS_wp=false
+  assertTrue "Recovery without write protection should simply return." \
+    "cros_override_rw_firmware_by_version ${need_update} ${min_ro}"
+  FLAGS_wp=true
+  FLAGS_mode=recovery
+  assertTrue "Recovery+WP should pass if current >= min_ro." \
+    "cros_override_rw_firmware_by_version ${no_update} ${min_ro}"
+  assertFalse "Recovery+WP should fail if current < min_ro and no RW image" \
+    "cros_override_rw_firmware_by_version ${need_update} ${min_ro}"
+
+  FLAGS_wp=true
+  FLAGS_mode=autoupdate
+  assertTrue "Autoupdate+WP should pass if current >= min_ro." \
+    "cros_override_rw_firmware_by_version ${no_update} ${min_ro}"
+  assertFalse "Autoupdate+WP should fail if current < min_ro and no RW image" \
+    "cros_override_rw_firmware_by_version ${need_update} ${min_ro}"
+  FLAGS_wp=false
+  assertTrue "Autoupdate should pass if current >= min_ro." \
+    "cros_override_rw_firmware_by_version ${no_update} ${min_ro}"
+  assertFalse "Autoupdate should fail if current < min_ro and no RW image" \
+    "cros_override_rw_firmware_by_version ${need_update} ${min_ro}"
+}
+
 . ../lib/shunit2/shunit2

@@ -395,7 +395,7 @@ cros_override_rw_firmware_by_version() {
     recovery )
       # For recovery mode, if WP is not enabled, we will work in
       # factory/incompatible update mode.
-      is_mainfw_write_protected || return
+      is_mainfw_write_protected || return ${FLAGS_TRUE}
       ;;
     autoupdate )
       true
