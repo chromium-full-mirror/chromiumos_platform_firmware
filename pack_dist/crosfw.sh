@@ -233,6 +233,7 @@ crosfw_update_ec() {
   #    Write complete MAIN_TARGET_IMAGE
   # TODO(hungte) verify if slot is valid.
   [ -s "$IMAGE_EC" ] || die "missing firmware image: $IMAGE_EC"
+  [ -z "$CUSTOMIZATION_EC_PRE_UPDATE" ] || "$CUSTOMIZATION_EC_PRE_UPDATE"
   if [ -n "$slot" ]; then
     invoke "flashrom $TARGET_OPT_EC $WRITE_OPT -w $IMAGE_EC -i $slot"
   else
@@ -250,6 +251,7 @@ crosfw_update_pd() {
   # Syntax: crosfw_update_pd
   #    Write complete MAIN_TARGET_IMAGE
   [ -s "$IMAGE_PD" ] || die "missing firmware image: $IMAGE_PD"
+  [ -z "$CUSTOMIZATION_PD_PRE_UPDATE" ] || "$CUSTOMIZATION_PD_PRE_UPDATE"
   if [ -n "$slot" ]; then
     invoke "flashrom $TARGET_OPT_PD $WRITE_OPT -w $IMAGE_PD -i $slot"
   else
