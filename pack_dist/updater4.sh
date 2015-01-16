@@ -584,8 +584,7 @@ main() {
   # Check platform except in factory_install mode.
   if [ "${FLAGS_check_platform}" = ${FLAGS_TRUE} ] &&
      [ "${FLAGS_mode}" != "factory_install" ] &&
-     [ -n "$TARGET_PLATFORM" ] &&
-     [ "$PLATFORM" != "$TARGET_PLATFORM" ]; then
+     ! cros_check_compatible_platform "${TARGET_PLATFORM}" "${PLATFORM}"; then
     alert_unknown_platform "$PLATFORM" "$TARGET_PLATFORM"
     exit 1
   fi

@@ -460,3 +460,26 @@ cros_check_stable_firmware() {
   debug_msg "cros_check_stable_firmware: firmware is STABLE."
   return $FLAGS_TRUE
 }
+
+cros_check_compatible_platform() {
+  local image="$1"
+  local platform="$2"
+
+  # Always pass if image (target) does not specify platform.
+  if [ -z "$1" ]; then
+    return 0
+  fi
+
+  # White list or modify according to known exceptions.
+  # TODO(hungte) Move this to per-board customization. For now it's executed
+  # before customization is loaded.
+  case "${image}" in
+    Google_Snow )
+      platform="${platform%_Rev[0-9]}"
+      ;;
+  esac
+
+  debug_msg "cros_check_compatible_platform image=${image} platform=${platform}"
+  # Return the test result.
+  [ "${image}" = "${platform}" ]
+}

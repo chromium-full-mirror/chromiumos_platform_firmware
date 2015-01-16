@@ -279,4 +279,23 @@ test_cros_override_rw_firmware_by_version() {
     "cros_override_rw_firmware_by_version ${need_update} ${min_ro}"
 }
 
+test_cros_check_compatible_platform() {
+  assertTrue "platform check should pass if image = platform" \
+    "cros_check_compatible_platform Google_Link Google_Link"
+  assertFalse "platform check should fail if image != platform" \
+    "cros_check_compatible_platform Google_Link Google_Samus"
+
+  assertTrue "platform check should pass if image is empty" \
+    "cros_check_compatible_platform '' Google_Samus"
+  assertFalse "platform check should fail if target is empty" \
+    "cros_check_compatible_platform Google_Link ''"
+
+  assertTrue "platform check should pass on Snow image." \
+    "cros_check_compatible_platform Google_Snow Google_Snow"
+  assertTrue "platform check should pass on Snow image RevN boards." \
+    "cros_check_compatible_platform Google_Snow Google_Snow_Rev4"
+  assertFalse "platform check should fail on unknown Snow." \
+    "cros_check_compatible_platform Google_Snow Google_Snow_New"
+}
+
 . ../lib/shunit2/shunit2
