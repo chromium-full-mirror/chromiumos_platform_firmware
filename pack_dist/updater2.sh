@@ -65,8 +65,6 @@ FWSRC_DEVELOPER="$SLOT_A"
 # Layout: DIR_[TYPE]/[TYPE]/[SECTION], DIR_[TYPE]/[IMAGE]
 TYPE_MAIN="main"
 TYPE_EC="ec"
-IMAGE_MAIN="bios.bin"
-IMAGE_EC="ec.bin"
 
 # ----------------------------------------------------------------------------
 # Global Variables
@@ -510,7 +508,7 @@ main_check_rw_compatible() {
 
 main() {
   cros_acquire_lock
-  set_flags_wp || die "Invalid option for --wp: ${FLAGS_wp}"
+  set_flags
 
   # factory compatibility
   if [ "${FLAGS_factory}" = "${FLAGS_TRUE}" ] ||
@@ -520,18 +518,10 @@ main() {
 
   verbose_msg "Starting $TARGET_PLATFORM firmware updater v2 (${FLAGS_mode})..."
 
-  # quick check and setup for basic envoronments
-  if [ ! -s "$IMAGE_MAIN" ]; then
-    FLAGS_update_main=${FLAGS_FALSE}
-    verbose_msg "No main firmware bundled in updater, ignored."
-  elif [ -n "$HWID" ]; then
+  if [ "${FLAGS_update_main}" = ${FLAGS_TRUE} -a -n "${HWID}" ]; then
     # always preserve HWID for current system, if available.
     crosfw_preserve_hwid
     debug_msg "preserved HWID as: $HWID."
-  fi
-  if [ ! -s "$IMAGE_EC" ]; then
-    FLAGS_update_ec=${FLAGS_FALSE}
-    debug_msg "No EC firmware bundled in updater, ignored."
   fi
 
   # Check platform except in factory_install mode.

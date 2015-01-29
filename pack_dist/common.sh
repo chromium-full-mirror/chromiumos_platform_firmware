@@ -138,7 +138,9 @@ check_param() {
   done
 }
 
-set_flags_wp() {
+# Quick check and setup for basic envoronments.
+set_flags() {
+  # Adjust WP flags.
   case "$FLAGS_wp" in
     on | ON | true | TRUE | 1)
       FLAGS_wp=true
@@ -150,10 +152,23 @@ set_flags_wp() {
       FLAGS_wp=
       ;;
     *)
-      return ${FLAGS_ERROR}
+      die "Invalid option for --wp: ${FLAGS_wp}"
       ;;
   esac
-  return ${FLAGS_TRUE}
+
+  # Adjust update_* flags according to known images.
+  if [ ! -s "$IMAGE_MAIN" ]; then
+    FLAGS_update_main=${FLAGS_FALSE}
+    verbose_msg "No main firmware bundled in updater, ignored."
+  fi
+  if [ ! -s "$IMAGE_EC" ]; then
+    FLAGS_update_ec=${FLAGS_FALSE}
+    debug_msg "No EC firmware bundled in updater, ignored."
+  fi
+  if [ ! -s "$IMAGE_PD" ]; then
+    FLAGS_update_pd=${FLAGS_FALSE}
+    debug_msg "No PD firmware bundled in updater, ignored."
+  fi
 }
 
 # Executes a command, and provide messages if it failed.

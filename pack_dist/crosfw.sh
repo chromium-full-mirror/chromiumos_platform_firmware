@@ -20,6 +20,13 @@ TARGET_OPT_EC="-p ec"
 TARGET_OPT_PD="-p ec:dev=1"
 WRITE_OPT="--fast-verify"
 
+# Image and key files.
+IMAGE_MAIN="bios.bin"
+IMAGE_MAIN_RW="bios_rw.bin"  # optional image.
+IMAGE_EC="ec.bin"
+IMAGE_PD="pd.bin"
+KEYSET_DIR="keyset"
+
 # Overrides this with any function name to perform special tasks when EC is
 # updated (Ex, notify EC to check battery firmware updates)
 CUSTOMIZATION_EC_POST_UPDATE=""

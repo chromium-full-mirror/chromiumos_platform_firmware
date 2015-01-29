@@ -58,10 +58,6 @@ SLOT_EC_RW="EC_RW"
 
 TYPE_MAIN="main"
 TYPE_EC="ec"
-IMAGE_MAIN="bios.bin"
-IMAGE_MAIN_RW="bios_rw.bin"  # optional image.
-IMAGE_EC="ec.bin"
-KEYSET_DIR="keyset"
 
 # ----------------------------------------------------------------------------
 # Global Variables
@@ -460,7 +456,7 @@ main_check_rw_compatible() {
 
 main() {
   cros_acquire_lock
-  set_flags_wp || die "Invalid option for --wp: ${FLAGS_wp}"
+  set_flags
 
   # factory compatibility
   if [ "${FLAGS_factory}" = ${FLAGS_TRUE} ] ||
@@ -482,18 +478,10 @@ main() {
   verbose_msg " - Updater package: [$package_info]"
   verbose_msg " - Current system:  [$current_info]"
 
-  # quick check and setup for basic envoronments
-  if [ ! -s "$IMAGE_MAIN" ]; then
-    FLAGS_update_main=${FLAGS_FALSE}
-    verbose_msg "No main firmware bundled in updater, ignored."
-  elif [ -n "$HWID" ]; then
+  if [ "${FLAGS_update_main}" = ${FLAGS_TRUE} -a -n "${HWID}" ]; then
     # always preserve HWID for current system, if available.
     crosfw_preserve_hwid
     debug_msg "preserved HWID as: $HWID."
-  fi
-  if [ ! -s "$IMAGE_EC" ]; then
-    FLAGS_update_ec=${FLAGS_FALSE}
-    debug_msg "No EC firmware bundled in updater, ignored."
   fi
 
   local wpmsg="$(cros_report_wp_status $FLAGS_update_main $FLAGS_update_ec)"
