@@ -246,7 +246,7 @@ mode_startup() {
 
 # Update Engine - Current Boot Successful (chromeos_setgoodkernel)
 mode_bootok() {
-  cros_set_prop fw_result=success
+  cros_set_prop fw_result=success fw_try_count=0
   # EC firmware is managed by software sync (main firmware).
 }
 
