@@ -9,19 +9,10 @@ TRIES="$(crossystem fwupdate_tries || echo 0)"
 # FIRMWARE_UPDATE_LOGS will be collected by update-engine.
 FIRMWARE_UPDATE_LOGS=/mnt/stateful_partition/update_firmware.log
 FIRMWARE_UPDATE_SCRIPT=/usr/sbin/chromeos-firmwareupdate
-TTY=/dev/tty1
 
 # Decrease update counter
 crossystem fwupdate_tries=$((TRIES - 1))
 
-# More messages on console for developer mode and dev builds.
-crossystem "cros_debug?1" &&
-  FIRMWARE_UPDATE_LOGS="${TTY} ${FIRMWARE_UPDATE_LOGS}"
-
-chromeos-boot-alert update_firmware "${TTY}"
+chromeos-boot-alert update_firmware
 (date && "${FIRMWARE_UPDATE_SCRIPT}" --mode=startup 2>&1) |
   tee -a ${FIRMWARE_UPDATE_LOGS}
-
-# Sends "clear screen" terminal command to clear TTY frame buffer, to
-# prevent user seeing the messages again on system shutdown.
-crossystem "cros_debug?1" && tput clear >"${TTY}"
