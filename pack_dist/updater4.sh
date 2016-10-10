@@ -261,6 +261,22 @@ clear_update_cookies() {
       debug_msg "clear_update_cookies: there were some errors, ignored."
 }
 
+# If HW WP is disabled, attempt to remove SW WP to ensure EC
+# will not reject flash erase/write commands.
+correct_ec_sw_wp() {
+  if [ ! cros_is_hardware_write_protected ] && \
+     [ cros_is_software_write_protected "$TARGET_OPT_EC" ]; then
+    # Attempt to remove EC WP to ensure consistent HW / SW WP state.
+    case "$FLAGS_mode" in
+      autoupdate | recovery )
+        verbose_msg "Attempting to remove EC SW WP."
+        silent_invoke "flashrom -p ec --wp-disable" ||
+          verbose_msg "Unable to remove EC SW WP, HW WP likely enabled."
+        ;;
+    esac
+  fi
+}
+
 silent_sh() {
   # Calls given commands and ignores any error (mostly for factory
   # installations, when the firmware is still non-Chrome).
@@ -667,6 +683,10 @@ main() {
     # invoke customization
     debug_msg "starting customized updater main..."
     $CUSTOMIZATION_MAIN
+  fi
+
+  if [ "${FLAGS_update_ec}" = ${FLAGS_TRUE} ]; then
+    correct_ec_sw_wp
   fi
 
   load_keyset
