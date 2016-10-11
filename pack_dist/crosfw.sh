@@ -150,6 +150,10 @@ is_ecfw_write_protected() {
   if [ -n "$FLAGS_wp" ]; then
     verbose_msg "Warning: EC WP state overridden as ${FLAGS_wp}"
     "${FLAGS_wp}"
+  elif [ ! cros_is_hardware_write_protected ] && \
+       [ cros_is_software_write_protected "$TARGET_OPT_EC" ]; then
+    verbose_msg "Warning: EC WP state is inconsistent! (SW WP Only)"
+    return $FLAGS_TRUE
   else
     cros_is_hardware_write_protected &&
       cros_is_software_write_protected "$TARGET_OPT_EC"
