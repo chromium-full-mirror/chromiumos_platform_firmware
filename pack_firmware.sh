@@ -12,6 +12,7 @@
 #  - any other additional files used by updater.sh in pack_dist folder
 
 script_base="$(dirname "$0")"
+UTILS="$(readlink -f "$script_base")/utils"
 SHFLAGS_FILE="$script_base/lib/shflags/shflags"
 . "$SHFLAGS_FILE"
 
@@ -195,16 +196,8 @@ clone_firmware_section() {
   if [ "$offset_src" != "$offset_dest" ]; then
     die "Firmware section $section is not in same location, cannot clone."
   fi
-
-  bs=1
-  # Optimize block size
-  if (( offset_src % 4096 == 0 && size_src % 4096 == 0 )); then
-    bs=4096
-    ((offset_src /= bs, offset_dest /= bs, size_src /= bs, size_dest /= bs))
-  fi
-
-  dd if="$src" of="$dest" bs="$bs" skip="$offset_src" seek="$offset_dest" \
-    count="$size_src" conv=notrunc || die "Failed to clone firmware section."
+  "$UTILS/merge_file.py" "$dest" "$src" "$offset_dest" "$offset_src" \
+    "$size_src" || die "Failed to clone firmware section."
 }
 
 merge_rw_firmware() {
@@ -215,43 +208,38 @@ merge_rw_firmware() {
   clone_firmware_section "$rw_image_file" "$ro_image_file" RW_SECTION_B
 }
 
-decode_int32() {
-  local file="$1"
-  local offset="$2"
-  python -c "import struct; fd = open('$file'); fd.seek($offset); \
-    print(struct.unpack('<I', fd.read(4))[0])"
-}
-
-extract_ecrw_vboot1() {
+extract_ecrw_fmap() {
   local rw_image_file="$1"
 
   dump_fmap -x "$rw_image_file" EC_MAIN_A >/dev/null 2>&1
   # EC_MAIN_A starts with a section header: [count][offset][size].
-  local count="$(decode_int32 EC_MAIN_A 0)"
-  local offset="$(decode_int32 EC_MAIN_A 4)"
-  local size="$(decode_int32 EC_MAIN_A 8)"
+  local count="$("$UTILS/decode_int32.py" EC_MAIN_A 0)"
+  local offset="$("$UTILS/decode_int32.py" EC_MAIN_A 4)"
+  local size="$("$UTILS/decode_int32.py" EC_MAIN_A 8)"
   if [ "$count" != 1 -o "$offset" != 12 ]; then
     die "Unexpected EC_MAIN_A ($count,$offset). Cannot merge EC RW."
   fi
-  python -c "fd = open('EC_MAIN_A'); fd.seek($offset); \
-             open('ecrw', 'w').write(fd.read($size))"
+  # To make sure files to be merged are both prepared, merge_file.py will only
+  # accept existing files, so we have to create ecrw now.
+  touch ecrw
+  "$UTILS/merge_file.py" ecrw EC_MAIN_A 0 $offset $size ||
+    die "Failed to merge firmware from FMAP."
 }
 
-extract_ecrw_vboot2() {
+extract_ecrw_cbfs() {
   local rw_image_file="$1"
   local cbfs_name="$2"
 
-  dump_fmap -x "$rw_image_file" FW_MAIN_A >/dev/null 2>&1
-  cbfstool FW_MAIN_A extract -n "$cbfs_name" -f ecrw
+  cbfstool "$rw_image_file" extract -n "$cbfs_name" -f ecrw -r FW_MAIN_A
 }
 
 extract_ecrw() {
   local rw_image_file="$1"
 
   if [ -n "$(dump_fmap -p "$rw_image_file" EC_MAIN_A)" ]; then
-    extract_ecrw_vboot1 "$@"
+    extract_ecrw_fmap "$@"
   else
-    extract_ecrw_vboot2 "$@"
+    extract_ecrw_cbfs "$@"
   fi
 }
 
@@ -264,15 +252,16 @@ merge_rw_ec_firmware() {
   local tmpdir="$(mktemp -d)"
   TMPDIRS+=("$tmpdir")
   (cd "$tmpdir"
-   extract_ecrw "$rw_image_file" "$cbfs_name"
-   offset="$(dump_fmap -p "$ec_image_file" EC_RW)"
-   size="${offset##* }"
-   offset="${offset#* }"
-   offset="${offset% *}"
-   [ "$size" -gt "$(stat -c"%s" ecrw)" ] ||
+   extract_ecrw "$rw_image_file" "$cbfs_name" ||
+     die "Failed to extract ecrw from $rw_image_file."
+   map=($(dump_fmap -p "$ec_image_file" EC_RW))
+   offset="${map[1]}"
+   size="${map[2]}"
+   [ "$size" -ge "$(stat -c"%s" ecrw)" ] ||
      die "New RW payload larger than preserved FMAP section, cannot merge."
-   dd if=ecrw of="$ec_image_file" bs="1" seek="$offset" \
-     count="$size" conv=notrunc || die "Failed to change firmware section.")
+   "$UTILS/merge_file.py" "$ec_image_file" ecrw "$offset" ||
+     die "Failed to change firmware section.") ||
+     die "Failed to merge RW firmware to $ec_image_file."
 }
 
 trap do_cleanup EXIT
@@ -363,6 +352,8 @@ if [ "$bios_rw_bin" != "" ]; then
   echo "BIOS (RW) image:   $(my_md5 "$bios_rw_bin")" >> "$version_file"
   [ "$bios_rw_version" = "IGNORE" ] ||
     echo "BIOS (RW) version: $bios_rw_version" >>"$version_file"
+else
+  FLAGS_merge_bios_rw_image="$FLAGS_FALSE"
 fi
 if [ "$ec_bin" != "" ]; then
   ec_version="$(extract_frid "$ec_bin" "$FLAGS_ec_version")"
