@@ -329,27 +329,6 @@ mode_startup() {
   cros_set_startup_update_tries 0
 }
 
-# Update Engine - Current Boot Successful (chromeos_setgoodkernel)
-mode_bootok() {
-  if is_vboot2; then
-    cros_set_prop fw_result=success fw_try_count=0
-  else
-    local mainfw_act="$(cros_get_prop mainfw_act)"
-    # Copy main firmware to the spare slot.
-    if [ "$mainfw_act" = "A" ]; then
-      crosfw_dup2_mainfw "$SLOT_A" "$SLOT_B"
-    elif [ "$mainfw_act" = "B" ]; then
-      crosfw_dup2_mainfw "$SLOT_B" "$SLOT_A"
-    else
-      # Recovery mode, or non-chrome.
-      die "bootok: abnormal active firmware ($mainfw_act)..."
-    fi
-    cros_set_fwb_tries 0
-  fi
-
-  # EC firmware is managed by software sync (main firmware).
-}
-
 # Update Engine - Received Update
 mode_autoupdate() {
   # Quick check if we need to update
@@ -464,15 +443,6 @@ mode_todev() {
   clear_update_cookies
 }
 
-# Transition to Normal Mode
-mode_tonormal() {
-  # This is optional because whenever you turn off developer switch, the
-  # dev_boot_usb is also cleared by firmware.
-  disable_dev_boot
-  echo "Booting from USB device is disabled."
-  clear_update_cookies
-}
-
 # Recovery Installer
 mode_recovery() {
   local prefix="mode_recovery"
@@ -546,12 +516,6 @@ mode_factory_install() {
   clear_update_cookies
 }
 
-# Factory Wipe
-mode_factory_final() {
-  silent_sh disable_dev_boot
-  clear_update_cookies
-}
-
 # Updates for incompatible RW firmware (need to update RO)
 mode_incompatible_update() {
   # TODO(hungte) check if we really need to stop user by comparing RO firmware
@@ -559,24 +523,6 @@ mode_incompatible_update() {
   is_write_protection_disabled ||
     die_need_ro_update "You need to first disable hardware write protection."
   mode_recovery
-}
-
-# Checks if current system firmware version number is different than the one
-# bundled in updater. Note root/recovery keys, TPM version, vblock key versions,
-# and firmware integrity are all unchecked.
-mode_fast_version_check() {
-  if [ -n "$IMAGE_MAIN" -a "$RO_FWID" != "$TARGET_RO_FWID" ]; then
-    die "Main RO FWID: $RO_FWID != $TARGET_RO_FWID"
-  fi
-  if [ -n "$IMAGE_MAIN" -a "$FWID" != "$TARGET_FWID" ]; then
-    die "Main FWID: $FWID != $TARGET_FWID"
-  fi
-  if [ -n "$IMAGE_EC" -a "$ECID" != "$TARGET_ECID" ]; then
-    die "EC FWID: $ECID != $TARGET_ECID"
-  fi
-  if [ -n "$IMAGE_PD" -a "$PDID" != "$TARGET_PDID" ]; then
-    die "PD FWID: $PDID != $TARGET_PDID"
-  fi
 }
 
 # ----------------------------------------------------------------------------
@@ -699,8 +645,7 @@ main() {
     # Modes which don't mix existing RO firmware with new RW firmware from the
     # updater.  They either copy RW firmware between EEPROM slots, or copy both
     # RO+RW from the shellball.  Either way, RO+RW compatibility is assured.
-    startup | bootok | todev | tonormal | factory_install | factory_final | \
-      incompatible_update | fast_version_check )
+    startup | todev | factory_install | incompatible_update )
       debug_msg "mode without incompatible checks: ${FLAGS_mode}"
       mode_"${FLAGS_mode}"
       ;;

@@ -19,9 +19,8 @@ fi
 # Common Command Line Arguments
 
 DEFINE_string mode "" \
- "Updater mode ( startup | bootok | autoupdate | todev | tonormal |"\
-" recovery | factory_install | factory_final | incompatible_update |"\
-" fast_version_check )" "m"
+ "Updater mode ( startup | autoupdate | todev |"\
+" recovery | factory_install | incompatible_update )" "m"
 DEFINE_string wp "" "Override write protection state (0/1)." ""
 
 DEFINE_boolean debug $FLAGS_FALSE "Enable debug messages." "d"
