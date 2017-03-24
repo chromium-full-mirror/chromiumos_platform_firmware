@@ -268,7 +268,7 @@ mode_fast_version_check() {
 main_check_rw_compatible() {
   local is_compatible="${FLAGS_TRUE}"
   if [ "${FLAGS_check_rw_compatible}" = ${FLAGS_FALSE} ]; then
-    verbose_msg "Bypassed RW compatbility check. You're on your own."
+    verbose_msg "Bypassed RW compatibility check. You're on your own."
     return $is_compatible
   fi
 

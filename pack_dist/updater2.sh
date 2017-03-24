@@ -471,7 +471,7 @@ mode_fast_version_check() {
 main_check_rw_compatible() {
   local try_autoupdate="$1"
   if [ "${FLAGS_check_rw_compatible}" = "${FLAGS_FALSE}" ]; then
-    verbose_msg "Bypassed RW compatbility check. You're on your own."
+    verbose_msg "Bypassed RW compatibility check. You're on your own."
     return $FLAGS_TRUE
   fi
   local is_compatible="${FLAGS_TRUE}"
