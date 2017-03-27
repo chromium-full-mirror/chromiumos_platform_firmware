@@ -39,12 +39,6 @@ CUSTOMIZATION_SCRIPT="updater_custom.sh"
 # You have to define a function with this name to run your customization.
 CUSTOMIZATION_MAIN="updater_custom_main"
 
-# Customization script "RW compatible check" function.
-# Overrides this with any function names to test if RW firmware in current
-# system is compatible with this updater. The function must returns $FLAGS_FALSE
-# if RW is not compatible (i.e., need recovery mode with WP=0)
-CUSTOMIZATION_RW_COMPATIBLE_CHECK=""
-
 # ----------------------------------------------------------------------------
 # Constants
 
@@ -142,6 +136,39 @@ need_update_legacy() {
   return $FLAGS_FALSE
 }
 
+need_update_main_ro() {
+  debug_msg "Checking need_update_main_ro"
+  if [ "${TARGET_RO_FWID}" != "${RO_FWID}" ]; then
+    debug_msg "TARGET_RO_FWID != RO_FWID."
+    return ${FLAGS_TRUE}
+  fi
+
+  prepare_main_image
+  prepare_main_current_image
+
+  cp -f "${DIR_CURRENT}/${TYPE_MAIN}/${SLOT_RO}" .ro_from
+  cp -f "${DIR_TARGET}/${TYPE_MAIN}/${SLOT_RO}" .ro_to
+  cp -f "${DIR_CURRENT}/${TYPE_MAIN}/GBB" .gbb_from
+  cp -f "${DIR_TARGET}/${TYPE_MAIN}/GBB" .gbb_to
+
+  # HWID should be already preserved.
+  local file
+  for file in .ro_from .ro_to .gbb_from .gbb_to; do
+    gbb_utility -s --flags=0 "${file}" >/dev/null 2>&1
+  done
+
+  if ! cros_compare_file .gbb_from .gbb_to; then
+    verbose_msg "RO GBB Contents (probably root keys) are different."
+    return $FLAGS_TRUE
+  fi
+
+  if ! cros_compare_file .ro_from .ro_to; then
+    verbose_msg "RO Contents are different."
+    return $FLAGS_TRUE
+  fi
+  return $FLAGS_FALSE
+}
+
 need_update_main() {
   if [ "$TARGET_FWID" != "$FWID" ]; then
     return $FLAGS_TRUE
@@ -182,58 +209,19 @@ need_update_main() {
   need_update_legacy
 }
 
-need_update_ec() {
-  prepare_ec_image
-  prepare_ec_current_image
-  if ! is_ecfw_write_protected &&
-     ! crosfw_is_equal_slot "$TYPE_EC" "$SLOT_EC_RO"; then
-      debug_msg "EC RO needs update."
-      return $FLAGS_TRUE
-  fi
-  if ! crosfw_is_equal_slot "$TYPE_EC" "$SLOT_EC_RW"; then
-      debug_msg "EC RW needs update."
-      return $FLAGS_TRUE
-  fi
-  return $FLAGS_FALSE
-}
-
-need_update_pd() {
-  prepare_pd_image
-  prepare_pd_current_image
-  if ! is_pdfw_write_protected &&
-     ! crosfw_is_equal_slot "$TYPE_PD" "$SLOT_PD_RO"; then
-      debug_msg "PD RO needs update."
-      return $FLAGS_TRUE
-  fi
-  if ! crosfw_is_equal_slot "$TYPE_PD" "$SLOT_PD_RW"; then
-      debug_msg "PD RW needs update."
-      return $FLAGS_TRUE
-  fi
-  return $FLAGS_FALSE
-}
-
 prepare_main_image() {
   crosfw_unpack_image "$TYPE_MAIN" "$IMAGE_MAIN" "$TARGET_OPT_MAIN"
 }
 
-prepare_ec_image() {
-  crosfw_unpack_image "$TYPE_EC" "$IMAGE_EC" "$TARGET_OPT_EC"
-}
-
-prepare_pd_image() {
-  crosfw_unpack_image "$TYPE_PD" "$IMAGE_PD" "$TARGET_OPT_PD"
-}
-
 prepare_main_current_image() {
-  crosfw_unpack_current_image "$TYPE_MAIN" "$IMAGE_MAIN" "$TARGET_OPT_MAIN" "$@"
-}
-
-prepare_ec_current_image() {
-  crosfw_unpack_current_image "$TYPE_EC" "$IMAGE_EC" "$TARGET_OPT_EC" "$@"
-}
-
-prepare_pd_current_image() {
-  crosfw_unpack_current_image "$TYPE_PD" "$IMAGE_PD" "$TARGET_OPT_PD" "$@"
+  # Reading main current image is slow so we do want to cache.
+  local cached_file="${DIR_CURRENT}/.cached"
+  if [ -e "${cached_file}" ]; then
+    debug_msg "prepare_main_current_image: Use existing cache."
+  else
+    crosfw_unpack_current_image "$TYPE_MAIN" "$IMAGE_MAIN" "$TARGET_OPT_MAIN"
+    touch "${cached_file}"
+  fi
 }
 
 is_write_protection_disabled() {
@@ -331,105 +319,92 @@ mode_startup() {
 
 # Update Engine - Received Update
 mode_autoupdate() {
-  # Quick check if we need to update
-  local need_update=0
-  if [ "${FLAGS_force}" = ${FLAGS_TRUE} ]; then
-    need_update=1
-  else
-    # Check main firmware
-    if [ "${FLAGS_update_main}" = ${FLAGS_TRUE} ]; then
-      if need_update_main; then
-        need_update=1
-      else
-        FLAGS_update_main=$FLAGS_FALSE
-      fi
-    fi
-    # Check EC firmware
-    if [ "${FLAGS_update_ec}" = ${FLAGS_TRUE} ]; then
-      if [ "$TARGET_ECID" != "$ECID" ]; then
-        need_update=1
-      else
-        FLAGS_update_ec=$FLAGS_FALSE
-      fi
-    fi
-    # Check PD firmware
-    if [ "${FLAGS_update_pd}" = ${FLAGS_TRUE} ]; then
-      if [ "$TARGET_PDID" != "$PDID" ]; then
-        need_update=1
-      else
-        FLAGS_update_pd=$FLAGS_FALSE
-      fi
-    fi
+  if [ "${FLAGS_update_main}" = "${FLAGS_FALSE}" ]; then
+    echo "No main firmware to upload, abort."
+    return
   fi
 
-  if [ "$need_update" -eq 0 ]; then
+  # TODO(hungte) Remove the STABLE_FWID path once we've migrated all projects.
+  if [ -n "${STABLE_FWID}" ]; then
+    debug_msg "Start legacy STABLE_FWID check."
+    if [ "${FLAGS_check_rw_compatible}" = ${FLAGS_TRUE}  ] && \
+         ! cros_check_stable_firmware; then
+      verbose_msg "Starting recovery for unstable RO firmware."
+      mode_recovery
+      return
+    fi
+  elif ! is_mainfw_write_protected && need_update_main_ro; then
+    mode_recovery
+    return
+  fi
+
+  # Quick check if we need to update
+  if [ "${FLAGS_force}" = ${FLAGS_TRUE} ] || need_update_main; then
+    verbose_msg "Firmware update available: ${TARGET_FWID}. "
+  else
     verbose_msg "Latest firmware already installed. No need to update."
     return
   fi
 
-  if [ "${FLAGS_update_main}" = "${FLAGS_TRUE}" ]; then
-    local mainfw_act="$(cros_get_prop mainfw_act)"
-    local update_slot="${SLOT_B}"
-    local prop_name=fwb_tries
-    local try_next=
+  local mainfw_act="$(cros_get_prop mainfw_act)"
+  local update_slot="${SLOT_B}"
+  local prop_name=fwb_tries
+  local try_next=
 
-    if is_vboot2; then
-      if [ "$mainfw_act" = "A" ]; then
-        update_slot="$SLOT_B"
-        try_next=B
-      elif [ "$mainfw_act" = "B" ]; then
-        update_slot="$SLOT_A"
-        try_next=A
-      else
-        die "autoupdate: unexpected active firmware ($_mainfw_act)..."
-      fi
-      prop_name=fw_try_count
-    else  # vboot1
-      if [ "$mainfw_act" = "B" ]; then
-        # mainfw_act is only updated at system reboot; if two updates (both with
-        # firmware updates) are pushed in a row, next update will be executed
-        # while mainfw_act is still B. Since we don't use RW BIOS directly when
-        # updater is running, it should be safe to update in this case.
-        debug_msg "mainfw_act=B, checking if we can still update FW B..."
-        prepare_main_current_image
-        cros_compare_file "$DIR_CURRENT/$TYPE_MAIN/$SLOT_A" \
-                          "$DIR_CURRENT/$TYPE_MAIN/$SLOT_B" &&
-          alert "Installing updates while mainfw_act is B (should be safe)." ||
-          die_need_reboot "Done (retry update next boot)"
-      elif [ "$mainfw_act" != "A" ]; then
-        die "autoupdate: unexpected active firmware ($mainfw_act)..."
-      fi
-    fi
-
-
-    prepare_main_image
-    prepare_main_current_image
-    check_compatible_keys
-    crosfw_update_main "$update_slot"
-    if [ -n "$try_next" ]; then
-      cros_set_prop "fw_try_next=$try_next"
-    fi
-
-    #Update legacy if needed
-    if need_update_legacy; then
-      crosfw_update_main "$SLOT_LEGACY"
-    fi
-
-    # Try to determine EC software sync by checking $ECID. We can't rely on
-    # $TARGET_ECID, $FLAGS_update_ec or $IMAGE_EC because in future there may be
-    # no EC binary blobs in updater (integrated inside main firmware image).
-    # Note since $ECID uses mosys, devices not using ChromeOS EC may still
-    # report an ID (but they should use updater v3 instead).
-    if [ -n "$ECID" -a "$ECID" != "$TARGET_ECID" ]; then
-      # EC software sync may need extra reboots.
-      cros_set_prop "${prop_name}=8"
-      verbose_msg "On reboot EC update may occur."
+  if is_vboot2; then
+    if [ "$mainfw_act" = "A" ]; then
+      update_slot="$SLOT_B"
+      try_next=B
+    elif [ "$mainfw_act" = "B" ]; then
+      update_slot="$SLOT_A"
+      try_next=A
     else
-      cros_set_prop "${prop_name}=6"
+      die "autoupdate: unexpected active firmware ($_mainfw_act)..."
+    fi
+    prop_name=fw_try_count
+  else  # vboot1
+    if [ "$mainfw_act" = "B" ]; then
+      # mainfw_act is only updated at system reboot; if two updates (both with
+      # firmware updates) are pushed in a row, next update will be executed
+      # while mainfw_act is still B. Since we don't use RW BIOS directly when
+      # updater is running, it should be safe to update in this case.
+      debug_msg "mainfw_act=B, checking if we can still update FW B..."
+      prepare_main_current_image
+      cros_compare_file "$DIR_CURRENT/$TYPE_MAIN/$SLOT_A" \
+                        "$DIR_CURRENT/$TYPE_MAIN/$SLOT_B" &&
+        alert "Installing updates while mainfw_act is B (should be safe)." ||
+        die_need_reboot "Done (retry update next boot)"
+    elif [ "$mainfw_act" != "A" ]; then
+      die "autoupdate: unexpected active firmware ($mainfw_act)..."
     fi
   fi
 
-  # EC updates will be handled by EC software sync.
+  prepare_main_image
+  prepare_main_current_image
+  check_compatible_keys
+  crosfw_update_main "$update_slot"
+
+  if [ -n "$try_next" ]; then
+    cros_set_prop "fw_try_next=$try_next"
+  fi
+
+  # Update legacy if needed
+  if need_update_legacy; then
+    crosfw_update_main "$SLOT_LEGACY"
+  fi
+
+  # Try to determine EC software sync by checking $ECID. We can't rely on
+  # $TARGET_ECID, $FLAGS_update_ec or $IMAGE_EC because in future there may be
+  # no EC binary blobs in updater (integrated inside main firmware image).
+  # Note since $ECID uses mosys, devices not using ChromeOS EC may still
+  # report an ID (but they should use updater v3 instead).
+  if [ -n "$ECID" ] && [ "$ECID" != "$TARGET_ECID" ]; then
+    # EC software sync may need extra reboots.
+    cros_set_prop "${prop_name}=8"
+    verbose_msg "On reboot EC update may occur."
+  else
+    cros_set_prop "${prop_name}=6"
+  fi
 }
 
 # Transition to Developer Mode
@@ -445,10 +420,12 @@ mode_todev() {
 
 # Recovery Installer
 mode_recovery() {
-  local prefix="mode_recovery"
+  local prefix="recovery"
   [ "${FLAGS_mode}" = "recovery" ] || prefix="${FLAGS_mode}(recovery)"
   if [ "${FLAGS_update_main}" = ${FLAGS_TRUE} ]; then
     if ! is_mainfw_write_protected; then
+      # TODO(hungte) check and alert if the original mode is autoupdate, and TPM
+      # rollback detected.
       verbose_msg "$prefix: update RO+RW"
       crosfw_preserve_vpd
       crosfw_preserve_gbb
@@ -482,9 +459,6 @@ mode_recovery() {
       verbose_msg "$prefix: update pd/RO+RW"
       crosfw_update_pd
     fi
-    # If PD is write-protected, software sync will lock RW PD after kernel
-    # starts (left firmware boot stage). We can't recover PD RW in this case.
-    # Ref: crosbug.com/p/16087.
     verbose_msg "$prefix: PD may be restored or updated in next boot."
   fi
 
@@ -518,41 +492,6 @@ mode_factory_install() {
 
 # ----------------------------------------------------------------------------
 # Main Entry
-
-main_check_rw_compatible() {
-  local is_compatible="${FLAGS_TRUE}"
-  if [ "${FLAGS_check_rw_compatible}" = ${FLAGS_FALSE} ]; then
-    verbose_msg "Bypassed RW compatibility check. You're on your own."
-    return $is_compatible
-  fi
-
-  # Try explicit match
-  if [ -n "$CUSTOMIZATION_RW_COMPATIBLE_CHECK" ]; then
-    debug_msg "Checking customized RW compatibility..."
-    "$CUSTOMIZATION_RW_COMPATIBLE_CHECK" || is_compatible="${FLAGS_ERROR}"
-  elif [ "$is_compatible" = "${FLAGS_TRUE}" ]; then
-    cros_check_stable_firmware || is_compatible="${FLAGS_FALSE}"
-  fi
-
-  case "$is_compatible" in
-    "${FLAGS_FALSE}" )
-      verbose_msg "Try to update with recovery mode..."
-      mode_recovery
-      ;;
-    "${FLAGS_ERROR}" )
-      verbose_msg "
-        RW firmware update is not compatible with current RO firmware.
-        Starting full update...
-        "
-      is_write_protection_disabled ||
-        die_need_ro_update "Need to first disable hardware write protection."
-      mode_recovery
-      ;;
-    * )
-      true
-  esac
-  return $is_compatible
-}
 
 main() {
   cros_acquire_lock
@@ -618,28 +557,7 @@ main() {
   load_keyset
 
   case "${FLAGS_mode}" in
-    # Modes which update RW firmware only and only in normal mode; these need to
-    # verify if existing RO firmware is compatible.  If not, try to perform
-    # RO+RW update.
-    autoupdate )
-      debug_msg "mode with dev and compatibility check: ${FLAGS_mode}"
-        main_check_rw_compatible &&
-        mode_"${FLAGS_mode}"
-      ;;
-
-    # Modes which update RW firmware only; these need to verify if existing RO
-    # firmware is compatible.  If not, try to perform RO+RW update.
-    recovery )
-      debug_msg "mode with compatibility check: ${FLAGS_mode}"
-      main_check_rw_compatible &&
-        mode_"${FLAGS_mode}"
-      ;;
-
-    # Modes which don't mix existing RO firmware with new RW firmware from the
-    # updater.  They either copy RW firmware between EEPROM slots, or copy both
-    # RO+RW from the shellball.  Either way, RO+RW compatibility is assured.
-    startup | todev | factory_install  )
-      debug_msg "mode without incompatible checks: ${FLAGS_mode}"
+    autoupdate | recovery | startup | todev | factory_install )
       mode_"${FLAGS_mode}"
       ;;
 

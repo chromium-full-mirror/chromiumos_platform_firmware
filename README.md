@@ -48,11 +48,7 @@ The ChromeOS Auto Update (`update_engine`) runs updater in a different way - a
 
 If you want to simulate and test that, do:
 
-    chromeos-firmwareupdate --mode=autoupdate
-
-> `autoupdate` may automatically switch to `recovery` mode under certain
-> conditions, especially if your write protection is not enabled. To really
-> simuate the 2-step update process, add `--wp=1 --nocheck_rw_compatible`.
+    chromeos-firmwareupdate --mode=autoupdate --wp=1
 
 ## Building Firmware Updater
 
@@ -81,6 +77,7 @@ test the locally built firmware images.
 
 The firmware updater packages lives in private board overlays:
 `src/private-overlays/overlay-${BOARD}-private/chromeos-base/chromeos-firmware-${BOARD}/chromeos-firmware-${BOARD}-9999.ebuild`.
+Find a template here in [chromiumos-base/chromeos-firmware-null](https://chromium.googlesource.com/chromiumos/overlays/chromiumos-overlay/+/master/chromeos-base/chromeos-firmware-null/chromeos-firmware-null-9999.ebuild).
 
 Usually there are few fields you have to fill:
 
@@ -104,42 +101,9 @@ will be used for RW.
 A reference to the Embedded Controller (EC) firmware image, which usually comes
 from `emerge-${BOARD} chromeos-ec` then `/build/${BOARD}/firmware/ec.bin`.
 
-### CROS_FIRMWARE_EC_RW_IMAGE
-Similar to `CROS_FIRMWARE_MAIN_RW_IMAGE` - just for EC.
-
-### CROS_FIRMWARE_STABLE_MAIN_VERSION
-A version number to indicate "the expected stable (RO) main firmware version".
-Devices with firmware version smaller than stable (or if the stable was set to
-empty) will get RO+RW update if write protection is not enabled; otherwise only
-RW update.
-
-This can be considered as a setting for "which RO version I want to keep for
-dogfood devices when they receive AU".
-
-> Devices without write protection will always get RO+RW updated by recovery,
-> that's why this option is not called `RO_VERSION`. It's named "stable" to
-> indicate that the version here is simply a suggestion for updating or not.
-
-Ideally, this should be used as:
- - Empty when the updater package was created.
- - Keep empty until you've got first FSI firmware candidate.
- - Set the STABLE to FSI firmware version and never change.
-
-In other words, STABLE should be the "first shipped RO".
-
-However, we do see the need of "pushing AU to dogfooders to test new RW or new
-RO". STABLE can be used to control this:
- - Keep STABLE unchanged if you want to push a RW-only update.
- - Change STABLE to larger number if you want to enforce a RO update.
-
-> When STABLE is not empty, implicit key changing is not allowed in AU mode, so
-> you if you want to push key changes, for example PreMP to MP, you have to
-> uprev `CROS_FIRMWARE_MAIN_IMAGE` as well, or temporarily set STABLE to empty.
-
-### CROS_FIRMWARE_STABLE_EC_VERSION
-Same as CROS_FIRMWARE_MAIN_IMAGE, except that this is for EC.
-
 ## Technical Details
+
+### CROS_FIRMWARE_SCRIPT and packaging
 The firmware updater is built by running `pack_firmware.py`, which collects
 firmware image and extra files, all files under `pack_dist` folder, archived by
 running [`shar`](https://www.gnu.org/software/sharutils/), with a special
@@ -163,3 +127,27 @@ work. Currently we have defined these versions
 
 This will be mapped to what you should set in the `CROS_FIRMWARE_SCRIPT` value
 in ebuild files.
+
+### Updater logic
+Here's a detailed list of how each updater mode works:
+
+![Diagram](_docs:update_diagram.png)
+
+ - `--mode=autoupdate`: Invoked by update_engine when a payload is installed.
+   1. Check if WP is enabled.
+   2. If WP is enabled, update RW / inactive and exit. After system reboot.
+      The `update_engine` will invoke `chromeos-setgoodfirmware` after 60 secs,
+      which will update or mark booted RW firmware to active.
+   3. If WP is disabled, check if the RO section is same as
+      `CROS_FIRMWARE_MAIN_IMAGE`. If yes, go 2. Otherwise, do `--mode=recovery`.
+
+ - `--mode=recovery`: Invoked by recovery shim after installed.
+   1. Check if WP is enabled.
+   2. If WP is enabled, update both RW/A, RW/B and exit.
+   3. If WP is disabled, update whole image except reserved sections (GBB, VPD).
+      This includes RO, RW/A, and RW/B.
+
+ - `--mode=factory_install`: Used for factory initial imaging.
+   1. Check if WP is enabled, and exit with failure if enabled.
+   2. Update whole image except reserved sections (GBB, VPD).
+      This includes RO, RW/A, and RW/B.
