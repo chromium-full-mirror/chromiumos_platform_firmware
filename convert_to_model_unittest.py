@@ -49,6 +49,10 @@ class TestUnit(cros_test_lib.OutputTestCase):
 \t};
 \t
 };
+
+Run this command in chroot to regenerate the manifest:
+FIRMWARE_UNIBUILD="reef" ebuild /mnt/host/source/src/\
+chromeos-firmware-reef-0.0.1-r56.ebuild manifest
 ''')
 
 

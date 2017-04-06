@@ -193,6 +193,10 @@ class ModelConverter(object):
 
     Args:
       model: Model to process.
+
+    Returns:
+      Partial pathname of the ebuild that was processed (the part after
+          self._src).
     """
     pathname = os.path.join(self._srcpath, self._path_format % {'model': model})
     ebuild = [fname for fname in glob.glob(pathname) if '9999' not in fname]
@@ -219,6 +223,7 @@ class ModelConverter(object):
     self._OutputNode(model, shell_vars)
     self._AddLine('};')
     self._AddLine('')
+    return fname[len(self._srcpath) + 1:]
 
   def Start(self):
     """Start processing ebuilds.
@@ -228,9 +233,21 @@ class ModelConverter(object):
     """
     if self._models:
       self._AddLine('&models {')
+
+      # Process all models, saving the first one's ebuild path. The first one
+      # should be the reference board.
+      ebuild_pathname = None
       for model in self._models:
-        self._ProcessModel(model)
+        fname = self._ProcessModel(model)
+        if not ebuild_pathname:
+          ebuild_pathname = fname
       self._AddLine('};')
+      print()
+      print('Run this command in chroot to regenerate the manifest:')
+      print('FIRMWARE_UNIBUILD="%s" ebuild %s manifest' %
+            (' '.join(self._models),
+             os.path.join(constants.CHROOT_SOURCE_ROOT, 'src',
+                          ebuild_pathname)))
     else:
       pathname = os.path.join(self._srcpath,
                               'private-overlays/overlay-*-private')
