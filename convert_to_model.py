@@ -124,7 +124,8 @@ class ModelConverter(object):
     """
     if line == '};':
       self._indent -= 1
-    print('%s%s' % ('\t' * self._indent, line))
+    indent_tabs = '\t' * self._indent if line else ''
+    print('%s%s' % (indent_tabs, line))
     if line.endswith('{'):
       self._indent += 1
 
@@ -215,12 +216,14 @@ class ModelConverter(object):
         env=env)
 
     self._AddLine('%s {' % model)
+    self._AddLine('firmware {')
 
     # This is only used in zgb and is deprecated, so skip it.
     if '%sEC_VERSION' % CROS_FIRMWARE in shell_vars:
       self._RaiseModelError(model, 'Manual %sEC_VERSION is not supported' %
                             CROS_FIRMWARE)
     self._OutputNode(model, shell_vars)
+    self._AddLine('};')
     self._AddLine('};')
     self._AddLine('')
     return fname[len(self._srcpath) + 1:]
