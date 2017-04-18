@@ -250,7 +250,7 @@ class FirmwarePacker(object):
           raise PackError('Could not find flashrom version number')
 
         # Don't show a partial version, it is not very useful and the
-        # pack_firmware.sh script does not show it.
+        # pack_firmware.sh script (which predates this script) did not show it.
         version = ''
 
     # crbug.com/695904: Can we use a SHA2-based algorithm?

@@ -140,7 +140,7 @@ RO". STABLE can be used to control this:
 Same as CROS_FIRMWARE_MAIN_IMAGE, except that this is for EC.
 
 ## Technical Details
-The firmware updater is built by running `pack_firmware.sh`, which collects
+The firmware updater is built by running `pack_firmware.py`, which collects
 firmware image and extra files, all files under `pack_dist` folder, archived by
 running [`shar`](https://www.gnu.org/software/sharutils/), with a special
 bootstrap stub `pack_stub`.
