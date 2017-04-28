@@ -394,7 +394,7 @@ cros_override_rw_firmware_by_version() {
 
   # RW update only happens in autoupdate and recovery (without WP) modes.
   case "$FLAGS_mode" in
-    startup | todev | factory_install | incompatible_update )
+    startup | todev | factory_install )
       return
       ;;
     recovery )
@@ -418,7 +418,7 @@ cros_override_rw_firmware_by_version() {
       If you are willing to take the RISK OF BRICKING DEVICE, you can manually
       invoke firmware updater (and make sure write protection is disabled) as:
 
-       chromeos-firmwareupdate --mode=incompatible_update
+       chromeos-firmwareupdate --mode=recovery --wp=0
       "
     [ -s "$IMAGE_MAIN_RW" ] && cp -f "$IMAGE_MAIN_RW" "$IMAGE_MAIN" &&
       crosfw_preserve_hwid &&

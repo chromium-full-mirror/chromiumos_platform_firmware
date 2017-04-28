@@ -19,8 +19,7 @@ fi
 # Common Command Line Arguments
 
 DEFINE_string mode "" \
- "Updater mode ( startup | autoupdate | todev |"\
-" recovery | factory_install | incompatible_update )" "m"
+ "Updater mode (startup | autoupdate | todev | recovery | factory_install)" "m"
 DEFINE_string wp "" "Override write protection state (0/1)." ""
 
 DEFINE_boolean debug $FLAGS_FALSE "Enable debug messages." "d"
@@ -243,7 +242,7 @@ alert_incompatible_firmware() {
   echo "
   If you want to start a manual update immediately, please use command:
 
-  sudo chromeos-firmwareupdate --mode=incompatible_update
+  sudo chromeos-firmwareupdate --mode=recovery --wp=0
   "
 }
 

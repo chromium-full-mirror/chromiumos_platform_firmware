@@ -45,7 +45,7 @@ CUSTOMIZATION_MAIN="updater_custom_main"
 # Customization script "RW compatible check" function.
 # Overrides this with any function names to test if RW firmware in current
 # system is compatible with this updater. The function must returns $FLAGS_FALSE
-# if RW is not compatible (i.e., need incompatible_update mode)
+# if RW is not compatible (i.e., need recovery with WP=0)
 CUSTOMIZATION_RW_COMPATIBLE_CHECK=""
 
 # ----------------------------------------------------------------------------
@@ -384,15 +384,6 @@ mode_factory_install() {
   clear_update_cookies
 }
 
-# Updates for incompatible RW firmware (need to update RO)
-mode_incompatible_update() {
-  # TODO(hungte) check if we really need to stop user by comparing RO firmware
-  # image, bit-by-bit.
-  is_write_protection_disabled ||
-    die_need_ro_update "You need to first disable hardware write protection."
-  mode_recovery
-}
-
 # ----------------------------------------------------------------------------
 # Main Entry
 
@@ -421,7 +412,9 @@ main_check_rw_compatible() {
         RW firmware update is not compatible with current RO firmware.
         Starting full update...
         "
-      mode_incompatible_update
+      is_write_protection_disabled ||
+        die_need_ro_update "Need to first disable hardware write protection."
+      mode_recovery
       ;;
     * )
       true
@@ -493,7 +486,7 @@ main() {
     # Modes which don't mix existing RO firmware with new RW firmware from the
     # updater.  They either copy RW firmware between EEPROM slots, or copy both
     # RO+RW from the shellball.  Either way, RO+RW compatibility is assured.
-    startup | todev | factory_install | incompatible_update )
+    startup | todev | factory_install )
       debug_msg "mode without incompatible checks: ${FLAGS_mode}"
       mode_"${FLAGS_mode}"
       ;;
