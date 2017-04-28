@@ -155,8 +155,8 @@ work. Currently we have defined these versions
 (Use [Developer Info](https://www.chromium.org/chromium-os/developer-information-for-chrome-os-devices)
  page to find the mapping from board names to product names):
 
- - Version 1: mario (CR48), useing H2C BIOS.
- - Version 2: alex and zgb.
+ - Version 1: (EOL) mario (CR48), using H2C BIOS.
+ - Version 2: (EOL) alex and zgb.
  - Version 3: lumpy, stumpy, butterfly, stout, parrot.
  - Version 4: Everything after version 3 until now.
  - Version 5: Was created for vboot2, but now it's merged back to Version 4.
