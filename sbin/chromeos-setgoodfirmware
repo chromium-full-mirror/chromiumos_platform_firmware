@@ -10,6 +10,8 @@
 # be done by "cloning active to the other RW section".
 # For vboot2 systems, just set fw_result to success and zero fw_try_count.
 
+COMPLETE_EVENT="chromeos-setgoodfirmware"
+
 # Prints arguments as error messages and aborts.
 # Usage: die <messages>
 die() {
@@ -58,12 +60,19 @@ clone_good_firmware() {
   fi
 }
 
+# Notifies Upstart jobs that we have finished setting a good firmware.
+# Usage: emit_complete_event
+emit_complete_event() {
+  initctl emit -n "${COMPLETE_EVENT}" || true
+}
+
 # Main entry.
 main() {
   case "$(crossystem fw_vboot2)" in
     1)
       crossystem fw_result=success fw_try_count=0 ||
         die "Fail to set good kernel with vboot2 firmware."
+      emit_complete_event
       echo "Active vboot2 firmware set as good firmware."
       ;;
 
@@ -71,6 +80,7 @@ main() {
       # Vboot1, copy main firmware to the spare slot.
       clone_good_firmware
       crossystem fwb_tries=0
+      emit_complete_event
       echo "Active vboot1 firmware set as good firmware."
       ;;
 
