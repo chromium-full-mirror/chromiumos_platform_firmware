@@ -11,12 +11,17 @@
 # For vboot2 systems, just set fw_result to success and zero fw_try_count.
 
 COMPLETE_EVENT="chromeos-setgoodfirmware"
+BOARD_SCRIPT="/usr/sbin/board-setgoodfirmware"
 
 # Prints arguments as error messages and aborts.
 # Usage: die <messages>
 die() {
   echo "ERROR: $0: $*" >&2
   exit 1
+}
+
+info() {
+  echo "INFO: $0: $*"
 }
 
 # Clones an AP firmware slot to another one using flashrom.
@@ -55,7 +60,7 @@ clone_good_firmware() {
     # recovery button pressed and then never hard-reset device, and then EC will
     # always be in RO until we rewrite the EC firmware (i.e., next startup
     # update).
-    echo "$0: EC was boot by RO and may need an update/recovery."
+    echo "EC was boot by RO and may need an update/recovery."
     crossystem startup_update_tries=6
   fi
 }
@@ -73,7 +78,7 @@ main() {
       crossystem fw_result=success fw_try_count=0 ||
         die "Fail to set good kernel with vboot2 firmware."
       emit_complete_event
-      echo "Active vboot2 firmware set as good firmware."
+      info "Active vboot2 firmware set as good firmware."
       ;;
 
     0)
@@ -81,12 +86,16 @@ main() {
       clone_good_firmware
       crossystem fwb_tries=0
       emit_complete_event
-      echo "Active vboot1 firmware set as good firmware."
+      info "Active vboot1 firmware set as good firmware."
       ;;
 
     *)
       die "Unknown vboot firmware type."
       ;;
   esac
+  if [ -x "${BOARD_SCRIPT}" ]; then
+    info "Running board script ${BOARD_SCRIPT}..."
+    exec "${BOARD_SCRIPT}"
+  fi
 }
 main "$@"
