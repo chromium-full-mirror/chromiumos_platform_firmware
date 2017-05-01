@@ -131,8 +131,6 @@ class FirmwarePacker(object):
                         help='Path of input BIOS RW firmware image')
     parser.add_argument('-e', '--ec_image', type=str,
                         help='Path of input Embedded Controller firmware image')
-    parser.add_argument('--ec_version', type=str,
-                        help='Version of input EC firmware image (DEPRECATED)')
     parser.add_argument('-p', '--pd_image', type=str,
                         help='Path of input Power Delivery firmware image')
     parser.add_argument('--script', type=str, default='updater.sh',
@@ -533,8 +531,8 @@ class FirmwarePacker(object):
     self._CopyTimestamp(rw_fname, ec_fname)
 
   def _CopyFirmwareFiles(self, bios_image, bios_rw_image, ec_image, pd_image,
-                         default_ec_version, create_bios_rw_image,
-                         image_main, image_main_rw, image_ec, image_pd):
+                         create_bios_rw_image, image_main, image_main_rw,
+                         image_ec, image_pd):
     """Process firmware files and copy them into the working directory.
 
     Args:
@@ -542,8 +540,6 @@ class FirmwarePacker(object):
       bios_rw_image: Input filename of RW BIOS image, or None if none.
       ec_image: Input filename of EC (Embedded Controller) image.
       pd_image: Input filename of PD (Power Delivery) image.
-      default_ec_version: Default EC version string to use if no version
-          can be detected in ec_image.
       create_bios_rw_image: True to create a RW BIOS image from the main one
           if not provided.
       image_main: Output filename to use for main image.
@@ -587,8 +583,6 @@ class FirmwarePacker(object):
 
     if ec_image:
       ec_version = self._ExtractFrid(ec_image)
-      if not ec_version and default_ec_version:
-        ec_version = default_ec_version
       image_files['EC'] = ImageFile(ec_image, ec_version)
       shutil.copy2(ec_image, image_ec)
       if merge_bios_rw_image:
@@ -827,8 +821,7 @@ class FirmwarePacker(object):
           print(fd.read())
 
   def _ProcessModel(self, model, bios_image, bios_rw_image, ec_image, pd_image,
-                    default_ec_version, create_bios_rw_image, tools, tool_base,
-                    script, extras):
+                    create_bios_rw_image, tools, tool_base, script, extras):
     """Set up the firmware update for one model.
 
     Args:
@@ -838,8 +831,6 @@ class FirmwarePacker(object):
       bios_rw_image: Input filename of RW BIOS image, or None if none.
       ec_image: Input filename of EC (Embedded Controller) image.
       pd_image: Input filename of PD (Power Delivery) image.
-      default_ec_version: Default EC version string to use if no version
-          can be detected in ec_image.
       create_bios_rw_image: True to create a RW BIOS image from the main one
           if not provided.
       tools: List of tools to include in the update (e.g. ['mosys', 'ectool'].
@@ -865,7 +856,6 @@ class FirmwarePacker(object):
         bios_rw_image=bios_rw_image,
         ec_image=ec_image,
         pd_image=pd_image,
-        default_ec_version=default_ec_version,
         create_bios_rw_image=create_bios_rw_image,
         image_main=os.path.join(self._basedir, models_dir, model, IMAGE_MAIN),
         image_main_rw=os.path.join(self._basedir, models_dir, model,
@@ -1000,8 +990,6 @@ class FirmwarePacker(object):
         if (args.stable_main_version or args.stable_ec_version or
             args.stable_pd_version):
           raise PackError('Cannot set stable versions with -m')
-        if args.ec_version:
-          raise PackError('Cannot use --ec_version with -m')
         if not args.config:
           raise PackError('Missing master configuration file (use -c)')
 
@@ -1045,7 +1033,6 @@ class FirmwarePacker(object):
               bios_rw_image=bios_rw_image,
               ec_image=ec_image,
               pd_image=pd_image,
-              default_ec_version='',
               create_bios_rw_image=create_bios_rw_image,
               tools=tools,
               tool_base=tool_base,
@@ -1068,7 +1055,6 @@ class FirmwarePacker(object):
             bios_rw_image=args.bios_rw_image,
             ec_image=args.ec_image,
             pd_image=args.pd_image,
-            default_ec_version=args.ec_version,
             create_bios_rw_image=args.create_bios_rw_image,
             tools=args.tools.split(),
             tool_base=tool_base,
