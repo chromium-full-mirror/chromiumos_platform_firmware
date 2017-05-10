@@ -28,15 +28,22 @@ info() {
 # Usage: clone_firmware <from_slot> <to_slot>
 clone_firmware() {
   local from="$1" to="$2"
-  local tmp="$(mktemp)"
+  local image="$(mktemp)" rw_section="$(mktemp)"
   # shellcheck disable=SC2064
-  trap "rm -f ${tmp}" EXIT
+  trap "rm -f ${image} ${rw_section}" EXIT
 
   echo "Cloning firmware ${from} to ${to}..."
-  flashrom -p host -r /dev/null -i "RW_SECTION_${from}:${tmp}" ||
+  flashrom -p host -r "${image}" -i FMAP \
+    -i "RW_SECTION_${from}:${rw_section}" 2>&1 || \
     die "Fail to read RW firmware slot ${from}."
-  flashrom -p host -w /dev/null -i "RW_SECTION_${to}:${tmp}"
+  flashrom -p host -w "${image}" --noverify \
+    -i "RW_SECTION_${to}:${rw_section}" 2>&1 || \
     die "Fail to write RW firmware slot ${to}."
+
+  # The main script may do "exec ${BOARD_SCRIPT} so trap of EXIT may not work
+  # outside this function.
+  trap - EXIT
+  rm -f "${image}" "${rw_section}"
 }
 
 # Clones "good" (active) firmware to other slot.
