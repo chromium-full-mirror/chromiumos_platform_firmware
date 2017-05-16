@@ -42,12 +42,6 @@ CUSTOMIZATION_SCRIPT="updater_custom.sh"
 # You have to define a function with this name to run your customization.
 CUSTOMIZATION_MAIN="updater_custom_main"
 
-# Customization script "RW compatible check" function.
-# Overrides this with any function names to test if RW firmware in current
-# system is compatible with this updater. The function must returns $FLAGS_FALSE
-# if RW is not compatible (i.e., need recovery with WP=0)
-CUSTOMIZATION_RW_COMPATIBLE_CHECK=""
-
 # ----------------------------------------------------------------------------
 # Constants
 
@@ -211,7 +205,7 @@ clear_update_cookies() {
 
 silent_sh() {
   # Calls given commands and ignores any error (mostly for to factory
-  # installation, when the firmwaere is still non-Chrome).
+  # installation, when the firmware is still non-Chrome).
   ( "$@" ) >/dev/null 2>&1 ||
     debug_msg "Failed calling: $@"
 }
@@ -387,41 +381,6 @@ mode_factory_install() {
 # ----------------------------------------------------------------------------
 # Main Entry
 
-main_check_rw_compatible() {
-  local is_compatible="${FLAGS_TRUE}"
-  if [ "${FLAGS_check_rw_compatible}" = ${FLAGS_FALSE} ]; then
-    verbose_msg "Bypassed RW compatibility check. You're on your own."
-    return $is_compatible
-  fi
-
-  # Try explicit match
-  if [ -n "$CUSTOMIZATION_RW_COMPATIBLE_CHECK" ]; then
-    debug_msg "Checking customized RW compatibility..."
-    "$CUSTOMIZATION_RW_COMPATIBLE_CHECK" || is_compatible="${FLAGS_ERROR}"
-  elif [ "$is_compatible" = "${FLAGS_TRUE}" ]; then
-    cros_check_stable_firmware || is_compatible="${FLAGS_FALSE}"
-  fi
-
-  case "$is_compatible" in
-    "${FLAGS_FALSE}" )
-      verbose_msg "Try to update with recovery mode..."
-      mode_recovery
-      ;;
-    "${FLAGS_ERROR}" )
-      verbose_msg "
-        RW firmware update is not compatible with current RO firmware.
-        Starting full update...
-        "
-      is_write_protection_disabled ||
-        die_need_ro_update "Need to first disable hardware write protection."
-      mode_recovery
-      ;;
-    * )
-      true
-  esac
-  return $is_compatible
-}
-
 main() {
   cros_acquire_lock
   set_flags
@@ -450,8 +409,7 @@ main() {
   # Check platform except in factory_install mode.
   if [ "${FLAGS_check_platform}" = ${FLAGS_TRUE} ] &&
      [ "${FLAGS_mode}" != "factory_install" ] &&
-     [ -n "$TARGET_PLATFORM" ] &&
-     [ "$PLATFORM" != "$TARGET_PLATFORM" ]; then
+     ! cros_check_compatible_platform "${TARGET_PLATFORM}" "${PLATFORM}"; then
     alert_unknown_platform "$PLATFORM" "$TARGET_PLATFORM"
     exit 1
   fi
@@ -466,28 +424,7 @@ main() {
   fi
 
   case "${FLAGS_mode}" in
-    # Modes which update RW firmware only and only in normal mode; these need to
-    # verify if existing RO firmware is compatible.  If not, try to perform
-    # RO+RW update.
-    autoupdate )
-      debug_msg "mode with dev and compatibility check: ${FLAGS_mode}"
-        main_check_rw_compatible &&
-        mode_"${FLAGS_mode}"
-      ;;
-
-    # Modes which update RW firmware only; these need to verify if existing RO
-    # firmware is compatible.  If not, try to perform RO+RW update.
-    recovery )
-      debug_msg "mode with compatibility check: ${FLAGS_mode}"
-      main_check_rw_compatible &&
-        mode_"${FLAGS_mode}"
-      ;;
-
-    # Modes which don't mix existing RO firmware with new RW firmware from the
-    # updater.  They either copy RW firmware between EEPROM slots, or copy both
-    # RO+RW from the shellball.  Either way, RO+RW compatibility is assured.
-    startup | todev | factory_install )
-      debug_msg "mode without incompatible checks: ${FLAGS_mode}"
+    autoupdate | recovery | startup | todev | factory_install )
       mode_"${FLAGS_mode}"
       ;;
 
