@@ -68,7 +68,7 @@ clone_good_firmware() {
     # always be in RO until we rewrite the EC firmware (i.e., next startup
     # update).
     echo "EC was boot by RO and may need an update/recovery."
-    crossystem startup_update_tries=6
+    crossystem fwupdate_tries=6
   fi
 }
 
