@@ -18,6 +18,9 @@ and must be able to update in background silently.
 The firmware updater was made as a "shellball", a self-executable file
 containing updater logic (shell scripts), utility programs, and firmware images.
 
+> In all modes, updater will try to preserve few firmware data, for example the
+> VPD sections (`RO_VPD`, `RW_VPD`), `HWID` and `GBB flags` (in `GBB` section).
+
 ### Update manually
 
 Usually you can find the updater in `/usr/sbin/chromeos-firmwareupdate`
@@ -32,7 +35,7 @@ Usually for people who wants to "update all my firmware to right states", do:
     chromeos-firmwareupdate --mode=recovery
 
 > The `recovery` mode will try to update RO+RW if your write protection
-> is not enabled, otherwise on RW.
+> is not enabled, otherwise only RW.
 
 If your are not sure about write protection status but you only want RW to be
 updated, run:
@@ -71,7 +74,8 @@ test the locally built firmware images.
 > In other words, you can remove `bootimage` and `cros_ec` in branches that you
 > don't need firmware from source, for example the factory branches or ToT,
 > especially if there are external partners who only has access to particular
-> board private overlays.
+> board private overlays. To do that, find the `make.conf` in board overlay and
+> add `USE="-bootimage -cros_ec"`.
 
 ## Manipulating Firmware Updater Packages
 
@@ -131,7 +135,7 @@ in ebuild files.
 ### Updater logic
 Here's a detailed list of how each updater mode works:
 
-![Diagram](_docs:update_diagram.png)
+![Diagram](_docs/update_diagram.png)
 
  - `--mode=autoupdate`: Invoked by update_engine when a payload is installed.
    1. Check if WP is enabled.
