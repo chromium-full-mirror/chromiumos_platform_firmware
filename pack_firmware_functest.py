@@ -219,8 +219,8 @@ class TestFunctional(unittest.TestCase):
 
     self.assertEqual('Google_Reef.9042.50.0', versions['TARGET_RO_FWID'])
     self.assertEqual('Google_Reef.9042.50.0', versions['TARGET_FWID'])
-    self.assertEqual('IGNORE', versions['TARGET_ECID'])
-    self.assertEqual('IGNORE', versions['TARGET_PDID'])
+    self.assertEqual('', versions['TARGET_ECID'])
+    self.assertEqual('', versions['TARGET_PDID'])
     self.assertEqual('Google_Reef', versions['TARGET_PLATFORM'])
     self.assertEqual(UPDATER, versions['TARGET_SCRIPT'])
     self.assertEqual(REEF_STABLE_MAIN_VERSION, versions['STABLE_FWID'])
@@ -284,8 +284,7 @@ class TestFunctional(unittest.TestCase):
     self.assertEqual('Google_Reef.9042.50.0', versions['TARGET_RO_FWID'])
     self.assertEqual('reef_v1.1.5857-77f6ed7', versions['TARGET_ECID'])
 
-    # TODO(sjg@chromium.org): Better if this is an empty string?
-    self.assertEqual('IGNORE', versions['TARGET_PDID'])
+    self.assertEqual('', versions['TARGET_PDID'])
     self.assertEqual('Google_Reef.9042.43.0', versions['STABLE_FWID'])
     self.assertEqual('reef-v1.1.5840-f0d7761', versions['STABLE_ECID'])
     self.assertEqual('', versions['STABLE_PDID'])
@@ -325,8 +324,8 @@ class TestFunctional(unittest.TestCase):
     outfile, _, versions = self._RunPackFirmware(extra_args)
     self.assertEqual('Google_Reef.9042.50.0', versions['TARGET_RO_FWID'])
     self.assertEqual('Google_Reef.9042.50.0', versions['TARGET_FWID'])
-    self.assertEqual('IGNORE', versions['TARGET_ECID'])
-    self.assertEqual('IGNORE', versions['TARGET_PDID'])
+    self.assertEqual('', versions['TARGET_ECID'])
+    self.assertEqual('', versions['TARGET_PDID'])
 
     # Extract the file into a directory, then overwrite various files with new
     # images with a different IDs.

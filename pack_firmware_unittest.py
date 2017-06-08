@@ -624,10 +624,10 @@ class TestUnit(unittest.TestCase):
     self.assertNotIn('EC version', result)
     self.assertEqual(8, len(result.splitlines()))
 
-    # In the script, the EC version should be 'IGNORE'.
+    # In the script, the EC version should be ''.
     with open('out') as fd:
       lines = fd.read().splitlines()
-    self.assertIn('IGNORE', self._FindLineInList(lines, 'TARGET_ECID'))
+    self.assertIn('', self._FindLineInList(lines, 'TARGET_ECID'))
 
   # b/36104199 Should be able to be removed once mario is turned down.
   def testMario(self):
@@ -652,11 +652,11 @@ class TestUnit(unittest.TestCase):
     self.assertNotIn('BIOS version', result)
     self.assertEqual(7, len(result.splitlines()))
 
-    # In the script, the versions should be 'IGNORE'.
+    # In the script, the versions should be ''.
     with open('out') as fd:
       lines = fd.read().splitlines()
     for item in 'RO_FWID FWID ECID PDID PLATFORM'.split():
-      self.assertIn('IGNORE', self._FindLineInList(lines, 'TARGET_%s' % item))
+      self.assertIn('', self._FindLineInList(lines, 'TARGET_%s' % item))
 
 
 if __name__ == '__main__':

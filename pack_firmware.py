@@ -39,7 +39,6 @@ IMAGE_MAIN = 'bios.bin'
 IMAGE_MAIN_RW = 'bios_rw.bin'
 IMAGE_EC = 'ec.bin'
 IMAGE_PD = 'pd.bin'
-IGNORE = 'IGNORE'
 MODELS_DIR = 'models'
 Section = collections.namedtuple('Section', ['offset', 'size'])
 ImageFile = collections.namedtuple('ImageFile', ['filename', 'version'])
@@ -287,8 +286,7 @@ class FirmwarePacker(object):
       print('%s image:%s%s *%s' % (name, ' ' * max(3, 7 - len(name)),
                                    digest.hexdigest(), short_fname),
             file=self._versions)
-    # b/36104199 Handling of IGNORE is a work-around required for x86-mario.
-    if version and version != IGNORE:
+    if version:
       print('%s version:%s%s' % (name, ' ' * max(1, 5 - len(name)), version),
             file=self._versions)
 
@@ -556,9 +554,6 @@ class FirmwarePacker(object):
     merge_bios_rw_image = self._args.merge_bios_rw_image
     if bios_image:
       bios_version = self._ExtractFrid(bios_image)
-      # b/36104199 This work-around is required for x86-mario.
-      if not bios_version:
-        bios_version = IGNORE
       bios_rw_version = bios_version
       shutil.copy2(bios_image, image_main)
       image_files['BIOS'] = ImageFile(bios_image, bios_version)
@@ -740,8 +735,8 @@ class FirmwarePacker(object):
     return {
         'REPLACE_RO_FWID': image_files['BIOS'].version,
         'REPLACE_FWID': bios_rw_version,
-        'REPLACE_ECID': image_files.get('EC', empty).version or IGNORE,
-        'REPLACE_PDID': image_files.get('PD', empty).version or IGNORE,
+        'REPLACE_ECID': image_files.get('EC', empty).version,
+        'REPLACE_PDID': image_files.get('PD', empty).version,
         # Set platform to first field of firmware version
         # (ex: Google_Link.1234 -> Google_Link).
         'REPLACE_PLATFORM': image_files['BIOS'].version.split('.')[0],

@@ -512,13 +512,13 @@ main() {
     package_info="RO:$TARGET_RO_FWID RW:$TARGET_FWID"
   fi
   local current_info="RO:$RO_FWID $ro_type, ACT:$FWID"
-  if [ -n "${TARGET_ECID%IGNORE}" ]; then
+  if [ -n "${TARGET_ECID}" ]; then
     package_info="$package_info / EC:$TARGET_ECID"
   fi
   if [ -n "$ECID" ]; then
     current_info="$current_info / EC:$ECID"
   fi
-  if [ -n "${TARGET_PDID%IGNORE}" ]; then
+  if [ -n "${TARGET_PDID}" ]; then
     package_info="$package_info / PD:$TARGET_PDID"
   fi
   if [ -n "$PDID" ]; then
