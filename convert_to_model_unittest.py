@@ -22,15 +22,21 @@ import convert_to_model
 class TestUnit(cros_test_lib.OutputTestCase):
   """Test cases for common program flows."""
 
-  def testEbuild(self):
-    """Simple test of processing an ebuild"""
-    converter = convert_to_model.ModelConverter(['reef'])
+  def runWithModel(self, model, ebuild_model):
+    """Run a test with the given model and ebuild model.
+
+    Normally these two are the same (e.g. 'reef') but for 'reef-uni' we use
+    the chromeos-firmware-reef ebuild and thus we need to distinguish between
+    the ebuild we use ('reef') and the board we use ('reef-uni'). The script
+    has special-case code for this so we need to test it.
+    """
+    converter = convert_to_model.ModelConverter([model])
     converter._srcpath = 'test'
     converter._path_format = 'chromeos-firmware-%(model)s*.ebuild'
     with self.OutputCapturer() as capturer:
       converter.Start()
     self.assertEqual(capturer.GetStdout(), '''&models {
-\treef {
+\t%s {
 \t\tfirmware {
 \t\t\tbcs-overlay = "overlay-reef-private";
 \t\t\tbuild-main-rw-image;
@@ -53,9 +59,14 @@ class TestUnit(cros_test_lib.OutputTestCase):
 };
 
 Run this command in chroot to regenerate the manifest:
-FIRMWARE_UNIBUILD="reef" ebuild /mnt/host/source/src/\
+FIRMWARE_UNIBUILD="%s" ebuild /mnt/host/source/src/\
 chromeos-firmware-reef-0.0.1-r56.ebuild manifest
-''')
+''' % (ebuild_model, model))
+
+  def testEbuild(self):
+    """Simple test of processing an ebuild"""
+    self.runWithModel('reef', 'reef')
+    self.runWithModel('reef-uni', 'reef')
 
 
 if __name__ == '__main__':
