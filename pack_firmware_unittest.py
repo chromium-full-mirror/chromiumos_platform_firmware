@@ -469,6 +469,42 @@ class TestUnit(unittest.TestCase):
     rc.AddCmdResult(partial_mock.ListRegex('dump_fmap -x .*pd.bin'),
                     side_effect=_CopySections, returncode=0)
 
+  @staticmethod
+  def _CreateFile(cmd, **_):
+    """Called as a side effect to emulate the effect of cbfstool.
+
+    This handles the 'cbfstool...extract' command which is supposed to
+    extract a particular 'file' from inside the CBFS archive. We deal with
+    this by creating a zero-filled file with the correct name and size.
+    See _ExtractEcRwUsingCbfs() for where this command is generated.
+
+    Args:
+      cmd: Arguments, of the form:
+          ['cbfstool.sh', ..., '-f', <filename>, ...]
+          See _SetPreambleFlags() for where this is generated.
+    """
+    file_arg = cmd.index('-f')
+    fname = cmd[file_arg + 1]
+    with open(fname, 'wb') as fd:
+      fd.seek(ECRW_SIZE - 1)
+      fd.write('\0')
+
+  @classmethod
+  def _AddMergeMocks(cls, rc):
+    rc.AddCmdResult(partial_mock.ListRegex(
+        'dump_fmap -x .*test/image_rw.bin'), returncode=0)
+    rc.AddCmdResult(partial_mock.ListRegex('dump_fmap -p test/image_rw.bin'),
+                    returncode=0, output=FMAP_OUTPUT)
+    rc.AddCmdResult(partial_mock.ListRegex('dump_fmap -p .*bios.bin'),
+                    returncode=0, output=FMAP_OUTPUT)
+    rc.AddCmdResult(partial_mock.Regex('extract_ecrw'), returncode=0)
+    rc.AddCmdResult(partial_mock.ListRegex('dump_fmap -p .*ec.bin'),
+                    returncode=0, output=FMAP_OUTPUT_EC)
+    rc.AddCmdResult(partial_mock.ListRegex('cbfstool'), returncode=0,
+                    side_effect=cls._CreateFile)
+    rc.AddCmdResult(partial_mock.ListRegex('dump_fmap -p .*pd.bin'),
+                    returncode=0, output=FMAP_OUTPUT_EC)
+
   # If we use _ to indicate an unused parameter, cros lint wants us to call it
   # 'kwargs'. If we call it 'kwargs' it complains about an unused parameter.
   # We need the kwargs paramter since the caller provides it and the real
@@ -514,24 +550,6 @@ class TestUnit(unittest.TestCase):
 
   def testMockedRunWithMerge(self):
     """Start up with a valid updater script and merge the RW BIOS."""
-    def _CreateFile(cmd, **_):
-      """Called as a side effect to emulate the effect of cbfstool.
-
-      This handles the 'cbfstool...extract' command which is supposed to
-      extract a particular 'file' from inside the CBFS archive. We deal with
-      this by creating a zero-filled file with the correct name and size.
-      See _ExtractEcRwUsingCbfs() for where this command is generated.
-
-      Args:
-        cmd: Arguments, of the form:
-            ['cbfstool.sh', ..., '-f', <filename>, ...]
-            See _SetPreambleFlags() for where this is generated.
-      """
-      file_arg = cmd.index('-f')
-      fname = cmd[file_arg + 1]
-      with open(fname, 'wb') as fd:
-        fd.seek(ECRW_SIZE - 1)
-        fd.write('\0')
 
     pack_firmware.FirmwarePacker._GetPreambleFlags = (
         mock.Mock(side_effect=self._MockGetPreambleFlags))
@@ -540,19 +558,7 @@ class TestUnit(unittest.TestCase):
             '--remove_inactive_updaters'] + COMMON_FLAGS
     with cros_build_lib_unittest.RunCommandMock() as rc:
       self._AddMocks(rc)
-      rc.AddCmdResult(partial_mock.ListRegex(
-          'dump_fmap -x .*test/image_rw.bin'), returncode=0)
-      rc.AddCmdResult(partial_mock.ListRegex('dump_fmap -p test/image_rw.bin'),
-                      returncode=0, output=FMAP_OUTPUT)
-      rc.AddCmdResult(partial_mock.ListRegex('dump_fmap -p .*bios.bin'),
-                      returncode=0, output=FMAP_OUTPUT)
-      rc.AddCmdResult(partial_mock.Regex('extract_ecrw'), returncode=0)
-      rc.AddCmdResult(partial_mock.ListRegex('dump_fmap -p .*ec.bin'),
-                      returncode=0, output=FMAP_OUTPUT_EC)
-      rc.AddCmdResult(partial_mock.ListRegex('cbfstool'), returncode=0,
-                      side_effect=_CreateFile)
-      rc.AddCmdResult(partial_mock.ListRegex('dump_fmap -p .*pd.bin'),
-                      returncode=0, output=FMAP_OUTPUT_EC)
+      self._AddMergeMocks(rc)
       self.packer.Start(args, remove_tmpdirs=False)
     result = self.packer._versions.getvalue().splitlines()
     self.assertEqual(15, len(result))
