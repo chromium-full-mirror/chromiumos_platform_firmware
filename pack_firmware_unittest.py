@@ -300,6 +300,23 @@ class TestUnit(unittest.TestCase):
 
   def testUntarFile(self):
     """Test operation of the tar file unpacker."""
+    self.packer._tmpdir = self.packer._CreateTmpDir()
+    dirname = self.packer._CreateTmpDir()
+    fname = self.packer._UntarFile('functest/Reef.9042.50.0.tbz2', dirname)
+    self.assertEqual(os.path.basename(fname), 'image.bin')
+
+    # Unpack again with a different suffix. We should get a different filename
+    # and the file contents should be different.
+    fname2 = self.packer._UntarFile('functest/Reef.9000.0.0.tbz2', dirname,
+                                    '-rw')
+    self.assertEqual(os.path.basename(fname2), 'image.bin-rw')
+    self.assertNotEqual(fname, fname2)
+    with open(fname) as fd:
+      data = fd.read()
+    with open(fname2) as fd:
+      data2 = fd.read()
+    self.assertNotEqual(data, data2)
+
     dirname = self.packer._CreateTmpDir()
     fname = self.packer._UntarFile('functest/Reef.9042.50.0.tbz2', dirname)
     self.assertEqual(os.path.basename(fname), 'image.bin')
@@ -350,6 +367,7 @@ class TestUnit(unittest.TestCase):
 
   def testCopyExtraTarfile(self):
     """Test that we can extract 'extra' tarfile contents."""
+    self.packer._tmpdir = self.packer._CreateTmpDir()
     self.packer._basedir = dirname = self.packer._CreateTmpDir()
     self.packer._args = self.packer.ParseArgs(['--imagedir', 'functest'])
 
@@ -412,6 +430,7 @@ class TestUnit(unittest.TestCase):
 
   def testExtractFileBcs(self):
     """Test handling file extraction based on a configuration property,"""
+    self.packer._tmpdir = self.packer._CreateTmpDir()
     self.packer._args = self.packer.ParseArgs(['--imagedir', 'functest'])
     dirname = self.packer._CreateTmpDir()
     node = self._SetUpConfigNode()

@@ -607,8 +607,7 @@ class FirmwarePacker(object):
       image_file = image_files[name]
       self._AddVersionInfo(name, image_file.filename, image_file.version)
 
-  @staticmethod
-  def _UntarFile(pathname, dst_dirname):
+  def _UntarFile(self, pathname, dst_dirname, suffix=''):
     """Unpack the only item in a tar file.
 
     Read a file from a tar file. It must contain just a single member and its
@@ -617,6 +616,7 @@ class FirmwarePacker(object):
     Args:
       pathname: Pathname of tar file to unpack.
       dst_dirname: Destination directory to place the unpacked file.
+      suffix: String to append to output filename.
 
     Returns:
       Pathname of unpacked file.
@@ -629,8 +629,10 @@ class FirmwarePacker(object):
       if '/' in members[0].name:
         raise PackError("Tar file '%s' member '%s' should be a simple name" %
                         (pathname, members[0].name))
-      tar.extractall(dst_dirname, members)
-      return os.path.join(dst_dirname, members[0].name)
+      tar.extractall(self._tmpdir, members)
+      fname = os.path.join(dst_dirname, members[0].name + suffix)
+      os.rename(os.path.join(self._tmpdir, members[0].name), fname)
+      return fname
 
   @staticmethod
   def _CopyFile(src, dst, mode=CHMOD_ALL_READ):
@@ -916,7 +918,8 @@ class FirmwarePacker(object):
       return False
     return True
 
-  def _ExtractFile(self, model, fname_template, node, prop_name, dirname):
+  def _ExtractFile(
+      self, model, fname_template, node, prop_name, dirname, suffix=''):
     """Obtain a file based on provided information.
 
     This obtains the file in one of two ways:
@@ -936,6 +939,7 @@ class FirmwarePacker(object):
       node: Integer offset of node to read.
       prop_name: Property name in that node which contains the image path.
       dirname: Output directory where the unpacked file should be placed.
+      suffix: String to append to output filename.
 
     Returns:
       Filename of the resulting image file.
@@ -948,7 +952,8 @@ class FirmwarePacker(object):
         return None
       return fname_template.replace('MODEL', model)
     fname = uri.replace('bcs://', '')
-    return self._UntarFile(os.path.join(self._args.imagedir, fname), dirname)
+    return self._UntarFile(
+        os.path.join(self._args.imagedir, fname), dirname, suffix)
 
   def Start(self, argv, remove_tmpdirs=True):
     """Handle the creation of a firmware shell-ball.
