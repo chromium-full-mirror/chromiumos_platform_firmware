@@ -1012,7 +1012,7 @@ class FirmwarePacker(object):
           bios_image = self._ExtractFile(model, args.bios_image, node,
                                          'main-image', dirname)
           bios_rw_image = self._ExtractFile(model, None, node, 'main-rw-image',
-                                            dirname)
+                                            dirname, 'rw')
           ec_image = self._ExtractFile(model, args.ec_image, node, 'ec-image',
                                        dirname)
           pd_image = self._ExtractFile(model, args.pd_image, node, 'pd-image',

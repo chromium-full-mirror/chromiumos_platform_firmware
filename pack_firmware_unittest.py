@@ -495,6 +495,8 @@ class TestUnit(unittest.TestCase):
         'dump_fmap -x .*test/image_rw.bin'), returncode=0)
     rc.AddCmdResult(partial_mock.ListRegex('dump_fmap -p test/image_rw.bin'),
                     returncode=0, output=FMAP_OUTPUT)
+    rc.AddCmdResult(partial_mock.ListRegex('dump_fmap -p .*image.binrw'),
+                    returncode=0, output=FMAP_OUTPUT)
     rc.AddCmdResult(partial_mock.ListRegex('dump_fmap -p .*bios.bin'),
                     returncode=0, output=FMAP_OUTPUT)
     rc.AddCmdResult(partial_mock.Regex('extract_ecrw'), returncode=0)
@@ -590,6 +592,22 @@ class TestUnit(unittest.TestCase):
     os.environ['FILESDIR'] = 'test'
     with cros_build_lib_unittest.RunCommandMock() as rc:
       self._AddMocks(rc)
+      pack_firmware.main(args)
+      pack_firmware.packer._versions.getvalue().splitlines()
+
+  def testMockedRunWithUnibuildMerge(self):
+    """Start up with a valid updater script and both RO and RW BIOS."""
+
+    pack_firmware.FirmwarePacker._GetPreambleFlags = (
+        mock.Mock(side_effect=self._MockGetPreambleFlags))
+    args = ['.', '-m', 'reef', '-m', 'pyro', '-q', '-o' 'out',
+            '-c', 'test/config_rw.dtb', '--tool_base', 'test',
+            '--tools', 'flashrom dump_fmap', '-i', 'functest']
+    os.environ['SYSROOT'] = 'test'
+    os.environ['FILESDIR'] = 'test'
+    with cros_build_lib_unittest.RunCommandMock() as rc:
+      self._AddMocks(rc)
+      self._AddMergeMocks(rc)
       pack_firmware.main(args)
       pack_firmware.packer._versions.getvalue().splitlines()
 
