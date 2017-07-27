@@ -20,6 +20,7 @@ import unittest
 from chromite.lib import cros_build_lib
 
 from pack_firmware import FirmwarePacker
+import pack_firmware_utils
 
 # We need to poke around in internal members of PackFirmware.
 # pylint: disable=W0212
@@ -29,9 +30,6 @@ REEF_MODEL = 'reef'
 REEF_STABLE_MAIN_VERSION = 'Google_Reef.9042.43.0'
 UPDATER = 'updater4.sh'
 MODELS_DIR = 'models'
-
-# We are looking for KEY="VALUE", or KEY=
-RE_KEY_VALUE = re.compile('(?P<key>[A-Z_]+)=("(?P<value>.*)")?$')
 
 # Firmware update runs on the device using the dash shell. Try to use this if
 # available.
@@ -120,35 +118,6 @@ class TestFunctional(unittest.TestCase):
               if not line.startswith(' (DEBUG')]
     self.assertEqual(errors, [])
 
-  @staticmethod
-  def _ReadVersions(fname):
-    """Read the start of the supplied script to get the version information.
-
-    This picks up various shell variable assignments from the script and
-    returns them so their values can be checked.
-
-    Args:
-      fname: Filename of script file.
-
-    Returns:
-      Dict with:
-         key: Shell variable.
-         value: Value of that shell variable.
-    """
-    with open(fname) as fd:
-      lines = fd.read(1000).splitlines()[:30]
-    # Use strip() where needed since some lines are indented.
-    lines = [line.strip() for line in lines
-             if line.strip().startswith('TARGET') or
-             line.strip().startswith('STABLE') or
-             line.startswith('UNIBUILD')]
-    versions = {}
-    for line in lines:
-      m = RE_KEY_VALUE.match(line)
-      value = m.group('value')
-      versions[m.group('key')] = value if value else ''
-    return versions
-
   def _RunPackFirmware(self, extra_args):
     """Run the FirmwarePacker process and read the resulting shellball.
 
@@ -187,7 +156,7 @@ class TestFunctional(unittest.TestCase):
         rel_path = os.path.join(dirpath, fname)[len(self.unpackdir) + 1:]
         files.append(rel_path)
 
-    versions = self._ReadVersions(outfile)
+    versions = pack_firmware_utils.ReadVersions(outfile)
     return outfile, sorted(files), versions
 
   def testFirmwareUpdate(self):
@@ -277,8 +246,8 @@ class TestFunctional(unittest.TestCase):
 
     self.assertEqual('yes', versions['UNIBUILD'])
 
-    versions = self._ReadVersions(os.path.join(self.unpackdir, MODELS_DIR,
-                                               'reef/setvars.sh'))
+    versions = pack_firmware_utils.ReadVersions(
+        os.path.join(self.unpackdir, MODELS_DIR, 'reef/setvars.sh'))
     self.assertEqual(8, len(versions))
     self.assertEqual('Google_Reef.9042.50.0', versions['TARGET_FWID'])
     self.assertEqual('Google_Reef.9042.50.0', versions['TARGET_RO_FWID'])
@@ -343,7 +312,7 @@ class TestFunctional(unittest.TestCase):
     # Repack the file and make sure that the versions update.
     cros_build_lib.RunCommand([outfile, '--sb_repack', self.unpackdir],
                               quiet=True, mute_output=True)
-    versions = self._ReadVersions(outfile)
+    versions = pack_firmware_utils.ReadVersions(outfile)
     self.assertEqual(ro_id, versions['TARGET_RO_FWID'])
     self.assertEqual(rw_id, versions['TARGET_FWID'])
     self.assertEqual(ec_id, versions['TARGET_ECID'])
