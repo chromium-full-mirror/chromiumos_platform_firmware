@@ -584,14 +584,26 @@ class TestUnit(unittest.TestCase):
       pack_firmware.main(args)
     self.assertIn("Missing master configuration file", str(e.exception))
 
-  def testMockedRunWithUnibuild(self):
-    """Start up with a valid updater script and BIOS."""
+  def SetupRunWithUnibuild(self, config_fname):
+    """Set up to run with a valid updater script and BIOS.
+
+    Args:
+      config_fname: Master configuration file to use.
+
+    Returns:
+      List of arguments to pass to pack_firmware.main()
+    """
 
     args = ['.', '-m', 'reef', '-m', 'pyro', '-q', '-o' 'out',
-            '-c', 'test/config.dtb', '--tool_base', 'test',
+            '-c', 'test/%s' % config_fname, '--tool_base', 'test',
             '--tools', 'flashrom dump_fmap', '-i', 'functest']
     os.environ['SYSROOT'] = 'test'
     os.environ['FILESDIR'] = 'test'
+    return args
+
+  def testMockedRunWithUnibuild(self):
+    """Start up with a valid updater script and BIOS."""
+    args = self.SetupRunWithUnibuild('config.dtb')
     with cros_build_lib_unittest.RunCommandMock() as rc:
       self._AddMocks(rc)
       pack_firmware.main(args)
@@ -602,11 +614,7 @@ class TestUnit(unittest.TestCase):
 
     pack_firmware.FirmwarePacker._GetPreambleFlags = (
         mock.Mock(side_effect=self._MockGetPreambleFlags))
-    args = ['.', '-m', 'reef', '-m', 'pyro', '-q', '-o' 'out',
-            '-c', 'test/config_rw.dtb', '--tool_base', 'test',
-            '--tools', 'flashrom dump_fmap', '-i', 'functest']
-    os.environ['SYSROOT'] = 'test'
-    os.environ['FILESDIR'] = 'test'
+    args = self.SetupRunWithUnibuild('config_rw.dtb')
     with cros_build_lib_unittest.RunCommandMock() as rc:
       self._AddMocks(rc)
       self._AddMergeMocks(rc)
