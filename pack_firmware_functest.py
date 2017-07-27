@@ -48,6 +48,7 @@ class TestFunctional(unittest.TestCase):
   """
 
   def setUp(self):
+    pack_firmware_utils.MakeTestFiles()
     self.packer = FirmwarePacker('test')
     tmp_base = 'pack_firmwaretest-%d' % os.getpid()
     self.indir = tempfile.mkdtemp(tmp_base)

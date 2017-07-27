@@ -26,6 +26,7 @@ from chromite.lib import cros_build_lib_unittest
 from chromite.lib import partial_mock
 import chromite.lib.cros_logging as logging
 import pack_firmware
+import pack_firmware_utils
 
 # We need to poke around in internal members of PackFirmware.
 # pylint: disable=W0212
@@ -132,6 +133,7 @@ def capture_sys_output():
 class TestUnit(unittest.TestCase):
   """Test cases for common program flows."""
   def setUp(self):
+    pack_firmware_utils.MakeTestFiles()
     self.packer = pack_firmware.FirmwarePacker('.')
     # Limit the resolution of timestamps to aid comparison.
     os.stat_float_times(False)

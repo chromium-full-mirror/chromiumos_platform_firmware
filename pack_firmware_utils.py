@@ -42,3 +42,7 @@ def ReadVersions(fname):
     value = m.group('value')
     versions[m.group('key')] = value if value else ''
   return versions
+
+def MakeTestFiles():
+  """Create test files that we need."""
+  os.system('./make_test_files.sh')

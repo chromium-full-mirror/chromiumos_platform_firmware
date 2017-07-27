@@ -7,3 +7,4 @@
 # Ignore DEPS
 *-firmware-binaries/
 *.pyc
+test/*.dtb
