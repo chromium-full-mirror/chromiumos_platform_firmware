@@ -10,37 +10,4 @@
 // size_dt_strings:	0x5d
 // size_dt_struct:	0x300
 
-/ {
-    chromeos {
-        models {
-            reef {
-                wallpaper = "simon";
-                firmware {
-                    bcs-overlay = "overlay-reef-private";
-                    main-image = "bcs://Reef.9042.50.0.tbz2";
-                    ec-image = "bcs://Reef_EC.9042.50.0.tbz2";
-                    stable-main-version = "Google_Reef.9042.43.0";
-                    stable-ec-version = "reef-v1.1.5840-f0d7761";
-                    script = "updater4.sh";
-                    extra = "${FILESDIR}/extra", "${SYSROOT}/usr/sbin/ectool", "bcs://Reef.9000.0.0.tbz2";
-                };
-            };
-            pyro {
-                firmware {
-                    bcs-overlay = "overlay-pyro-private";
-                    main-image = "bcs://Pyro.9042.41.0.tbz2";
-                    ec-image = "bcs://Pyro_EC.9042.41.0.tbz2";
-                    script = "updater4.sh";
-                };
-            };
-            snappy {
-                firmware {
-                    bcs-overlay = "overlay-snappy-private";
-                    main-image = "bcs://Snappy.9042.43.0.tbz2";
-                    ec-image = "bcs://Snappy_EC.9042.43.0.tbz2";
-                    script = "updater4.sh";
-                };
-            };
-        };
-    };
-};
+/include/ "config_base.dtsi"
