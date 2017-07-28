@@ -1057,6 +1057,7 @@ class FirmwarePacker(object):
           self._CreateFileFromTemplate(self._setvars_template_file, fname,
                                        replace_dict, True)
       else:
+        script = args.script
         image_files = self._ProcessModel(
             model='',
             bios_image=args.bios_image,
@@ -1066,12 +1067,12 @@ class FirmwarePacker(object):
             create_bios_rw_image=args.create_bios_rw_image,
             tools=args.tools.split(),
             tool_base=tool_base,
-            script=args.script,
+            script=script,
             extras=args.extra.split(':') if args.extra else [])
       replace_dict = self._GetReplaceDict(image_files, args.stable_main_version,
                                           args.stable_ec_version,
                                           args.stable_pd_version)
-      self._WriteUpdateScript(args.script, replace_dict,
+      self._WriteUpdateScript(script, replace_dict,
                               unibuild=args.models is not None)
       self._WriteVersionFile()
       self._BuildShellball()

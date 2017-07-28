@@ -28,6 +28,18 @@ SCRIPT_BASE="$(dirname "$0")"
 # Use bundled tools with highest priority, to prevent dependency when updating
 cros_setup_path
 
+if [ -n "${UNIBUILD}" ]; then
+  cros_set_unibuild_vars
+
+  # Image and key files were set in the shared crosfw.sh file. Set them again
+  # here, since we want to use the files specific to the chosen model.
+  IMAGE_MAIN="${MODEL_DIR}/bios.bin"
+  IMAGE_MAIN_RW="${MODEL_DIR}/bios_rw.bin"  # optional image.
+  IMAGE_EC="${MODEL_DIR}/ec.bin"
+  IMAGE_PD="${MODEL_DIR}/pd.bin"
+  KEYSET_DIR="${MODEL_DIR}/keyset"
+fi
+
 # ----------------------------------------------------------------------------
 # Customization Section
 
@@ -321,7 +333,7 @@ mode_startup() {
 mode_autoupdate() {
   if [ "${FLAGS_update_main}" = "${FLAGS_FALSE}" ]; then
     echo "No main firmware to upload, abort."
-    return
+    return 1
   fi
 
   # TODO(hungte) Remove the STABLE_FWID path once we've migrated all projects.
@@ -496,7 +508,6 @@ mode_factory_install() {
 main() {
   cros_acquire_lock
   set_flags
-  [ -n "${UNIBUILD}" ] && cros_set_unibuild_vars
 
   # factory compatibility
   if [ "${FLAGS_factory}" = ${FLAGS_TRUE} ] ||
@@ -556,9 +567,10 @@ main() {
 
   load_keyset
 
+  result="completed"
   case "${FLAGS_mode}" in
     autoupdate | recovery | startup | todev | factory_install )
-      mode_"${FLAGS_mode}"
+      mode_"${FLAGS_mode}" || result="failed"
       ;;
 
     "" )
@@ -569,7 +581,7 @@ main() {
       die "Unknown mode: ${FLAGS_mode}"
       ;;
   esac
-  verbose_msg "Firmware update (${FLAGS_mode}) completed."
+  verbose_msg "Firmware update (${FLAGS_mode}) ${result}."
 }
 
 # Parse command line

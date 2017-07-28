@@ -490,9 +490,11 @@ cros_set_unibuild_vars() {
 
   [ -n "${model}" ] || die "Cannot get model."
   debug_msg "Setting variables for model ${model}"
+  MODEL_DIR="models/${model}"
 
-  local fname="models/${model}/setvars.sh"
+  local fname="${MODEL_DIR}/setvars.sh"
   [ -e "${fname}" ] || die "Cannot find model script ${fname}"
 
   . "./${fname}"
+
 }
