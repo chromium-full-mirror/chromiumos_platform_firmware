@@ -54,7 +54,6 @@ TRANSLATE_TO_PROPERTY = {
     'MAIN_RW_IMAGE': 'main-rw-image',
     'EC_IMAGE': 'ec-image',
     'PD_IMAGE': 'pd-image',
-    'SCRIPT': 'script',
     'PLATFORM': '',
     'STABLE_MAIN_VERSION': 'stable-main-version',
     'STABLE_EC_VERSION': 'stable-ec-version',
@@ -238,6 +237,13 @@ class ModelConverter(object):
     Args:
       argv: Program arguments (without program name).
     """
+    # Only updater4 is supported with unified builds.
+    self._AddLine('&family {')
+    self._AddLine('firmware {')
+    self._AddLine('script = "updater4.sh";')
+    self._AddLine('};')
+    self._AddLine('};')
+    print()
     if self._models:
       self._AddLine('&models {')
 
