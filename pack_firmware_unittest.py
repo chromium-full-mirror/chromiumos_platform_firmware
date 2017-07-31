@@ -411,7 +411,7 @@ class TestUnit(unittest.TestCase):
   def testGetBool(self):
     """Check that we can read booleans from the master configuration."""
     node = self._SetUpConfigNode()
-    self.assertEqual(self.packer._GetBool(node, 'script'), True)
+    self.assertEqual(self.packer._GetBool(node, 'bcs-overlay'), True)
     self.assertEqual(self.packer._GetBool(node, 'missing'), False)
 
   def testExtractFileLocal(self):

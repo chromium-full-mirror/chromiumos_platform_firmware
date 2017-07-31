@@ -998,6 +998,14 @@ class FirmwarePacker(object):
         # https://www.spinics.net/lists/devicetree-compiler/index.html#01166
         # Series starts: [PATCH v9 0/5] Introduce Python bindings for libfdt
         self._config = libfdt.Fdt(open(args.config).read())
+        family_node = self._config.path_offset('/chromeos/family/firmware',
+                                               libfdt.QUIET_NOTFOUND)
+        if family_node < 0:
+          raise PackError("Family configuration is missing in chromeos-config")
+        script = self._GetString(family_node, 'script')
+        if not script:
+          raise PackError("Must specify 'script' in family configuration")
+
         os.mkdir(self._BaseDirPath(MODELS_DIR))
         os.mkdir(os.path.join(self._tmpdir, MODELS_DIR))
         for model in args.models:
@@ -1036,7 +1044,7 @@ class FirmwarePacker(object):
               create_bios_rw_image=create_bios_rw_image,
               tools=tools,
               tool_base=tool_base,
-              script=self._GetString(node, 'script'),
+              script=script,
               extras=extras,
               model=model)
           replace_dict = self._GetReplaceDict(
