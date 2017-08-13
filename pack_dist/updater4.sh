@@ -29,15 +29,9 @@ SCRIPT_BASE="$(dirname "$0")"
 cros_setup_path
 
 if [ -n "${UNIBUILD}" ]; then
-  cros_set_unibuild_vars
-
   # Image and key files were set in the shared crosfw.sh file. Set them again
   # here, since we want to use the files specific to the chosen model.
-  IMAGE_MAIN="${MODEL_DIR}/bios.bin"
-  IMAGE_MAIN_RW="${MODEL_DIR}/bios_rw.bin"  # optional image.
-  IMAGE_EC="${MODEL_DIR}/ec.bin"
-  IMAGE_PD="${MODEL_DIR}/pd.bin"
-  KEYSET_DIR="${MODEL_DIR}/keyset"
+  cros_set_unibuild_vars
 fi
 
 # ----------------------------------------------------------------------------
