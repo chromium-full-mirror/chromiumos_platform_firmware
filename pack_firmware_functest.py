@@ -214,8 +214,10 @@ class TestFunctional(unittest.TestCase):
   def testFirmwareUpdateUnibuild(self):
     """Run the firmware packer, unpack the result and check it."""
     models = ['reef', 'pyro']
-    extra_args = [
-        '-m', 'reef', '-m', 'pyro', '-c', 'test/config.dtb', '-i', 'functest']
+    extra_args = []
+    for model in models:
+      extra_args += ['-m', model]
+    extra_args += ['-c', 'test/config.dtb', '-i', 'functest']
     outfile, files, versions = self._RunPackFirmware(extra_args)
 
     self.assertEqual(22, len(files))
