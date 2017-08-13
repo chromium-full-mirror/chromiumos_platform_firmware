@@ -919,6 +919,43 @@ class FirmwarePacker(object):
       return False
     return True
 
+  @staticmethod
+  def _Fdt32ToCpu(val):
+    """Convert a device tree cell to an integer
+
+    Args:
+        val: Value to convert (4-character string representing the cell value).
+
+    Returns:
+        A native-endian integer value.
+    """
+    if sys.version_info > (3, 0):
+      if isinstance(val, bytes):
+        val = val.decode('utf-8')
+      val = val.encode('raw_unicode_escape')
+    return struct.unpack('>I', val)[0]
+
+  def _GetPhandleNode(self, node, prop_name):
+    """Follow a phandle to find the target node.
+
+    Args:
+      node: Integer offset of node to read from.
+      prop_name: Property name in that node which contains the phandle link.
+
+    Returns:
+      Integer offset of the target node, or None if the property or phandle
+      are not found.
+    """
+    prop = self._config.getprop(node, prop_name, libfdt.QUIET_NOTFOUND)
+    if type(prop) == int or prop[-1] < 0:
+      return None
+    phandle = self._Fdt32ToCpu(prop)
+    target = libfdt.check_err(libfdt.fdt_node_offset_by_phandle(
+        self._config._fdt, phandle), libfdt.QUIET_NOTFOUND)
+    if target < 0:
+      return None
+    return target
+
   def _ExtractFile(
       self, model, fname_template, node, prop_name, dirname, suffix=''):
     """Obtain a file based on provided information.
@@ -1018,14 +1055,20 @@ class FirmwarePacker(object):
           dirname = os.path.join(self._tmpdir, MODELS_DIR, model)
           if not os.path.exists(dirname):
             os.mkdir(dirname)
-          bios_image = self._ExtractFile(model, args.bios_image, node,
+
+          # If this model shares firmware with another model, get our
+          # images from there.
+          image_node = self._GetPhandleNode(node, 'shares')
+          if not image_node:
+            image_node = node
+          bios_image = self._ExtractFile(model, args.bios_image, image_node,
                                          'main-image', dirname)
-          bios_rw_image = self._ExtractFile(model, None, node, 'main-rw-image',
-                                            dirname, 'rw')
-          ec_image = self._ExtractFile(model, args.ec_image, node, 'ec-image',
-                                       dirname)
-          pd_image = self._ExtractFile(model, args.pd_image, node, 'pd-image',
-                                       dirname)
+          bios_rw_image = self._ExtractFile(model, None, image_node,
+                                            'main-rw-image', dirname, 'rw')
+          ec_image = self._ExtractFile(model, args.ec_image, image_node,
+                                       'ec-image', dirname)
+          pd_image = self._ExtractFile(model, args.pd_image, image_node,
+                                       'pd-image', dirname)
           extras = self._GetStringList(node, 'extra')
           if extras:
             extras = [os.path.expandvars(extra) for extra in extras]
@@ -1050,9 +1093,9 @@ class FirmwarePacker(object):
               model=model)
           replace_dict = self._GetReplaceDict(
               image_files,
-              self._GetString(node, 'stable-main-version'),
-              self._GetString(node, 'stable-ec-version'),
-              self._GetString(node, 'stable-pd-version'))
+              self._GetString(image_node, 'stable-main-version'),
+              self._GetString(image_node, 'stable-ec-version'),
+              self._GetString(image_node, 'stable-pd-version'))
           replace_dict['REPLACE_MODEL'] = model
           fname = os.path.join(self._basedir, MODELS_DIR, model, 'setvars.sh')
           self._CreateFileFromTemplate(self._setvars_template_file, fname,

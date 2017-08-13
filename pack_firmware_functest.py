@@ -213,14 +213,14 @@ class TestFunctional(unittest.TestCase):
 
   def testFirmwareUpdateUnibuild(self):
     """Run the firmware packer, unpack the result and check it."""
-    models = ['reef', 'pyro']
+    models = ['reef', 'pyro', 'electro']
     extra_args = []
     for model in models:
       extra_args += ['-m', model]
     extra_args += ['-c', 'test/config.dtb', '-i', 'functest']
     outfile, files, versions = self._RunPackFirmware(extra_args)
 
-    self.assertEqual(22, len(files))
+    self.assertEqual(25, len(files))
     self.assertEqual(self._ExpectedFiles(
         ['fake_extra_tool', 'ectool', 'image.bin'], models), files)
     with open(os.path.join(self.unpackdir, 'VERSION')) as fd:
@@ -249,6 +249,11 @@ class TestFunctional(unittest.TestCase):
         lambda(x): self.assertEqual('BIOS version: Google_Pyro.9042.41.0', x),
         lambda(x): self.assertIn('/pyro/ec.bin', x),
         lambda(x): self.assertEqual('EC version:   pyro_v1.1.5840-f0d7761', x),
+        lambda(x): self.assertEqual('', x),
+        lambda(x): self.assertIn('electro/image.bin', x),
+        lambda(x): self.assertEqual('BIOS version: Google_Reef.9042.50.0', x),
+        lambda(x): self.assertIn('/electro/ec.bin', x),
+        lambda(x): self.assertEqual('EC version:   reef_v1.1.5857-77f6ed7', x),
         lambda(x): self.assertEqual('', x),
     ]
     self.assertEqual(len(assertions), len(lines))

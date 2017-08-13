@@ -9,7 +9,7 @@
         models: models {
             reef {
                 wallpaper = "simon";
-                firmware {
+                reef_firmware: firmware {
                     bcs-overlay = "overlay-reef-private";
                     main-image = "bcs://Reef.9042.50.0.tbz2";
                     ec-image = "bcs://Reef_EC.9042.50.0.tbz2";
@@ -30,6 +30,11 @@
                     bcs-overlay = "overlay-snappy-private";
                     main-image = "bcs://Snappy.9042.43.0.tbz2";
                     ec-image = "bcs://Snappy_EC.9042.43.0.tbz2";
+                };
+            };
+            electro {
+                firmware {
+                    shares = <&reef_firmware>;
                 };
             };
         };
