@@ -652,6 +652,29 @@ class FirmwarePacker(object):
     os.chmod(dst, os.stat(dst).st_mode | mode)
     return dst
 
+  def _CopyUpdateScript(self, script):
+    """Copy the update script into the base directory.
+
+    The update script is the shell script executed to perform the update. It
+    needs to be copied into the base directory so it will appear in the
+    output file.
+
+    Args:
+      script: Update script being used (so that we can avoid copying the
+          other update scripts over).
+    """
+    for fname in glob.glob(os.path.join(self._pack_dist, '*')):
+      if (self._args.remove_inactive_updaters and 'updater' in fname and
+          not script in fname):
+        continue
+      newfile = self._CopyFile(fname, self._basedir, CHMOD_ALL_EXEC)
+      if self._force_dash and fname.endswith('.sh'):
+        with open(newfile) as fd:
+          lines = fd.read().splitlines()
+        lines = ['#!/bin/dash'] + lines[1:]
+        with open(newfile, 'w') as fd:
+          fd.write('\n'.join(lines))
+
   def _CopyBaseFiles(self, tool_base, tools, script):
     """Copy base files that every firmware update needs.
 
@@ -671,17 +694,7 @@ class FirmwarePacker(object):
       if os.path.exists(tool_fname + '_s'):
         tool_fname += '_s'
       self._CopyFile(tool_fname, self._BaseDirPath(tool), CHMOD_ALL_EXEC)
-    for fname in glob.glob(os.path.join(self._pack_dist, '*')):
-      if (self._args.remove_inactive_updaters and 'updater' in fname and
-          not script in fname):
-        continue
-      newfile = self._CopyFile(fname, self._basedir, CHMOD_ALL_EXEC)
-      if self._force_dash and fname.endswith('.sh'):
-        with open(newfile) as fd:
-          lines = fd.read().splitlines()
-        lines = ['#!/bin/dash'] + lines[1:]
-        with open(newfile, 'w') as fd:
-          fd.write('\n'.join(lines))
+    self._CopyUpdateScript(script)
 
   def _CopyExtraFiles(self, extras):
     """Copy extra files into the base directory.
