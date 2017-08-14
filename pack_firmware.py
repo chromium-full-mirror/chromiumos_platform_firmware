@@ -675,14 +675,12 @@ class FirmwarePacker(object):
         with open(newfile, 'w') as fd:
           fd.write('\n'.join(lines))
 
-  def _CopyBaseFiles(self, tool_base, tools, script):
+  def _CopyBaseFiles(self, tool_base, tools):
     """Copy base files that every firmware update needs.
 
     Args:
       tool_base: List of directories to check.
       tools: List of tools to copy.
-      script: Update script being used (so that we can avoid copying the
-          other update scripts over).
     """
     self._CopyFile(self._shflags_file, self._basedir)
     for tool in tools:
@@ -694,7 +692,6 @@ class FirmwarePacker(object):
       if os.path.exists(tool_fname + '_s'):
         tool_fname += '_s'
       self._CopyFile(tool_fname, self._BaseDirPath(tool), CHMOD_ALL_EXEC)
-    self._CopyUpdateScript(script)
 
   def _CopyExtraFiles(self, extras):
     """Copy extra files into the base directory.
@@ -831,7 +828,7 @@ class FirmwarePacker(object):
           print(fd.read())
 
   def _ProcessModel(self, model, bios_image, bios_rw_image, ec_image, pd_image,
-                    create_bios_rw_image, tools, tool_base, script, extras):
+                    create_bios_rw_image, tools, tool_base, extras):
     """Set up the firmware update for one model.
 
     Args:
@@ -845,7 +842,6 @@ class FirmwarePacker(object):
           if not provided.
       tools: List of tools to include in the update (e.g. ['mosys', 'ectool'].
       tool_base: List of directories to look in for tools.
-      script: Update script to use (e.g. 'updater4.sh').
       extras: List of extra files/directories to include.
 
     Returns:
@@ -853,9 +849,6 @@ class FirmwarePacker(object):
         key: Name, one of "BIOS", "BIOS (RW)", "EC", "EC (RW)", "PD", "PD (RW)".
         value: ImageFile, containing filename and version.
     """
-    main_script = os.path.join(self._pack_dist, script)
-    if not os.path.exists(main_script):
-      raise PackError("Cannot find required file '%s'" % main_script)
     for tool in tools:
       self._FindTool(tool_base, tool)
     if not bios_image and not ec_image and not pd_image:
@@ -874,7 +867,7 @@ class FirmwarePacker(object):
         image_ec=os.path.join(self._basedir, models_dir, model, IMAGE_EC),
         image_pd=os.path.join(self._basedir, models_dir, model, IMAGE_PD))
     self._WriteVersions(image_files)
-    self._CopyBaseFiles(tool_base, tools, script)
+    self._CopyBaseFiles(tool_base, tools)
     if extras:
       self._CopyExtraFiles(extras)
     return image_files
@@ -1101,7 +1094,6 @@ class FirmwarePacker(object):
               create_bios_rw_image=create_bios_rw_image,
               tools=tools,
               tool_base=tool_base,
-              script=script,
               extras=extras,
               model=model)
           replace_dict = self._GetReplaceDict(
@@ -1124,8 +1116,11 @@ class FirmwarePacker(object):
             create_bios_rw_image=args.create_bios_rw_image,
             tools=args.tools.split(),
             tool_base=tool_base,
-            script=script,
             extras=args.extra.split(':') if args.extra else [])
+      main_script = os.path.join(self._pack_dist, script)
+      if not os.path.exists(main_script):
+        raise PackError("Cannot find required file '%s'" % main_script)
+      self._CopyUpdateScript(script)
       replace_dict = self._GetReplaceDict(image_files, args.stable_main_version,
                                           args.stable_ec_version,
                                           args.stable_pd_version)

@@ -149,9 +149,10 @@ class TestUnit(unittest.TestCase):
       pack_firmware.main(['/'])
     self.assertIn("'/pack_stub'", str(e.exception))
 
-    # Comment
+    # Should complain if the selected updater is not available.
     with self.assertRaises(pack_firmware.PackError) as e:
-      pack_firmware.main(['test', '-o', 'out', '--tool_base', 'test'])
+      pack_firmware.main(['test', '-o', 'out', '--tool_base', 'test',
+                           '--tools', 'flashrom', '-b', 'test/image.bin'])
     self.assertIn("'pack_dist/updater.sh'", str(e.exception))
 
     # Should check for 'shar' tool.
