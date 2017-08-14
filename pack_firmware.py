@@ -1098,15 +1098,15 @@ class FirmwarePacker(object):
               tool_base=tool_base,
               extras=extras,
               model=model)
-          replace_dict = self._GetReplaceDict(
+          setvars_dict = self._GetReplaceDict(
               image_files,
               self._GetString(image_node, 'stable-main-version'),
               self._GetString(image_node, 'stable-ec-version'),
               self._GetString(image_node, 'stable-pd-version'))
-          replace_dict['REPLACE_MODEL'] = model
+          setvars_dict['REPLACE_MODEL'] = model
           fname = os.path.join(self._basedir, MODELS_DIR, model, 'setvars.sh')
           self._CreateFileFromTemplate(self._setvars_template_file, fname,
-                                       replace_dict, True)
+                                       setvars_dict, True)
       else:
         script = args.script
         image_files = self._ProcessModel(
