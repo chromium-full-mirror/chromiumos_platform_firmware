@@ -663,17 +663,23 @@ class FirmwarePacker(object):
       script: Update script being used (so that we can avoid copying the
           other update scripts over).
     """
+    copied = False
     for fname in glob.glob(os.path.join(self._pack_dist, '*')):
       if (self._args.remove_inactive_updaters and 'updater' in fname and
           not script in fname):
         continue
       newfile = self._CopyFile(fname, self._basedir, CHMOD_ALL_EXEC)
+      if not copied:
+        copied = script in fname
       if self._force_dash and fname.endswith('.sh'):
         with open(newfile) as fd:
           lines = fd.read().splitlines()
         lines = ['#!/bin/dash'] + lines[1:]
         with open(newfile, 'w') as fd:
           fd.write('\n'.join(lines))
+    if not copied:
+      raise PackError("Cannot find required file '%s'" %
+                      os.path.join(self._pack_dist, script))
 
   def _CopyBaseFiles(self, tool_base, tools):
     """Copy base files that every firmware update needs.
@@ -1117,9 +1123,6 @@ class FirmwarePacker(object):
             tools=args.tools.split(),
             tool_base=tool_base,
             extras=args.extra.split(':') if args.extra else [])
-      main_script = os.path.join(self._pack_dist, script)
-      if not os.path.exists(main_script):
-        raise PackError("Cannot find required file '%s'" % main_script)
       self._CopyUpdateScript(script)
       replace_dict = self._GetReplaceDict(image_files, args.stable_main_version,
                                           args.stable_ec_version,
