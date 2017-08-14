@@ -673,10 +673,11 @@ class FirmwarePacker(object):
         copied = script in fname
       if self._force_dash and fname.endswith('.sh'):
         with open(newfile) as fd:
-          lines = fd.read().splitlines()
-        lines = ['#!/bin/dash'] + lines[1:]
+          fd.readline()
+          rest = fd.read()
         with open(newfile, 'w') as fd:
-          fd.write('\n'.join(lines))
+          fd.write('#!/bin/dash\n')
+          fd.write(rest)
     if not copied:
       raise PackError("Cannot find required file '%s'" %
                       os.path.join(self._pack_dist, script))
