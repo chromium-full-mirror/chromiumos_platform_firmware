@@ -846,7 +846,8 @@ class FirmwarePacker(object):
     for tool in tools:
       self._FindTool(tool_base, tool)
     if not bios_image and not ec_image and not pd_image:
-      raise PackError('Must assign at least one of BIOS or EC or PD image')
+      raise PackError("Model '%s': Must assign at least one of BIOS or EC or "
+                      'PD image' % model)
     models_dir = MODELS_DIR if model else ''
     image_files = self._CopyFirmwareFiles(
         bios_image=bios_image,
