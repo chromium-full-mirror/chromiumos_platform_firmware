@@ -238,16 +238,18 @@ class TestFunctional(unittest.TestCase):
 
   def testFirmwareUpdateUnibuild(self):
     """Run the firmware packer, unpack the result and check it."""
-    models = ['reef', 'pyro', 'electro']
+    models = ['reef', 'pyro']
+    all_models = models + ['electro']  # Electro shares reef firmware.
     extra_args = []
-    for model in models:
+    for model in all_models:
       extra_args += ['-m', model]
     extra_args += ['-c', 'test/config.dtb', '-i', 'functest']
     outfile, files, versions = self._RunPackFirmware(extra_args)
 
-    self.assertEqual(25, len(files))
+    self.assertEqual(23, len(files))
     self.assertEqual(self._ExpectedFiles(
-        ['fake_extra_tool', 'ectool', 'image.bin'], models), files)
+        ['fake_extra_tool', 'ectool', 'image.bin', 'models/electro/setvars.sh'],
+        models), files)
     with open(os.path.join(self.unpackdir, 'VERSION')) as fd:
       lines = fd.read().splitlines()
 
@@ -275,9 +277,9 @@ class TestFunctional(unittest.TestCase):
         lambda(x): self.assertIn('/pyro/ec.bin', x),
         lambda(x): self.assertEqual('EC version:   pyro_v1.1.5840-f0d7761', x),
         lambda(x): self.assertEqual('', x),
-        lambda(x): self.assertIn('electro/image.bin', x),
+        lambda(x): self.assertIn('reef/image.bin', x),
         lambda(x): self.assertEqual('BIOS version: Google_Reef.9042.50.0', x),
-        lambda(x): self.assertIn('/electro/ec.bin', x),
+        lambda(x): self.assertIn('/reef/ec.bin', x),
         lambda(x): self.assertEqual('EC version:   reef_v1.1.5857-77f6ed7', x),
         lambda(x): self.assertEqual('', x),
     ]
@@ -293,11 +295,17 @@ class TestFunctional(unittest.TestCase):
     self.assertEqual(13, len(versions))
     self._CheckVersions(versions, '${MODEL_DIR}/%s')
 
+    versions = pack_firmware_utils.ReadVersions(
+        os.path.join(self.unpackdir, MODELS_DIR, 'electro/setvars.sh'))
+    self._CheckVersions(versions, 'models/reef/%s')
+
     # Run the firmware update for Reef and Pyro.
     self._RunScript(outfile, REEF_HWID, REEF_MODEL, REEF_STABLE_MAIN_VERSION,
                     unstable=True)
     self._RunScript(outfile, 'Pyro C25-R45-W23-H63-M33', 'pyro',
                     'Google_Pyro.9021.00.0')
+    self._RunScript(outfile, REEF_HWID, 'electro', REEF_STABLE_MAIN_VERSION,
+                    unstable=True)
 
   def _MakeImage(self, outfile, ro_id, rw_id=''):
     """Create a new firmware image with the given IDs."
