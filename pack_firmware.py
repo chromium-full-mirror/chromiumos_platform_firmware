@@ -529,8 +529,7 @@ class FirmwarePacker(object):
     self._CopyTimestamp(rw_fname, ec_fname)
 
   def _CopyFirmwareFiles(self, bios_image, bios_rw_image, ec_image, pd_image,
-                         create_bios_rw_image, image_main, image_main_rw,
-                         image_ec, image_pd):
+                         create_bios_rw_image, target_dir):
     """Process firmware files and copy them into the working directory.
 
     Args:
@@ -540,16 +539,17 @@ class FirmwarePacker(object):
       pd_image: Input filename of PD (Power Delivery) image.
       create_bios_rw_image: True to create a RW BIOS image from the main one
           if not provided.
-      image_main: Output filename to use for main image.
-      image_main_rw: Output filename to use for main RW image.
-      image_ec: Output filename to use for EC image.
-      image_pd: Output filename to use for PDimage.
+      target_dir: Target directory for output images.
 
     Returns:
       Dict containing information on the output image files:
         key: Name, one of BIOS, BIOS (RW), EC, EC (RW), PD, PD (RW).
         value: ImageFile, containing filename and version.
     """
+    image_main = os.path.join(target_dir, IMAGE_MAIN)
+    image_main_rw = os.path.join(target_dir, IMAGE_MAIN_RW)
+    image_ec = os.path.join(target_dir, IMAGE_EC)
+    image_pd = os.path.join(target_dir, IMAGE_PD)
     image_files = {}
     merge_bios_rw_image = self._args.merge_bios_rw_image
     if bios_image:
@@ -867,11 +867,7 @@ class FirmwarePacker(object):
         ec_image=ec_image,
         pd_image=pd_image,
         create_bios_rw_image=create_bios_rw_image,
-        image_main=os.path.join(self._basedir, models_dir, model, IMAGE_MAIN),
-        image_main_rw=os.path.join(self._basedir, models_dir, model,
-                                   IMAGE_MAIN_RW),
-        image_ec=os.path.join(self._basedir, models_dir, model, IMAGE_EC),
-        image_pd=os.path.join(self._basedir, models_dir, model, IMAGE_PD))
+        target_dir=os.path.join(self._basedir, models_dir, model))
     self._WriteVersions(image_files)
     self._CopyBaseFiles(tool_base, tools)
     if extras:
