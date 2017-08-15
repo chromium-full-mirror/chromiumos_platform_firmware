@@ -1002,6 +1002,73 @@ class FirmwarePacker(object):
     return self._UntarFile(
         os.path.join(self._args.imagedir, fname), dirname, suffix)
 
+  def _GenerateOneModel(self, model, args, tool_base):
+    """Generate the output files for a single model.
+
+    Aargs:
+      model: Name of model to process.
+      args: Command-line arguments (argparse.Namespace object).
+      tool_base: List of directories to check.
+
+    Returns:
+      Dict containing information on the output image files for this model:
+        key: Image name (e.g. 'BIOS (RW)' or 'EC').
+        value: ImageFile, containing filename and version.
+    """
+    node = self._config.path_offset('/chromeos/models/%s/firmware' %
+                                    model)
+    os.mkdir(self._BaseDirPath(os.path.join(MODELS_DIR, model)))
+
+    # Put all model files in a separate subdirectory.
+    dirname = os.path.join(self._tmpdir, MODELS_DIR, model)
+    if not os.path.exists(dirname):
+      os.mkdir(dirname)
+
+    # If this model shares firmware with another model, get our
+    # images from there.
+    image_node = self._GetPhandleNode(node, 'shares')
+    if not image_node:
+      image_node = node
+    bios_image = self._ExtractFile(model, args.bios_image, image_node,
+                                   'main-image', dirname)
+    bios_rw_image = self._ExtractFile(model, None, image_node,
+                                      'main-rw-image', dirname, 'rw')
+    ec_image = self._ExtractFile(model, args.ec_image, image_node, 'ec-image',
+                                 dirname)
+    pd_image = self._ExtractFile(model, args.pd_image, image_node, 'pd-image',
+                                 dirname)
+    extras = self._GetStringList(node, 'extra')
+    if extras:
+      extras = [os.path.expandvars(extra) for extra in extras]
+    create_bios_rw_image = self._GetBool(image_node, 'create-bios-rw-image')
+    if args.local:
+      create_bios_rw_image = False
+
+    tools = self._GetStringList(node, 'tools')
+    for tool in args.tools.split():
+      tools.append(tool)
+
+    image_files = self._ProcessModel(
+        bios_image=bios_image,
+        bios_rw_image=bios_rw_image,
+        ec_image=ec_image,
+        pd_image=pd_image,
+        create_bios_rw_image=create_bios_rw_image,
+        tools=tools,
+        tool_base=tool_base,
+        extras=extras,
+        model=model)
+    setvars_dict = self._GetReplaceDict(
+        image_files,
+        self._GetString(image_node, 'stable-main-version'),
+        self._GetString(image_node, 'stable-ec-version'),
+        self._GetString(image_node, 'stable-pd-version'))
+    setvars_dict['REPLACE_MODEL'] = model
+    fname = os.path.join(self._basedir, MODELS_DIR, model, 'setvars.sh')
+    self._CreateFileFromTemplate(self._setvars_template_file, fname,
+                                 setvars_dict, True)
+    return image_files
+
   def Start(self, argv, remove_tmpdirs=True):
     """Handle the creation of a firmware shell-ball.
 
@@ -1056,58 +1123,7 @@ class FirmwarePacker(object):
         os.mkdir(self._BaseDirPath(MODELS_DIR))
         os.mkdir(os.path.join(self._tmpdir, MODELS_DIR))
         for model in args.models:
-          node = self._config.path_offset('/chromeos/models/%s/firmware' %
-                                          model)
-          os.mkdir(self._BaseDirPath(os.path.join(MODELS_DIR, model)))
-
-          # Put all model files in a separate subdirectory.
-          dirname = os.path.join(self._tmpdir, MODELS_DIR, model)
-          if not os.path.exists(dirname):
-            os.mkdir(dirname)
-
-          # If this model shares firmware with another model, get our
-          # images from there.
-          image_node = self._GetPhandleNode(node, 'shares')
-          if not image_node:
-            image_node = node
-          bios_image = self._ExtractFile(model, args.bios_image, image_node,
-                                         'main-image', dirname)
-          bios_rw_image = self._ExtractFile(model, None, image_node,
-                                            'main-rw-image', dirname, 'rw')
-          ec_image = self._ExtractFile(model, args.ec_image, image_node,
-                                       'ec-image', dirname)
-          pd_image = self._ExtractFile(model, args.pd_image, image_node,
-                                       'pd-image', dirname)
-          extras = self._GetStringList(node, 'extra')
-          if extras:
-            extras = [os.path.expandvars(extra) for extra in extras]
-          create_bios_rw_image = self._GetBool(node, 'create-bios-rw-image')
-          if args.local:
-            create_bios_rw_image = False
-
-          tools = self._GetStringList(node, 'tools')
-          for tool in args.tools.split():
-            tools.append(tool)
-
-          image_files = self._ProcessModel(
-              bios_image=bios_image,
-              bios_rw_image=bios_rw_image,
-              ec_image=ec_image,
-              pd_image=pd_image,
-              create_bios_rw_image=create_bios_rw_image,
-              tools=tools,
-              tool_base=tool_base,
-              extras=extras,
-              model=model)
-          setvars_dict = self._GetReplaceDict(
-              image_files,
-              self._GetString(image_node, 'stable-main-version'),
-              self._GetString(image_node, 'stable-ec-version'),
-              self._GetString(image_node, 'stable-pd-version'))
-          setvars_dict['REPLACE_MODEL'] = model
-          fname = os.path.join(self._basedir, MODELS_DIR, model, 'setvars.sh')
-          self._CreateFileFromTemplate(self._setvars_template_file, fname,
-                                       setvars_dict, True)
+          image_files = self._GenerateOneModel(model, args, tool_base)
       else:
         script = args.script
         image_files = self._ProcessModel(
