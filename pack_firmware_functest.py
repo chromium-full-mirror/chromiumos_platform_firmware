@@ -211,6 +211,31 @@ class TestFunctional(unittest.TestCase):
     # Run the shellball to make sure we can do a fake autoupdate.
     self._RunScript(outfile, REEF_HWID, REEF_MODEL, REEF_STABLE_MAIN_VERSION)
 
+  def _CheckVersions(self, versions, base):
+    """Check the versions match expectations.
+
+    Args:
+      versions: Dict of version information:
+        key: Shell variable name..
+        value: Value of that variable.
+      base: Base directory format, e.g. 'models/reef/%s' for location of
+          firmware files.
+    """
+    self.assertEqual('Google_Reef.9042.50.0', versions['TARGET_FWID'])
+    self.assertEqual('Google_Reef.9042.50.0', versions['TARGET_RO_FWID'])
+    self.assertEqual('reef_v1.1.5857-77f6ed7', versions['TARGET_ECID'])
+
+    self.assertEqual('', versions['TARGET_PDID'])
+    self.assertEqual('Google_Reef.9042.43.0', versions['STABLE_FWID'])
+    self.assertEqual('reef-v1.1.5840-f0d7761', versions['STABLE_ECID'])
+    self.assertEqual('', versions['STABLE_PDID'])
+    self.assertEqual('Google_Reef', versions['TARGET_PLATFORM'])
+    self.assertEqual(base % 'bios.bin', versions['IMAGE_MAIN'])
+    self.assertEqual(base % 'bios_rw.bin', versions['IMAGE_MAIN_RW'])
+    self.assertEqual(base % 'ec.bin', versions['IMAGE_EC'])
+    self.assertEqual(base % 'pd.bin', versions['IMAGE_PD'])
+    self.assertEqual(base % 'keyset', versions['KEYSET_DIR'])
+
   def testFirmwareUpdateUnibuild(self):
     """Run the firmware packer, unpack the result and check it."""
     models = ['reef', 'pyro', 'electro']
@@ -266,21 +291,7 @@ class TestFunctional(unittest.TestCase):
     versions = pack_firmware_utils.ReadVersions(
         os.path.join(self.unpackdir, MODELS_DIR, 'reef/setvars.sh'))
     self.assertEqual(13, len(versions))
-    self.assertEqual('Google_Reef.9042.50.0', versions['TARGET_FWID'])
-    self.assertEqual('Google_Reef.9042.50.0', versions['TARGET_RO_FWID'])
-    self.assertEqual('reef_v1.1.5857-77f6ed7', versions['TARGET_ECID'])
-
-    self.assertEqual('', versions['TARGET_PDID'])
-    self.assertEqual('Google_Reef.9042.43.0', versions['STABLE_FWID'])
-    self.assertEqual('reef-v1.1.5840-f0d7761', versions['STABLE_ECID'])
-    self.assertEqual('', versions['STABLE_PDID'])
-    self.assertEqual('Google_Reef', versions['TARGET_PLATFORM'])
-    base = '${MODEL_DIR}/%s'
-    self.assertEqual(base % 'bios.bin', versions['IMAGE_MAIN'])
-    self.assertEqual(base % 'bios_rw.bin', versions['IMAGE_MAIN_RW'])
-    self.assertEqual(base % 'ec.bin', versions['IMAGE_EC'])
-    self.assertEqual(base % 'pd.bin', versions['IMAGE_PD'])
-    self.assertEqual(base % 'keyset', versions['KEYSET_DIR'])
+    self._CheckVersions(versions, '${MODEL_DIR}/%s')
 
     # Run the firmware update for Reef and Pyro.
     self._RunScript(outfile, REEF_HWID, REEF_MODEL, REEF_STABLE_MAIN_VERSION,
