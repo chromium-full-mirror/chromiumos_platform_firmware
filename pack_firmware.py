@@ -1015,20 +1015,20 @@ class FirmwarePacker(object):
         key: Image name (e.g. 'BIOS (RW)' or 'EC').
         value: ImageFile, containing filename and version.
     """
-    node = self._config.path_offset('/chromeos/models/%s/firmware' %
-                                    model)
-    os.mkdir(self._BaseDirPath(os.path.join(MODELS_DIR, model)))
-
-    # Put all model files in a separate subdirectory.
-    dirname = os.path.join(self._tmpdir, MODELS_DIR, model)
-    if not os.path.exists(dirname):
-      os.mkdir(dirname)
+    node = self._config.path_offset('/chromeos/models/%s/firmware' % model)
 
     # If this model shares firmware with another model, get our
     # images from there.
     image_node = self._GetPhandleNode(node, 'shares')
     if not image_node:
       image_node = node
+
+    os.mkdir(self._BaseDirPath(os.path.join(MODELS_DIR, model)))
+    # Put all model files in a separate subdirectory.
+    dirname = os.path.join(self._tmpdir, MODELS_DIR, model)
+    if not os.path.exists(dirname):
+      os.mkdir(dirname)
+
     bios_image = self._ExtractFile(model, args.bios_image, image_node,
                                    'main-image', dirname)
     bios_rw_image = self._ExtractFile(model, None, image_node,
