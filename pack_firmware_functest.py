@@ -19,6 +19,7 @@ import unittest
 
 from chromite.lib import cros_build_lib
 
+import pack_firmware
 from pack_firmware import FirmwarePacker
 import pack_firmware_utils
 
@@ -289,6 +290,8 @@ class TestFunctional(unittest.TestCase):
         assertion(lines[i])
 
     self.assertEqual('yes', versions['UNIBUILD'])
+    for var in pack_firmware.REPLACE_VARS:
+      self.assertEqual('<unused with unified builds>', versions[var])
 
     versions = pack_firmware_utils.ReadVersions(
         os.path.join(self.unpackdir, MODELS_DIR, 'reef/setvars.sh'))

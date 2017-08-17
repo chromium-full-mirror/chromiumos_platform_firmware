@@ -50,6 +50,17 @@ CHMOD_ALL_EXEC = 0555
 # For testing
 packer = None
 
+# Variables that we replace in pack_stub and setvars_template.
+REPLACE_VARS = [
+    'TARGET_RO_FWID',
+    'TARGET_FWID',
+    'TARGET_ECID',
+    'TARGET_PDID',
+    'TARGET_PLATFORM',
+    'STABLE_FWID',
+    'STABLE_ECID',
+    'STABLE_PDID',
+]
 
 class PackError(Exception):
   """Exception returned by FirmwarePacker when something goes wrong"""
@@ -765,7 +776,7 @@ class FirmwarePacker(object):
     }
 
   @staticmethod
-  def _CreateFileFromTemplate(infile, outfile, replace_dict, unibuild):
+  def _CreateFileFromTemplate(infile, outfile, replace_dict):
     """Create a new file based on a template and some string replacements.
 
     Args:
@@ -774,8 +785,6 @@ class FirmwarePacker(object):
       replace_dict: Dict with:
           key: String to replace.
           value: Value to replace with.
-      unibuild: True if this is for a unified build, in which case the UNIBUILD
-          variable will be set to 'yes' in outfile.
     """
     with open(infile) as fd:
       data = fd.read()
@@ -783,14 +792,11 @@ class FirmwarePacker(object):
     pattern = re.compile("|".join(rep.keys()))
     data = pattern.sub(lambda m: rep[re.escape(m.group(0))], data)
 
-    if unibuild:
-      data = re.sub('UNIBUILD=', 'UNIBUILD="yes"', data)
-
     with open(outfile, 'w') as fd:
       fd.write(data)
     os.chmod(outfile, os.stat(outfile).st_mode | 0555)
 
-  def _WriteUpdateScript(self, script, replace_dict, unibuild):
+  def _WriteUpdateScript(self, script, replace_dict):
     """Create and write the update script which will run on the device.
 
     This generates the beginnings of the output file (shellball) based on the
@@ -804,16 +810,18 @@ class FirmwarePacker(object):
       replace_dict: Modified by this function to add the script. Dict with:
           key: String to replace.
           value: Value to replace with.
-      unibuild: True if this is for a unified build, in which case the UNIBUILD
-          variable will be set to 'yes' in the output and the other
-          replacements will be marked unused.
+        Note: For unified builds this should be empty.
     """
-    if unibuild:
-      for key in replace_dict:
-        replace_dict[key] = '<unused with unified builds>'
+    if replace_dict:
+      unibuild = ''
+    else:
+      unibuild = '"yes"'
+      for key in REPLACE_VARS:
+        replace_dict['REPLACE_' + key] = '<unused with unified builds>'
+    replace_dict['REPLACE_UNIBUILD'] = 'UNIBUILD=%s' % unibuild
     replace_dict['REPLACE_SCRIPT'] = script
     self._CreateFileFromTemplate(self._stub_file, self._args.output,
-                                 replace_dict, unibuild)
+                                 replace_dict)
 
   def _WriteVersionFile(self):
     """Write out the VERSION file with our collected version information."""
@@ -1112,7 +1120,7 @@ class FirmwarePacker(object):
       setvars_dict['${MODEL_DIR}'] = 'models/%s' % shared_model
     fname = os.path.join(self._basedir, MODELS_DIR, model, 'setvars.sh')
     self._CreateFileFromTemplate(self._setvars_template_file, fname,
-                                 setvars_dict, True)
+                                 setvars_dict)
     return image_files
 
   def Start(self, argv, remove_tmpdirs=True):
@@ -1180,14 +1188,7 @@ class FirmwarePacker(object):
         for model in args.models:
           self._GenerateOneModel(
               model, args, tool_base, model_image_files, do_shared=True)
-
-        # This is used by _GetReplaceDict() which, for unified builds, only
-        # cares about the keys in this dict. It replaces all the values with
-        # '<unused with unified builds>'.
-        # TODO(sjg@chromium.org): Refactor this so that we have a separate code
-        # path for unified builds, to reduce confusion.
-        image_files = model_image_files[args.models[0]]
-
+        replace_dict = {}
       else:
         script = args.script
         image_files = self._ProcessModel(
@@ -1201,13 +1202,12 @@ class FirmwarePacker(object):
             tool_base=tool_base,
             extras=args.extra.split(':') if args.extra else [],
             shared_image_files=None)
+        replace_dict = self._GetReplaceDict(image_files,
+                                            args.stable_main_version,
+                                            args.stable_ec_version,
+                                            args.stable_pd_version)
       self._CopyUpdateScript(script)
-      replace_dict = self._GetReplaceDict(image_files,
-                                          args.stable_main_version,
-                                          args.stable_ec_version,
-                                          args.stable_pd_version)
-      self._WriteUpdateScript(script, replace_dict,
-                              unibuild=args.models is not None)
+      self._WriteUpdateScript(script, replace_dict)
       self._WriteVersionFile()
       self._BuildShellball()
       if not args.quiet:

@@ -3,10 +3,11 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# This is enabled by pack_firmware.py when unified builds is being used.
-# In that case the variables below are set later because we don't have access
-# to the configuration until we unpack the archive.
-UNIBUILD=
+# This is replaced by 'UNIBUILD=' for non-unibuild, or 'UNIBUILD="yes"' for
+# unibuild by pack_firmware.py. In the unibuild case the variables below are
+# not used, but are set later by the setvars.sh script, since we don't have
+# access to the configuration until we unpack the archive.
+REPLACE_UNIBUILD
 
 if [ -z "${UNIBUILD}" ]; then
   # Version information. Please keep this in head of the updater.
