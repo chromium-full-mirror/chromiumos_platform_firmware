@@ -752,13 +752,13 @@ class FirmwarePacker(object):
     if not bios_rw_version:
       bios_rw_version = image_files['BIOS'].version
     return {
-        'REPLACE_RO_FWID': image_files['BIOS'].version,
-        'REPLACE_FWID': bios_rw_version,
-        'REPLACE_ECID': image_files.get('EC', empty).version,
-        'REPLACE_PDID': image_files.get('PD', empty).version,
+        'REPLACE_TARGET_RO_FWID': image_files['BIOS'].version,
+        'REPLACE_TARGET_FWID': bios_rw_version,
+        'REPLACE_TARGET_ECID': image_files.get('EC', empty).version,
+        'REPLACE_TARGET_PDID': image_files.get('PD', empty).version,
         # Set platform to first field of firmware version
         # (ex: Google_Link.1234 -> Google_Link).
-        'REPLACE_PLATFORM': image_files['BIOS'].version.split('.')[0],
+        'REPLACE_TARGET_PLATFORM': image_files['BIOS'].version.split('.')[0],
         'REPLACE_STABLE_FWID': stable_main_version,
         'REPLACE_STABLE_ECID': stable_ec_version,
         'REPLACE_STABLE_PDID': stable_pd_version,
