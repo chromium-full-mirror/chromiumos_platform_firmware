@@ -88,8 +88,7 @@ class TestFunctional(unittest.TestCase):
         expected_files.append(os.path.join(MODELS_DIR, model, 'setvars.sh'))
     return sorted(expected_files)
 
-  def _RunScript(self, outfile, hwid, model, stable_main_version,
-                 unstable=False):
+  def _RunScript(self, outfile, hwid, model, stable_main_version):
     """Run an autoupdate with the shellball and check that it works.
 
     This relies on fake tools, principally crossystem which is controlled by
@@ -100,7 +99,6 @@ class TestFunctional(unittest.TestCase):
       hwid: Hardware ID to provide when the script asks for the hardware ID
       model: Model name to provide when the script asks for it.
       stable_main_version: Value to return when RO_FWID is requested.
-      unstable: True to allow an error about unstable EC firmware.
     """
     # These are used by our fake crossystem script (see functest/ directory).
     os.environ['FAKE_BIOS_BIN'] = os.path.join(self.indir, 'image.bin')
@@ -123,11 +121,7 @@ class TestFunctional(unittest.TestCase):
     # We expect debugging output but should not get anything else.
     errors = [line for line in result.error.splitlines()
               if not line.startswith(' (DEBUG')]
-    if unstable:
-      self.assertEqual(errors,
-                       ['One-time RO+RW update from unstable EC firmware.'])
-    else:
-      self.assertEqual(errors, [])
+    self.assertEqual(errors, [])
 
   def _RunPackFirmware(self, extra_args):
     """Run the FirmwarePacker process and read the resulting shellball.
@@ -186,7 +180,7 @@ class TestFunctional(unittest.TestCase):
       lines = fd.read().splitlines()
     self.assertEqual(8, len(lines))
     self.assertEqual(
-        'flashrom(8): 97e2e0a5685515808cee43002df52861 '
+        'flashrom(8): 27d59f95527b6a3bfa28c40cfe6bdf5d '
         '*%s/functest/flashrom' % self.basedir, lines[1])
     self.assertEqual('             data', lines[2])
     self.assertEqual('             0.9.4  : 1bb61e1 : Feb 07 2017 18:29:17 UTC',
@@ -258,7 +252,7 @@ class TestFunctional(unittest.TestCase):
     assertions = [
         None,  # Skip testing first line.
         lambda(x): self.assertEqual(
-            'flashrom(8): 97e2e0a5685515808cee43002df52861 '
+            'flashrom(8): 27d59f95527b6a3bfa28c40cfe6bdf5d '
             '*%s/functest/flashrom' % self.basedir, x),
         lambda(x): self.assertEqual('             data', x),
         lambda(x): self.assertEqual(
@@ -303,12 +297,10 @@ class TestFunctional(unittest.TestCase):
     self._CheckVersions(versions, 'models/reef/%s')
 
     # Run the firmware update for Reef and Pyro.
-    self._RunScript(outfile, REEF_HWID, REEF_MODEL, REEF_STABLE_MAIN_VERSION,
-                    unstable=True)
+    self._RunScript(outfile, REEF_HWID, REEF_MODEL, REEF_STABLE_MAIN_VERSION)
     self._RunScript(outfile, 'Pyro C25-R45-W23-H63-M33', 'pyro',
                     'Google_Pyro.9021.00.0')
-    self._RunScript(outfile, REEF_HWID, 'electro', REEF_STABLE_MAIN_VERSION,
-                    unstable=True)
+    self._RunScript(outfile, REEF_HWID, 'electro', REEF_STABLE_MAIN_VERSION)
 
   def _MakeImage(self, outfile, ro_id, rw_id=''):
     """Create a new firmware image with the given IDs."

@@ -38,6 +38,9 @@ crosfw_unpack_image() {
   local type_name="$1" image_name="$2" target_opt="$3"
   debug_msg "preparing $type_name firmware images..."
   mkdir -p "$DIR_TARGET/$type_name"
+  if [ -n "$(dirname ${image_name})" ]; then
+    mkdir -p "${DIR_TARGET}/$(dirname ${image_name})"
+  fi
   cp -f "$image_name" "$DIR_TARGET/$image_name"
   ( cd "$DIR_TARGET/$type_name";
     dump_fmap -x "../$image_name" >/dev/null 2>&1) ||
@@ -55,6 +58,9 @@ crosfw_unpack_current_image() {
   for i in $@ ; do
     list="$list -i $i"
   done
+  if [ -n "$(dirname ${image_name})" ]; then
+    mkdir -p "${DIR_CURRENT}/$(dirname ${image_name})"
+  fi
   invoke "flashrom $target_opt $list -r $DIR_CURRENT/$image_name"
   # current may not have FMAP... (ex, from factory setup)
   ( cd "$DIR_CURRENT/$type_name";
