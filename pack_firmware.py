@@ -1031,11 +1031,14 @@ class FirmwarePacker(object):
     return self._UntarFile(
         os.path.join(self._args.imagedir, fname), dirname, suffix)
 
-  def _GenerateOneModel(self, model, args, tool_base, model_image_files,
-                        do_shared):
+  def _GenerateOneModel(self, model, args, tool_base, model_image_files):
     """Generate the output files for a single model.
 
-    Aargs:
+    Create the firmware files and set up the 'setvars.sh' script for a single
+    model. If this model uses shared firmware the files are reused from the
+    shared model rather than being recreated.
+
+    Args:
       model: Name of model to process.
       args: Command-line arguments (argparse.Namespace object).
       tool_base: List of directories to check.
@@ -1044,33 +1047,27 @@ class FirmwarePacker(object):
         value: Dict of image file information:
           key: Image name (e.g. 'BIOS (RW)' or 'EC').
           value: ImageFile object for that image.
-      do_shared: True to process only models which share another model's
-          firmware. False to process only models with their own firmware.
 
     Returns:
       Dict containing information on the output image files for this model:
         key: Image name (e.g. 'BIOS (RW)' or 'EC').
         value: ImageFile, containing filename and version.
     """
-    node = self._config.path_offset('/chromeos/models/%s/firmware' % model)
+    firmware_node = self._config.path_offset('/chromeos/models/%s/firmware' %
+                                             model)
 
     # If this model shares firmware with another model, get our
     # images from there.
-    image_node = self._GetPhandleNode(node, 'shares')
+    image_node = self._GetPhandleNode(firmware_node, 'shares')
+    shared_image_files = None
     if image_node:
-      if not do_shared:
-        return None
-      parent = self._GetParentNode(image_node)
-      if not parent:
-        raise PackError("Cannot find shared model for model '%s'" % model)
-      shared_model = self._config.get_name(parent)
-      shared_image_files = model_image_files[shared_model]
+      node = image_node  # Override the node - use the shared firmware instead.
+      shared_model = self._config.get_name(image_node)
+      if shared_model in model_image_files:
+        shared_image_files = model_image_files[shared_model]
     else:
-      if do_shared:
-        return None
-      image_node = node
+      node = firmware_node
       shared_model = None
-      shared_image_files = None
 
     os.mkdir(self._BaseDirPath(os.path.join(MODELS_DIR, model)))
     # Put all model files in a separate subdirectory.
@@ -1078,18 +1075,18 @@ class FirmwarePacker(object):
     if not os.path.exists(dirname):
       os.mkdir(dirname)
 
-    bios_image = self._ExtractFile(model, args.bios_image, image_node,
-                                   'main-image', dirname)
-    bios_rw_image = self._ExtractFile(model, None, image_node,
-                                      'main-rw-image', dirname, 'rw')
-    ec_image = self._ExtractFile(model, args.ec_image, image_node, 'ec-image',
+    bios_image = self._ExtractFile(model, args.bios_image, node, 'main-image',
+                                   dirname)
+    bios_rw_image = self._ExtractFile(model, None, node, 'main-rw-image',
+                                      dirname, 'rw')
+    ec_image = self._ExtractFile(model, args.ec_image, node, 'ec-image',
                                  dirname)
-    pd_image = self._ExtractFile(model, args.pd_image, image_node, 'pd-image',
+    pd_image = self._ExtractFile(model, args.pd_image, node, 'pd-image',
                                  dirname)
     extras = self._GetStringList(node, 'extra')
     if extras:
       extras = [os.path.expandvars(extra) for extra in extras]
-    create_bios_rw_image = self._GetBool(image_node, 'create-bios-rw-image')
+    create_bios_rw_image = self._GetBool(node, 'create-bios-rw-image')
     if args.local:
       create_bios_rw_image = False
 
@@ -1110,9 +1107,9 @@ class FirmwarePacker(object):
         shared_image_files=shared_image_files)
     setvars_dict = self._GetReplaceDict(
         image_files,
-        self._GetString(image_node, 'stable-main-version'),
-        self._GetString(image_node, 'stable-ec-version'),
-        self._GetString(image_node, 'stable-pd-version'))
+        self._GetString(node, 'stable-main-version'),
+        self._GetString(node, 'stable-ec-version'),
+        self._GetString(node, 'stable-pd-version'))
     setvars_dict['REPLACE_MODEL'] = model
     if shared_model:
       setvars_dict['${MODEL_DIR}'] = 'models/%s' % shared_model
@@ -1176,16 +1173,9 @@ class FirmwarePacker(object):
         os.mkdir(os.path.join(self._tmpdir, MODELS_DIR))
         model_image_files = {}
 
-        # Process models with their own firmware first, to populate the
-        # model_image_files dict.
         for model in args.models:
-          image_files = self._GenerateOneModel(
-              model, args, tool_base, model_image_files, do_shared=False)
-          if image_files:
-            model_image_files[model] = image_files
-        for model in args.models:
-          self._GenerateOneModel(
-              model, args, tool_base, model_image_files, do_shared=True)
+          model_image_files[model] = self._GenerateOneModel(
+              model, args, tool_base, model_image_files)
         replace_dict = {}
       else:
         script = args.script

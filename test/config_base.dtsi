@@ -3,19 +3,22 @@
         family {
             firmware {
                 script = "updater4.sh";
-            };
-        };
-
-        models: models {
-            reef {
-                wallpaper = "simon";
-                reef_firmware: firmware {
+                reef_firmware: reef {
                     bcs-overlay = "overlay-reef-private";
                     main-image = "bcs://Reef.9042.50.0.tbz2";
                     ec-image = "bcs://Reef_EC.9042.50.0.tbz2";
                     stable-main-version = "Google_Reef.9042.43.0";
                     stable-ec-version = "reef-v1.1.5840-f0d7761";
                     extra = "${FILESDIR}/extra", "${SYSROOT}/usr/sbin/ectool", "bcs://Reef.9000.0.0.tbz2";
+                };
+            };
+        };
+
+        models: models {
+            reef {
+                wallpaper = "simon";
+                firmware {
+                    shares = <&reef_firmware>;
                 };
             };
             pyro {

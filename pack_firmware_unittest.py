@@ -392,7 +392,7 @@ class TestUnit(unittest.TestCase):
       Integer offset of the firmware node.
     """
     self.packer._SetUpConfig('test/config.dtb')
-    return self.packer._config.path_offset('/chromeos/models/reef/firmware')
+    return self.packer._config.path_offset('/chromeos/family/firmware/reef')
 
   def testGetString(self):
     """Check that we can read strings from the master configuration."""

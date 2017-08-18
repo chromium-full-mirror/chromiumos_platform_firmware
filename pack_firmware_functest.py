@@ -206,15 +206,13 @@ class TestFunctional(unittest.TestCase):
     # Run the shellball to make sure we can do a fake autoupdate.
     self._RunScript(outfile, REEF_HWID, REEF_MODEL, REEF_STABLE_MAIN_VERSION)
 
-  def _CheckVersions(self, versions, base):
-    """Check the versions match expectations.
+  def _CheckVersionsReef(self, versions):
+    """Check the versions match expectations for reef.
 
     Args:
       versions: Dict of version information:
         key: Shell variable name..
         value: Value of that variable.
-      base: Base directory format, e.g. 'models/reef/%s' for location of
-          firmware files.
     """
     self.assertEqual('Google_Reef.9042.50.0', versions['TARGET_FWID'])
     self.assertEqual('Google_Reef.9042.50.0', versions['TARGET_RO_FWID'])
@@ -225,6 +223,17 @@ class TestFunctional(unittest.TestCase):
     self.assertEqual('reef-v1.1.5840-f0d7761', versions['STABLE_ECID'])
     self.assertEqual('', versions['STABLE_PDID'])
     self.assertEqual('Google_Reef', versions['TARGET_PLATFORM'])
+
+  def _CheckVars(self, versions, base):
+    """Check the filenames match expectations.
+
+    Args:
+      versions: Dict of version information:
+        key: Shell variable name..
+        value: Value of that variable.
+      base: Base directory format for location of firmware files (e.g.
+          'models/reef/%s').
+    """
     self.assertEqual(base % 'bios.bin', versions['IMAGE_MAIN'])
     self.assertEqual(base % 'bios_rw.bin', versions['IMAGE_MAIN_RW'])
     self.assertEqual(base % 'ec.bin', versions['IMAGE_EC'])
@@ -276,6 +285,10 @@ class TestFunctional(unittest.TestCase):
         lambda(x): self.assertEqual('BIOS version: Google_Reef.9042.50.0', x),
         lambda(x): self.assertIn('/reef/ec.bin', x),
         lambda(x): self.assertEqual('EC version:   reef_v1.1.5857-77f6ed7', x),
+        lambda(x): self.assertEqual('Extra files from folder: test/extra', x),
+        lambda(x): self.assertEqual('Extra file: test/usr/sbin/ectool', x),
+        lambda(x): self.assertIn('Extra BCS file: bcs://Reef.9000.0.0.tbz2: '
+                                 '/tmp', x),
         lambda(x): self.assertEqual('', x),
     ]
     self.assertEqual(len(assertions), len(lines))
@@ -290,11 +303,18 @@ class TestFunctional(unittest.TestCase):
     versions = pack_firmware_utils.ReadVersions(
         os.path.join(self.unpackdir, MODELS_DIR, 'reef/setvars.sh'))
     self.assertEqual(13, len(versions))
-    self._CheckVersions(versions, '${MODEL_DIR}/%s')
+    self._CheckVersionsReef(versions)
+    self._CheckVars(versions, 'models/reef/%s')
 
     versions = pack_firmware_utils.ReadVersions(
         os.path.join(self.unpackdir, MODELS_DIR, 'electro/setvars.sh'))
-    self._CheckVersions(versions, 'models/reef/%s')
+    self._CheckVersionsReef(versions)
+    self._CheckVars(versions, 'models/reef/%s')
+
+    versions = pack_firmware_utils.ReadVersions(
+        os.path.join(self.unpackdir, MODELS_DIR, 'pyro/setvars.sh'))
+    self.assertEqual('Google_Pyro.9042.41.0', versions['TARGET_FWID'])
+    self._CheckVars(versions, '${MODEL_DIR}/%s')
 
     # Run the firmware update for Reef and Pyro.
     self._RunScript(outfile, REEF_HWID, REEF_MODEL, REEF_STABLE_MAIN_VERSION)
