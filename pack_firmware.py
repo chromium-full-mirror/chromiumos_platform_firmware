@@ -43,6 +43,16 @@ MODELS_DIR = 'models'
 Section = collections.namedtuple('Section', ['offset', 'size'])
 ImageFile = collections.namedtuple('ImageFile', ['filename', 'version'])
 
+# image_files:  Dict containing information on the output image files for this
+#     model:
+#   key: Image name (e.g. 'BIOS (RW)' or 'EC').
+#   value: ImageFile, containing filename and version.
+# shared_model: shared model name if this model shares firmware with another
+#     model (or None if it does not)
+# key_id: key ID to use to sign the image for this model
+ModelDetails = collections.namedtuple(
+    'ModelDetails', ['image_files', 'shared_model', 'key_id'])
+
 # File execution permissions. We could use state.S_... but that's confusing.
 CHMOD_ALL_READ = 0444
 CHMOD_ALL_EXEC = 0555
@@ -1031,7 +1041,7 @@ class FirmwarePacker(object):
     return self._UntarFile(
         os.path.join(self._args.imagedir, fname), dirname, suffix)
 
-  def _GenerateOneModel(self, model, args, tool_base, model_image_files):
+  def _GenerateOneModel(self, model, args, tool_base, model_details):
     """Generate the output files for a single model.
 
     Create the firmware files and set up the 'setvars.sh' script for a single
@@ -1042,16 +1052,12 @@ class FirmwarePacker(object):
       model: Name of model to process.
       args: Command-line arguments (argparse.Namespace object).
       tool_base: List of directories to check.
-      model_image_files: Dict of model image file information collected so far:
-        key: model name
-        value: Dict of image file information:
-          key: Image name (e.g. 'BIOS (RW)' or 'EC').
-          value: ImageFile object for that image.
+      model_details: Dict:
+          key: Model name.
+          value: ModelDetails object for that model.
 
     Returns:
-      Dict containing information on the output image files for this model:
-        key: Image name (e.g. 'BIOS (RW)' or 'EC').
-        value: ImageFile, containing filename and version.
+      ModelDetails object for |model|.
     """
     firmware_node = self._config.path_offset('/chromeos/models/%s/firmware' %
                                              model)
@@ -1063,8 +1069,8 @@ class FirmwarePacker(object):
     if image_node:
       node = image_node  # Override the node - use the shared firmware instead.
       shared_model = self._config.get_name(image_node)
-      if shared_model in model_image_files:
-        shared_image_files = model_image_files[shared_model]
+      if shared_model in model_details:
+        shared_image_files = model_details[shared_model].image_files
     else:
       node = firmware_node
       shared_model = None
@@ -1113,10 +1119,34 @@ class FirmwarePacker(object):
     setvars_dict['REPLACE_MODEL'] = model
     if shared_model:
       setvars_dict['${MODEL_DIR}'] = 'models/%s' % shared_model
+    key_id = self._GetString(firmware_node, 'key-id')
+    setvars_dict['REPLACE_KEY_ID'] = key_id
     fname = os.path.join(self._basedir, MODELS_DIR, model, 'setvars.sh')
     self._CreateFileFromTemplate(self._setvars_template_file, fname,
                                  setvars_dict)
-    return image_files
+    return ModelDetails(image_files, shared_model, key_id)
+
+  def _WriteSignerInstructions(self, models, model_details):
+    """Write the signer instructions file.
+
+    This file tells the signer the mapping between models and their images and
+    key IDs. The signer uses this to work out which images to sign, the key to
+    use to sign each image and the model name to use in the vblock filename.
+
+    Args:
+      models: List of models to process (each a string) in the order that the
+          information is wanted in the instruction file.
+      model_details: Dict:
+          key: Model name.
+          value: ModelDetails object for that model.
+    """
+    with open(self._BaseDirPath('signer_config.csv'), 'w') as fd:
+      print('model_name,firmware_image,key_id', file=fd)
+      for model in models:
+        details = model_details[model]
+        image_fname = os.path.join(MODELS_DIR, details.shared_model or model,
+                                   IMAGE_MAIN)
+        print('%s,%s,%s' % (model, image_fname, details.key_id), file=fd)
 
   def Start(self, argv, remove_tmpdirs=True):
     """Handle the creation of a firmware shell-ball.
@@ -1138,6 +1168,7 @@ class FirmwarePacker(object):
       self._basedir = self._CreateTmpDir()
       self._tmpdir = self._CreateTmpDir()
       self._AddFlashromVersion(tool_base)
+      model_details = {}
       if args.models:
         # Most of the arguments are meaningless with unified builds since we
         # get the information from the master configuration. Add checks here
@@ -1171,11 +1202,10 @@ class FirmwarePacker(object):
 
         os.mkdir(self._BaseDirPath(MODELS_DIR))
         os.mkdir(os.path.join(self._tmpdir, MODELS_DIR))
-        model_image_files = {}
 
         for model in args.models:
-          model_image_files[model] = self._GenerateOneModel(
-              model, args, tool_base, model_image_files)
+          model_details[model] = self._GenerateOneModel(
+              model, args, tool_base, model_details)
         replace_dict = {}
       else:
         script = args.script
@@ -1197,6 +1227,8 @@ class FirmwarePacker(object):
       self._CopyUpdateScript(script)
       self._WriteUpdateScript(script, replace_dict)
       self._WriteVersionFile()
+      if model_details:
+        self._WriteSignerInstructions(args.models, model_details)
       self._BuildShellball()
       if not args.quiet:
         print('Packed output image is: %s' % args.output)

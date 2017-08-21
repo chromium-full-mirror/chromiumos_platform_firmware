@@ -19,6 +19,7 @@
                 wallpaper = "simon";
                 firmware {
                     shares = <&reef_firmware>;
+                    key-id = "reef";
                 };
             };
             pyro {
@@ -26,6 +27,7 @@
                     bcs-overlay = "overlay-pyro-private";
                     main-image = "bcs://Pyro.9042.41.0.tbz2";
                     ec-image = "bcs://Pyro_EC.9042.41.0.tbz2";
+                    key-id = "pyro";
                 };
             };
             snappy {
@@ -33,11 +35,13 @@
                     bcs-overlay = "overlay-snappy-private";
                     main-image = "bcs://Snappy.9042.43.0.tbz2";
                     ec-image = "bcs://Snappy_EC.9042.43.0.tbz2";
+                    key-id = "snappy";
                 };
             };
             electro {
                 firmware {
                     shares = <&reef_firmware>;
+                    key-id = "electro";
                 };
             };
         };

@@ -32,10 +32,10 @@ def ReadVersions(fname):
   with open(fname) as fd:
     lines = fd.read(1000).splitlines()[:30]
   # Use strip() where needed since some lines are indented.
-  prefixes = ['TARGET', 'STABLE', 'IMAGE', 'KEYSET']
+  prefixes = ['TARGET', 'STABLE', 'IMAGE', 'KEYSET', 'KEY']
   lines = [line.strip() for line in lines
-            if line.strip().split('_')[0] in prefixes or
-            line.startswith('UNIBUILD')]
+           if line.strip().split('_')[0] in prefixes or
+           line.startswith('UNIBUILD')]
   versions = {}
   for line in lines:
     m = RE_KEY_VALUE.match(line)

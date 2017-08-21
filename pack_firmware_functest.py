@@ -224,21 +224,23 @@ class TestFunctional(unittest.TestCase):
     self.assertEqual('', versions['STABLE_PDID'])
     self.assertEqual('Google_Reef', versions['TARGET_PLATFORM'])
 
-  def _CheckVars(self, versions, base):
-    """Check the filenames match expectations.
+  def _CheckVars(self, versions, base, key_id):
+    """Check the versions match expectations.
 
     Args:
       versions: Dict of version information:
         key: Shell variable name..
         value: Value of that variable.
-      base: Base directory format for location of firmware files (e.g.
-          'models/reef/%s').
+      base: Base directory format, e.g. 'models/reef/%s' for location of
+          firmware files.
+      key_id: Expected key id.
     """
     self.assertEqual(base % 'bios.bin', versions['IMAGE_MAIN'])
     self.assertEqual(base % 'bios_rw.bin', versions['IMAGE_MAIN_RW'])
     self.assertEqual(base % 'ec.bin', versions['IMAGE_EC'])
     self.assertEqual(base % 'pd.bin', versions['IMAGE_PD'])
     self.assertEqual(base % 'keyset', versions['KEYSET_DIR'])
+    self.assertEqual(key_id, versions['KEY_ID'])
 
   def testFirmwareUpdateUnibuild(self):
     """Run the firmware packer, unpack the result and check it."""
@@ -250,9 +252,10 @@ class TestFunctional(unittest.TestCase):
     extra_args += ['-c', 'test/config.dtb', '-i', 'functest']
     outfile, files, versions = self._RunPackFirmware(extra_args)
 
-    self.assertEqual(23, len(files))
+    self.assertEqual(24, len(files))
     self.assertEqual(self._ExpectedFiles(
-        ['fake_extra_tool', 'ectool', 'image.bin', 'models/electro/setvars.sh'],
+        ['fake_extra_tool', 'ectool', 'image.bin', 'models/electro/setvars.sh',
+         'signer_config.csv'],
         models), files)
     with open(os.path.join(self.unpackdir, 'VERSION')) as fd:
       lines = fd.read().splitlines()
@@ -302,19 +305,26 @@ class TestFunctional(unittest.TestCase):
 
     versions = pack_firmware_utils.ReadVersions(
         os.path.join(self.unpackdir, MODELS_DIR, 'reef/setvars.sh'))
-    self.assertEqual(13, len(versions))
+    self.assertEqual(14, len(versions))
     self._CheckVersionsReef(versions)
-    self._CheckVars(versions, 'models/reef/%s')
+    self._CheckVars(versions, 'models/reef/%s', 'reef')
 
     versions = pack_firmware_utils.ReadVersions(
         os.path.join(self.unpackdir, MODELS_DIR, 'electro/setvars.sh'))
     self._CheckVersionsReef(versions)
-    self._CheckVars(versions, 'models/reef/%s')
+    self._CheckVars(versions, 'models/reef/%s', 'electro')
 
     versions = pack_firmware_utils.ReadVersions(
         os.path.join(self.unpackdir, MODELS_DIR, 'pyro/setvars.sh'))
     self.assertEqual('Google_Pyro.9042.41.0', versions['TARGET_FWID'])
-    self._CheckVars(versions, '${MODEL_DIR}/%s')
+    self._CheckVars(versions, '${MODEL_DIR}/%s', 'pyro')
+
+    with open(os.path.join(self.unpackdir, 'signer_config.csv')) as fd:
+      lines = fd.read().splitlines()
+    self.assertEqual('model_name,firmware_image,key_id', lines[0])
+    self.assertEqual('reef,models/reef/bios.bin,reef', lines[1])
+    self.assertEqual('pyro,models/pyro/bios.bin,pyro', lines[2])
+    self.assertEqual('electro,models/reef/bios.bin,electro', lines[3])
 
     # Run the firmware update for Reef and Pyro.
     self._RunScript(outfile, REEF_HWID, REEF_MODEL, REEF_STABLE_MAIN_VERSION)
