@@ -975,8 +975,7 @@ class FirmwarePacker(object):
     if type(prop) == int or prop[-1] < 0:
       return None
     phandle = self._Fdt32ToCpu(prop)
-    target = libfdt.check_err(libfdt.fdt_node_offset_by_phandle(
-        self._config._fdt, phandle), libfdt.QUIET_NOTFOUND)
+    target = self._config.node_offset_by_phandle(phandle, libfdt.QUIET_NOTFOUND)
     if target < 0:
       return None
     return target
@@ -990,8 +989,7 @@ class FirmwarePacker(object):
     Returns:
       Integer offset of the parent, or None if this is the root node.
     """
-    parent = libfdt.check_err(libfdt.fdt_parent_offset(
-        self._config._fdt, node), libfdt.QUIET_NOTFOUND)
+    parent = self._config.parent_offset(node, libfdt.QUIET_NOTFOUND)
     if parent < 0:
       return None
     return parent
