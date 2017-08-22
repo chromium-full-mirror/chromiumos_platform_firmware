@@ -881,13 +881,13 @@ class FirmwarePacker(object):
     """
     for tool in tools:
       self._FindTool(tool_base, tool)
-    if not bios_image and not ec_image and not pd_image:
-      raise PackError("Model '%s': Must assign at least one of BIOS or EC or "
-                      'PD image' % model)
     models_dir = MODELS_DIR if model else ''
     if shared_image_files:
       image_files = shared_image_files
     else:
+      if not bios_image and not ec_image and not pd_image:
+        raise PackError("Model '%s': Must assign at least one of BIOS or EC or "
+                        'PD image' % model)
       image_files = self._CopyFirmwareFiles(
           bios_image=bios_image,
           bios_rw_image=bios_rw_image,
@@ -1081,14 +1081,17 @@ class FirmwarePacker(object):
     if not os.path.exists(dirname):
       os.mkdir(dirname)
 
-    bios_image = self._ExtractFile(model, args.bios_image, node, 'main-image',
+    if shared_image_files:
+      bios_image, bios_rw_image, ec_image, pd_image = None, None, None, None
+    else:
+      bios_image = self._ExtractFile(model, args.bios_image, node, 'main-image',
+                                     dirname)
+      bios_rw_image = self._ExtractFile(model, None, node, 'main-rw-image',
+                                        dirname, 'rw')
+      ec_image = self._ExtractFile(model, args.ec_image, node, 'ec-image',
                                    dirname)
-    bios_rw_image = self._ExtractFile(model, None, node, 'main-rw-image',
-                                      dirname, 'rw')
-    ec_image = self._ExtractFile(model, args.ec_image, node, 'ec-image',
-                                 dirname)
-    pd_image = self._ExtractFile(model, args.pd_image, node, 'pd-image',
-                                 dirname)
+      pd_image = self._ExtractFile(model, args.pd_image, node, 'pd-image',
+                                   dirname)
     extras = self._GetStringList(node, 'extra')
     if extras:
       extras = [os.path.expandvars(extra) for extra in extras]
