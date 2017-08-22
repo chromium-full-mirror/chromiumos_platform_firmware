@@ -152,7 +152,7 @@ class TestUnit(unittest.TestCase):
     # Should complain if the selected updater is not available.
     with self.assertRaises(pack_firmware.PackError) as e:
       pack_firmware.main(['test', '-o', 'out', '--tool_base', 'test',
-                           '--tools', 'flashrom', '-b', 'test/image.bin'])
+                          '--tools', 'flashrom', '-b', 'test/image.bin'])
     self.assertIn("'pack_dist/updater.sh'", str(e.exception))
 
     # Should check for 'shar' tool.
@@ -473,7 +473,7 @@ class TestUnit(unittest.TestCase):
                     side_effect=_CopySections, returncode=0)
 
   @staticmethod
-  def _CreateFile(cmd, **_):
+  def _CreateFile(cmd, **_kwargs):
     """Called as a side effect to emulate the effect of cbfstool.
 
     This handles the 'cbfstool...extract' command which is supposed to
