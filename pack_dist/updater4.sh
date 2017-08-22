@@ -280,17 +280,28 @@ load_keyset() {
     debug_msg "No keysets folder."
     return
   fi
-  local keyid="$FLAGS_customization_id"
-  if [ -z "$keyid" ]; then
-    debug_msg "No customization ID from command line. Try to read from VPD."
-    keyid="$(vpd -g "customization_id" || echo "")"
+  local keyid
+
+  if [ -n "${UNIBUILD}" ]; then
+    keyid="${KEY_ID}"
+
+  # For non-unibuild we don't have access to KEY_ID so must use vpd to read the
+  # customization ID.
+  else
+    if [ -z "$keyid" ]; then
+        keyid="$FLAGS_customization_id"
+    fi
+    if [ -z "$keyid" ]; then
+        debug_msg "No customization ID from command line. Try to read from VPD."
+        keyid="$(vpd -g "customization_id" || echo "")"
+    fi
+    if [ -z "$keyid" ]; then
+        verbose_msg "No customization_id in VPD/cmdline. Using default keys."
+        return
+    fi
+    # "customization_id" in format LOEMID[-SERIES]. We only want LOEMID for now.
+    keyid="${keyid%%-*}"
   fi
-  if [ -z "$keyid" ]; then
-    verbose_msg "No customization_id in VPD/command line. Using default keys."
-    return
-  fi
-  # "customization_id" in format LOEMID[-SERIES]. We only want LOEMID for now.
-  keyid="${keyid%%-*}"
   debug_msg "Keysets detected, using [$keyid]"
   local rootkey="$KEYSET_DIR/rootkey.$keyid"
   local vblock_a="$KEYSET_DIR/vblock_A.$keyid"
