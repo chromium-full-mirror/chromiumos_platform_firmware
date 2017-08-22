@@ -239,7 +239,6 @@ class TestFunctional(unittest.TestCase):
     self.assertEqual(base % 'bios_rw.bin', versions['IMAGE_MAIN_RW'])
     self.assertEqual(base % 'ec.bin', versions['IMAGE_EC'])
     self.assertEqual(base % 'pd.bin', versions['IMAGE_PD'])
-    self.assertEqual(base % 'keyset', versions['KEYSET_DIR'])
     self.assertEqual(key_id, versions['KEY_ID'])
 
   def testFirmwareUpdateUnibuild(self):
@@ -305,7 +304,7 @@ class TestFunctional(unittest.TestCase):
 
     versions = pack_firmware_utils.ReadVersions(
         os.path.join(self.unpackdir, MODELS_DIR, 'reef/setvars.sh'))
-    self.assertEqual(14, len(versions))
+    self.assertEqual(13, len(versions))
     self._CheckVersionsReef(versions)
     self._CheckVars(versions, 'models/reef/%s', 'reef')
 
