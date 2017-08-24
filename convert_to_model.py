@@ -257,9 +257,8 @@ class ModelConverter(object):
       self._AddLine('};')
       print()
       print('Run this command in chroot to regenerate the manifest:')
-      print('FIRMWARE_UNIBUILD="%s" ebuild %s manifest' %
-            (' '.join(self._models),
-             os.path.join(constants.CHROOT_SOURCE_ROOT, 'src',
+      print('ebuild %s manifest' %
+            (os.path.join(constants.CHROOT_SOURCE_ROOT, 'src',
                           ebuild_pathname)))
     else:
       pathname = os.path.join(self._srcpath,

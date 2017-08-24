@@ -64,9 +64,8 @@ class TestUnit(cros_test_lib.OutputTestCase):
 };
 
 Run this command in chroot to regenerate the manifest:
-FIRMWARE_UNIBUILD="%s" ebuild /mnt/host/source/src/\
-chromeos-firmware-reef-0.0.1-r56.ebuild manifest
-''' % (ebuild_model, model))
+ebuild /mnt/host/source/src/chromeos-firmware-reef-0.0.1-r56.ebuild manifest
+''' % (ebuild_model))
 
   def testEbuild(self):
     """Simple test of processing an ebuild"""
