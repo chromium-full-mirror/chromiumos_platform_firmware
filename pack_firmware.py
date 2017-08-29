@@ -1123,7 +1123,7 @@ class FirmwarePacker(object):
     if shared_model:
       setvars_dict['${MODEL_DIR}'] = 'models/%s' % shared_model
     key_id = self._GetString(firmware_node, 'key-id')
-    setvars_dict['REPLACE_KEY_ID'] = key_id
+    setvars_dict['REPLACE_SIGNATURE_ID'] = model
     fname = os.path.join(self._basedir, MODELS_DIR, model, 'setvars.sh')
     self._CreateFileFromTemplate(self._setvars_template_file, fname,
                                  setvars_dict)

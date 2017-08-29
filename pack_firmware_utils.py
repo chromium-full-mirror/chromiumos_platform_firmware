@@ -32,7 +32,7 @@ def ReadVersions(fname):
   with open(fname) as fd:
     lines = fd.read(1000).splitlines()[:30]
   # Use strip() where needed since some lines are indented.
-  prefixes = ['TARGET', 'STABLE', 'IMAGE', 'KEY']
+  prefixes = ['TARGET', 'STABLE', 'IMAGE', 'SIGNATURE']
   lines = [line.strip() for line in lines
            if line.strip().split('_')[0] in prefixes or
            line.startswith('UNIBUILD')]

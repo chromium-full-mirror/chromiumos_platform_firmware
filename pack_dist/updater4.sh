@@ -283,7 +283,7 @@ load_keyset() {
   local keyid
 
   if [ -n "${UNIBUILD}" ]; then
-    keyid="${KEY_ID}"
+    keyid="${SIGNATURE_ID}"
 
   # For non-unibuild we don't have access to KEY_ID so must use vpd to read the
   # customization ID.

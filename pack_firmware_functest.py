@@ -224,7 +224,7 @@ class TestFunctional(unittest.TestCase):
     self.assertEqual('', versions['STABLE_PDID'])
     self.assertEqual('Google_Reef', versions['TARGET_PLATFORM'])
 
-  def _CheckVars(self, versions, base, key_id):
+  def _CheckVars(self, versions, base, signature_id):
     """Check the versions match expectations.
 
     Args:
@@ -233,13 +233,13 @@ class TestFunctional(unittest.TestCase):
         value: Value of that variable.
       base: Base directory format, e.g. 'models/reef/%s' for location of
           firmware files.
-      key_id: Expected key id.
+      signature_id: Expected signature ID.
     """
     self.assertEqual(base % 'bios.bin', versions['IMAGE_MAIN'])
     self.assertEqual(base % 'bios_rw.bin', versions['IMAGE_MAIN_RW'])
     self.assertEqual(base % 'ec.bin', versions['IMAGE_EC'])
     self.assertEqual(base % 'pd.bin', versions['IMAGE_PD'])
-    self.assertEqual(key_id, versions['KEY_ID'])
+    self.assertEqual(signature_id, versions['SIGNATURE_ID'])
 
   def testFirmwareUpdateUnibuild(self):
     """Run the firmware packer, unpack the result and check it."""
