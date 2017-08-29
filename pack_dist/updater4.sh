@@ -71,16 +71,30 @@ TYPE_PD="pd"
 
 # Current system identifiers (may be empty if running on non-ChromeOS systems)
 HWID="$(crossystem hwid 2>/dev/null)" || HWID=""
-ECINFO="$(mosys -k ec info 2>/dev/null)" || ECINFO=""
-PDINFO="$(mosys -k pd info 2>/dev/null)" || PDINFO=""
 
 # Compare following values with TARGET_*
 # (should be passed by wrapper as environment variables)
 FWID="$(crossystem fwid 2>/dev/null)" || FWID=""
 RO_FWID="$(crossystem ro_fwid 2>/dev/null)" || RO_FWID=""
-ECID="$(eval "$ECINFO"; echo "$fw_version")"
-PDID="$(eval "$PDINFO"; echo "$fw_version")"
 PLATFORM="${FWID%%.*}"
+
+# Determine EC version
+SYSFS_CROS_EC="/sys/class/chromeos/cros_ec/version"
+if [ -e "${SYSFS_CROS_EC}" ]; then
+  ECID="$(sed -n 's/^RW version: *//p' ${SYSFS_CROS_EC})"
+else
+  ECINFO="$(mosys -k ec info 2>/dev/null)" || ECINFO=""
+  ECID="$(eval "$ECINFO"; echo "$fw_version")"
+fi
+
+# Determine PD version
+SYSFS_CROS_PD="/sys/class/chromeos/cros_pd/version"
+if [ -e "${SYSFS_CROS_PD}" ]; then
+  PDID="$(sed -n 's/^RW version: *//p' ${SYSFS_CROS_PD})"
+else
+  PDINFO="$(mosys -k pd info 2>/dev/null)" || PDINFO=""
+  PDID="$(eval "$PDINFO"; echo "$fw_version")"
+fi
 
 # This should be overriden via a custom_updater.sh script.
 LEGACY_UPGRADE_WHITELIST=""
