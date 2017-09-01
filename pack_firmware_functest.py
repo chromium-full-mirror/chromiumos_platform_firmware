@@ -269,6 +269,7 @@ class TestFunctional(unittest.TestCase):
         lambda(x): self.assertEqual(
             '             0.9.4  : 1bb61e1 : Feb 07 2017 18:29:17 UTC', x),
         lambda(x): self.assertEqual('', x),
+        lambda(x): self.assertIn('reef', x),
         lambda(x): self.assertIn('reef/image.bin', x),
         lambda(x): self.assertEqual('BIOS version: Google_Reef.9042.50.0', x),
         lambda(x): self.assertIn('/reef/ec.bin', x),
@@ -278,11 +279,13 @@ class TestFunctional(unittest.TestCase):
         lambda(x): self.assertIn('Extra BCS file: bcs://Reef.9000.0.0.tbz2: '
                                  '/tmp', x),
         lambda(x): self.assertEqual('', x),
+        lambda(x): self.assertIn('pyro', x),
         lambda(x): self.assertIn('pyro/image.bin', x),
         lambda(x): self.assertEqual('BIOS version: Google_Pyro.9042.41.0', x),
         lambda(x): self.assertIn('/pyro/ec.bin', x),
         lambda(x): self.assertEqual('EC version:   pyro_v1.1.5840-f0d7761', x),
         lambda(x): self.assertEqual('', x),
+        lambda(x): self.assertIn('electro', x),
         lambda(x): self.assertIn('reef/image.bin', x),
         lambda(x): self.assertEqual('BIOS version: Google_Reef.9042.50.0', x),
         lambda(x): self.assertIn('/reef/ec.bin', x),

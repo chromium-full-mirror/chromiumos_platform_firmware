@@ -616,14 +616,18 @@ class FirmwarePacker(object):
         image_files['PD (RW)'] = ImageFile(None, pd_rw_version)
     return image_files
 
-  def _WriteVersions(self, image_files):
+  def _WriteVersions(self, model, image_files):
     """Write version information for all image files into the version file.
 
-    image_files: Dict with:
+    Args:
+      model: Name of model these image files are for (or '' if none).
+      image_files: Dict with:
         key: Image type (e.g. 'BIOS').
         value: ImageFile object containing filename and version.
     """
     print(file=self._versions)  # Blank line.
+    if model:
+      print('Model:        %s' % model, file=self._versions)
     for name in sorted(image_files.keys()):
       image_file = image_files[name]
       self._AddVersionInfo(name, image_file.filename, image_file.version)
@@ -895,7 +899,7 @@ class FirmwarePacker(object):
           pd_image=pd_image,
           create_bios_rw_image=create_bios_rw_image,
           target_dir=os.path.join(self._basedir, models_dir, model))
-    self._WriteVersions(image_files)
+    self._WriteVersions(model, image_files)
     self._CopyBaseFiles(tool_base, tools)
     if extras:
       self._CopyExtraFiles(extras)
