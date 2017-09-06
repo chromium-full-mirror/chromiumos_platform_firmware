@@ -46,6 +46,13 @@ clone_firmware() {
   rm -f "${image}" "${rw_section}"
 }
 
+# Checks if the system has EC. crbug.com/733014: `crossystem ecfw_act` will
+# return 'RO' on x86 Chromeboxes so we have to check EC availability again
+# before starting the update plan.
+has_ec() {
+  mosys ec info -s name >/dev/null 2>&1
+}
+
 # Clones "good" (active) firmware to other slot.
 # Usage: clone_good_firmware
 clone_good_firmware() {
@@ -62,7 +69,7 @@ clone_good_firmware() {
       ;;
   esac
 
-  if [ "$(crossystem ecfw_act || true)" = "RO" ]; then
+  if [ "$(crossystem ecfw_act || true)" = "RO" ] && has_ec; then
     # TODO(hungte) We need to handle one special case in future: user boot with
     # recovery button pressed and then never hard-reset device, and then EC will
     # always be in RO until we rewrite the EC firmware (i.e., next startup
