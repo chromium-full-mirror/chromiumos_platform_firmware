@@ -25,6 +25,10 @@
 SCRIPT_BASE="$(dirname "$0")"
 . "$SCRIPT_BASE/common.sh"
 
+# Parse command line
+FLAGS "$@" || exit 1
+eval set -- "$FLAGS_ARGV"
+
 # Use bundled tools with highest priority, to prevent dependency when updating
 cros_setup_path
 
@@ -602,10 +606,6 @@ main() {
   esac
   verbose_msg "Firmware update (${FLAGS_mode}) ${result}."
 }
-
-# Parse command line
-FLAGS "$@" || exit 1
-eval set -- "$FLAGS_ARGV"
 
 # Exit on error
 set -e
