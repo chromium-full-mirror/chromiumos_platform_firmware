@@ -18,8 +18,9 @@ fi
 # ----------------------------------------------------------------------------
 # Common Command Line Arguments
 
-DEFINE_string mode "" \
- "Updater mode (startup | autoupdate | todev | recovery | factory_install)" "m"
+modes="(startup | autoupdate | todev | recovery | factory_install | output)"
+
+DEFINE_string mode "" "Updater mode ${modes}" "m"
 DEFINE_string wp "" "Override write protection state (0/1)." ""
 
 DEFINE_boolean debug $FLAGS_FALSE "Enable debug messages." "d"
@@ -30,10 +31,15 @@ DEFINE_boolean allow_reboot $FLAGS_TRUE \
   "Allow rebooting system immediately if required."
 DEFINE_string customization_id "" \
   "Customization ID for keysets." ""
+DEFINE_string model "" \
+  "Overrides the model used; instead of using 'mosys platform model'" ""
 
 DEFINE_boolean update_ec $FLAGS_TRUE "Enable updating Embedded Firmware." ""
 DEFINE_boolean update_pd $FLAGS_TRUE "Enable updating PD Firmware." ""
 DEFINE_boolean update_main $FLAGS_TRUE "Enable updating Main Firmware." ""
+
+DEFINE_string output_file "" \
+  "Sets the output file generated using --mode=output" "o"
 
 DEFINE_boolean check_keys $FLAGS_TRUE "Check firmware keys before updating." ""
 DEFINE_boolean check_rw_compatible $FLAGS_TRUE \

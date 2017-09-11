@@ -32,12 +32,6 @@ eval set -- "$FLAGS_ARGV"
 # Use bundled tools with highest priority, to prevent dependency when updating
 cros_setup_path
 
-if [ -n "${UNIBUILD}" ]; then
-  # Image and key files were set in the shared crosfw.sh file. Set them again
-  # here, since we want to use the files specific to the chosen model.
-  cros_set_unibuild_vars
-fi
-
 # ----------------------------------------------------------------------------
 # Customization Section
 
@@ -346,6 +340,15 @@ is_vboot2() {
 # ----------------------------------------------------------------------------
 # Core logic in different modes
 
+# For unified builds that support separate root/fw keys per model,
+# this option allows creation of a targeted model specific bios image, which
+# can then be used to automate the factory imaging process without requiring
+# an firmware install specific logic.
+mode_output() {
+  cp "${IMAGE_MAIN}" "${FLAGS_output_file}"
+  verbose_msg "Firmware image generated to: ${FLAGS_output_file}"
+}
+
 # Startup
 mode_startup() {
   # ChromeOS-EC do not need to be updated at startup time.
@@ -532,6 +535,24 @@ main() {
   cros_acquire_lock
   set_flags
 
+  if [ -n "${UNIBUILD}" ]; then
+    local model="${FLAGS_model}"
+    if [ "${FLAGS_mode}" = "output" ]; then
+      [ -n "${model}" ] || die \
+        "Model (--model) must be specified with --mode=output"
+      [ -n "${FLAGS_output_file}" ] || die \
+        "Output file (--output_file) must be specified with --mode=output"
+    fi
+
+    if [ -z "${model}" ]; then
+      model="$(mosys platform model)"
+      [ -n "${model}" ] || die "Cannot get model from mosys."
+    fi
+    # Image and key files were set in the shared crosfw.sh file. Set them again
+    # here, since we want to use the files specific to the chosen model.
+    cros_set_unibuild_vars "${model}"
+  fi
+
   # factory compatibility
   if [ "${FLAGS_factory}" = ${FLAGS_TRUE} ] ||
      [ "${FLAGS_mode}" = "factory" ]; then
@@ -574,6 +595,7 @@ main() {
   # Check platform except in factory_install mode.
   if [ "${FLAGS_check_platform}" = ${FLAGS_TRUE} ] &&
      [ "${FLAGS_mode}" != "factory_install" ] &&
+     [ "${FLAGS_mode}" != "output" ] &&
      ! cros_check_compatible_platform "${TARGET_PLATFORM}" "${PLATFORM}"; then
     alert_unknown_platform "$PLATFORM" "$TARGET_PLATFORM"
     exit 1
@@ -592,7 +614,7 @@ main() {
 
   result="completed"
   case "${FLAGS_mode}" in
-    autoupdate | recovery | startup | todev | factory_install )
+    autoupdate | recovery | startup | todev | factory_install | output )
       mode_"${FLAGS_mode}" || result="failed"
       ;;
 
