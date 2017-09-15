@@ -10,6 +10,26 @@
                     stable-main-version = "Google_Reef.9042.43.0";
                     stable-ec-version = "reef-v1.1.5840-f0d7761";
                     extra = "${FILESDIR}/extra", "${SYSROOT}/usr/sbin/ectool", "bcs://Reef.9000.0.0.tbz2";
+                    build-targets {
+                        coreboot = "reef";
+                        ec = "reef";
+                        depthcharge = "reef";
+                        libpayload = "reef";
+                    };
+                };
+
+                reef_firmware_pinned: sand {
+                    bcs-overlay = "overlay-reef-private";
+                    main-image = "bcs://Reef.9000.0.0.tbz2";
+                    ec-image = "bcs://Reef_EC.9042.50.0.tbz2";
+                    stable-main-version = "Google_Reef.9000.0.0";
+                    stable-ec-version = "reef-v1.1.5839-f0d7761";
+                    build-targets {
+                        coreboot = "reef";
+                        ec = "reef";
+                        depthcharge = "reef";
+                        libpayload = "reef";
+                    };
                 };
             };
         };
@@ -28,6 +48,12 @@
                     main-image = "bcs://Pyro.9042.41.0.tbz2";
                     ec-image = "bcs://Pyro_EC.9042.41.0.tbz2";
                     key-id = "pyro";
+                    build-targets {
+                        coreboot = "pyro";
+                        ec = "pyro";
+                        depthcharge = "pyro";
+                        libpayload = "pyro";
+                    };
                 };
             };
             snappy {
@@ -36,12 +62,30 @@
                     main-image = "bcs://Snappy.9042.43.0.tbz2";
                     ec-image = "bcs://Snappy_EC.9042.43.0.tbz2";
                     key-id = "snappy";
+                    build-targets {
+                        coreboot = "snappy";
+                        ec = "snappy";
+                        depthcharge = "snappy";
+                        libpayload = "snappy";
+                    };
                 };
             };
             electro {
                 firmware {
                     shares = <&reef_firmware>;
                     key-id = "electro";
+                };
+            };
+            sand {
+                firmware {
+                    shares = <&reef_firmware_pinned>;
+                    key-id = "sand";
+                };
+            };
+            basking {
+                firmware {
+                    shares = <&reef_firmware_pinned>;
+                    key-id = "basking";
                 };
             };
         };

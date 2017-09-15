@@ -142,7 +142,7 @@ class FirmwarePacker(object):
              '-b, -e and -p flags to indicate where to find the images for '
              'each model. You can use MODEL in the filenames as a placeholder '
              'for the model name. For example '
-             '-b "${root}/firmware/image-MODEL.bin"')
+             '-b "${root}/firmware/image-BUILD_TARGET.bin"')
     parser.add_argument('-i', '--imagedir', type=str, default='.',
                         help='Default locations for source images')
     parser.add_argument('-b', '--bios_image', type=str,
@@ -1006,8 +1006,23 @@ class FirmwarePacker(object):
       return None
     return parent
 
+  def _GetChildNode(self, node, prop_name):
+    """Find the child node of a subnode by property name
+
+    Args:
+      node: Integer offset of node to check.
+      prop_name: The property name of the offset to find.
+
+    Returns:
+      Integer offset of the child, or None if child node isn't found.
+    """
+    child = self._config.subnode_offset(node, prop_name, libfdt.QUIET_NOTFOUND)
+    if child < 0:
+      return None
+    return child
+
   def _ExtractFile(
-      self, model, fname_template, node, prop_name, dirname, suffix=''):
+      self, build_target, fname_template, node, prop_name, dirname, suffix=''):
     """Obtain a file based on provided information.
 
     This obtains the file in one of two ways:
@@ -1022,7 +1037,7 @@ class FirmwarePacker(object):
           versions, downloaded from BCS.
 
     Args:
-      model: Model name being processed (e.g. 'reef').
+      build_target: The name of the build target uses, driving the file output.
       fname_template: Filename template to use in local model.
       node: Integer offset of node to read.
       prop_name: Property name in that node which contains the image path.
@@ -1038,7 +1053,9 @@ class FirmwarePacker(object):
     if self._args.local:
       if not fname_template:
         return None
-      return fname_template.replace('MODEL', model)
+      # TODO(shapiroc): Remove MODEL after cros-firmware.eclass is updated
+      return fname_template.replace('MODEL', build_target).replace(
+          'BUILD_TARGET', build_target)
     fname = uri.replace('bcs://', '')
     return self._UntarFile(
         os.path.join(self._args.imagedir, fname), dirname, suffix)
@@ -1086,14 +1103,33 @@ class FirmwarePacker(object):
     if shared_image_files:
       bios_image, bios_rw_image, ec_image, pd_image = None, None, None, None
     else:
-      bios_image = self._ExtractFile(model, args.bios_image, node, 'main-image',
-                                     dirname)
-      bios_rw_image = self._ExtractFile(model, None, node, 'main-rw-image',
-                                        dirname, 'rw')
-      ec_image = self._ExtractFile(model, args.ec_image, node, 'ec-image',
-                                   dirname)
-      pd_image = self._ExtractFile(model, args.pd_image, node, 'pd-image',
-                                   dirname)
+      # Firmware configuration supports both sharing the same fw image across
+      # multiple models and pinning specific models to different fw revisions.
+      # For context, see:
+      # https://chromium.googlesource.com/chromiumos/platform2/+/master/chromeos-config/README.md
+      #
+      # In order to support this, the firmware build target needs to be
+      # decoupled from models (since it can be shared).  This was supported
+      # in the config with 'build-targets', which drives the actual firmware
+      # build/targets.
+      #
+      # This takes advantage of that same config to determine what the target
+      # FW image will be named in the build output.  This allows a many to
+      # many mapping between models and firmware images.
+      build_node = self._GetChildNode(node, 'build-targets')
+
+      bios_build_target = self._GetString(build_node, 'coreboot')
+      bios_image = self._ExtractFile(
+          bios_build_target, args.bios_image, node, 'main-image', dirname)
+      bios_rw_image = self._ExtractFile(
+          bios_build_target, None, node, 'main-rw-image', dirname, 'rw')
+
+      ec_build_target = self._GetString(build_node, 'ec')
+      ec_image = self._ExtractFile(
+          ec_build_target, args.ec_image, node, 'ec-image', dirname)
+      pd_image = self._ExtractFile(
+          ec_build_target, args.pd_image, node, 'pd-image', dirname)
+
     extras = self._GetStringList(node, 'extra')
     if extras:
       extras = [os.path.expandvars(extra) for extra in extras]

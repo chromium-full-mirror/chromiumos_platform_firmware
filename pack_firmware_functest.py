@@ -243,17 +243,21 @@ class TestFunctional(unittest.TestCase):
 
   def testFirmwareUpdateUnibuild(self):
     """Run the firmware packer, unpack the result and check it."""
-    models = ['reef', 'pyro']
-    all_models = models + ['electro']  # Electro shares reef firmware.
+    models = ['reef', 'pyro', 'sand']
+    all_models = models + ['electro', 'basking']  # Share others firmware
     extra_args = []
     for model in all_models:
       extra_args += ['-m', model]
     extra_args += ['-c', 'test/config.dtb', '-i', 'functest']
     outfile, files, versions = self._RunPackFirmware(extra_args)
 
-    self.assertEqual(24, len(files))
+    self.assertEqual(28, len(files))
     self.assertEqual(self._ExpectedFiles(
-        ['fake_extra_tool', 'ectool', 'image.bin', 'models/electro/setvars.sh',
+        ['fake_extra_tool',
+         'ectool',
+         'image.bin',
+         'models/electro/setvars.sh',
+         'models/basking/setvars.sh',
          'signer_config.csv'],
         models), files)
     with open(os.path.join(self.unpackdir, 'VERSION')) as fd:
@@ -285,6 +289,12 @@ class TestFunctional(unittest.TestCase):
         lambda(x): self.assertIn('/pyro/ec.bin', x),
         lambda(x): self.assertEqual('EC version:   pyro_v1.1.5840-f0d7761', x),
         lambda(x): self.assertEqual('', x),
+        lambda(x): self.assertIn('sand', x),
+        lambda(x): self.assertIn('sand/image.bin', x),
+        lambda(x): self.assertEqual('BIOS version: Google_Reef.9000.0.0', x),
+        lambda(x): self.assertIn('/sand/ec.bin', x),
+        lambda(x): self.assertEqual('EC version:   reef_v1.1.5857-77f6ed7', x),
+        lambda(x): self.assertEqual('', x),
         lambda(x): self.assertIn('electro', x),
         lambda(x): self.assertIn('reef/image.bin', x),
         lambda(x): self.assertEqual('BIOS version: Google_Reef.9042.50.0', x),
@@ -294,6 +304,12 @@ class TestFunctional(unittest.TestCase):
         lambda(x): self.assertEqual('Extra file: test/usr/sbin/ectool', x),
         lambda(x): self.assertIn(
             'Extra BCS file: bcs://Reef.9000.0.0.tbz2:', x),
+        lambda(x): self.assertEqual('', x),
+        lambda(x): self.assertIn('basking', x),
+        lambda(x): self.assertIn('sand/image.bin', x),
+        lambda(x): self.assertEqual('BIOS version: Google_Reef.9000.0.0', x),
+        lambda(x): self.assertIn('/sand/ec.bin', x),
+        lambda(x): self.assertEqual('EC version:   reef_v1.1.5857-77f6ed7', x),
         lambda(x): self.assertEqual('', x),
     ]
     self.assertEqual(len(assertions), len(lines))
@@ -326,7 +342,9 @@ class TestFunctional(unittest.TestCase):
     self.assertEqual('model_name,firmware_image,key_id', lines[0])
     self.assertEqual('reef,models/reef/bios.bin,reef', lines[1])
     self.assertEqual('pyro,models/pyro/bios.bin,pyro', lines[2])
-    self.assertEqual('electro,models/reef/bios.bin,electro', lines[3])
+    self.assertEqual('sand,models/sand/bios.bin,sand', lines[3])
+    self.assertEqual('electro,models/reef/bios.bin,electro', lines[4])
+    self.assertEqual('basking,models/sand/bios.bin,basking', lines[5])
 
     # Run the firmware update for Reef and Pyro.
     self._RunScript(outfile, REEF_HWID, REEF_MODEL, REEF_STABLE_MAIN_VERSION)
