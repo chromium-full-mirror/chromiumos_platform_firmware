@@ -212,9 +212,7 @@ class FirmwarePacker(object):
       cmd: Command to check (just the name, not the full path).
       package: Name of package to install to obtain this tool.
     """
-    result = cros_build_lib.RunCommand('type %s' % cmd, shell=True, quiet=True,
-                                       error_code_ok=True)
-    if result.returncode:
+    if not osutils.Which(cmd):
       raise PackError("You need '%s' (package '%s')" % (cmd, package))
 
   @staticmethod

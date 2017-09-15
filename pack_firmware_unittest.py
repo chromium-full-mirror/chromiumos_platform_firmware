@@ -23,6 +23,7 @@ except ImportError:
 
 from chromite.lib import cros_build_lib_unittest
 from chromite.lib import cros_test_lib
+from chromite.lib import osutils
 from chromite.lib import partial_mock
 import pack_firmware
 import pack_firmware_utils
@@ -155,8 +156,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     self.assertIn("'pack_dist/updater.sh'", str(e.exception))
 
     # Should check for 'shar' tool.
-    with cros_build_lib_unittest.RunCommandMock() as rc:
-      rc.AddCmdResult(partial_mock.ListRegex('type shar'), returncode=1)
+    with mock.patch.object(osutils, 'Which', return_value=None):
       with self.assertRaises(pack_firmware.PackError) as e:
         pack_firmware.main(['.'])
       self.assertIn("'shar'", str(e.exception))
