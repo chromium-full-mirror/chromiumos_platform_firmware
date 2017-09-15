@@ -183,7 +183,7 @@ silent_invoke() {
   if [ "${FLAGS_dry_run}" = "${FLAGS_TRUE}" ]; then
     return $ret
   fi
-  eval "$@" >_exec.stdout 2>_exec.stderr || ret=$?
+  "$@" >_exec.stdout 2>_exec.stderr || ret=$?
   if [ "$ret" != "0" ]; then
     alert " Execution failed ($ret): $*"
     alert " Messages:"

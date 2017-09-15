@@ -220,8 +220,8 @@ cros_check_same_root_keys() {
   local ret=${FLAGS_TRUE}
 
   # current(1) may not contain root key, but target(2) MUST have a root key
-  if silent_invoke "futility gbb -g --rootkey=$keyfile1 $1" 2>/dev/null; then
-    silent_invoke "futility gbb -g --rootkey=$keyfile2 $2" ||
+  if silent_invoke futility gbb -g --rootkey="$keyfile1" "$1" 2>/dev/null; then
+    silent_invoke futility gbb -g --rootkey="$keyfile2" "$2" ||
       die "Cannot find ChromeOS GBB RootKey in $2."
     # to workaround key paddings...
     cat $keyfile1 | sed 's/\xff*$//g; s/\x00*$//g;' >$keyfile1_strip
@@ -246,7 +246,7 @@ cros_get_rw_firmware_info() {
   local image="$3"
 
   local rootkey="_rootkey"
-  silent_invoke "futility gbb -g --rootkey=$rootkey $image" 2>/dev/null ||
+  silent_invoke futility gbb -g --rootkey="$rootkey" "$image" 2>/dev/null ||
     return
 
   local fw_info

@@ -84,7 +84,7 @@ crosfw_dupe_vpd() {
   if [ -z "$input" ]; then
     input="_vpd_temp.bin"
     debug_msg "Reading active firmware..."
-    silent_invoke "flashrom $TARGET_OPT_MAIN -r $input" ||
+    silent_invoke flashrom $TARGET_OPT_MAIN -r "$input" ||
       die "Failed to read current main firmware."
   fi
   local size_input="$(cros_get_file_size "$input")"
@@ -124,7 +124,7 @@ crosfw_dupe_vpd() {
   fi
 
   debug_msg "Preserving VPD: -p $param $vpd_list_cmd"
-  if ! silent_invoke "flashrom -p $param $vpd_list_cmd -w $input"; then
+  if ! silent_invoke flashrom -p "$param" $vpd_list_cmd -w "$input"; then
     if [ -n "$is_trusted_vpd" ]; then
       die "Failed to dupe VPD. Please check target firmware image."
     else
@@ -135,9 +135,9 @@ crosfw_dupe_vpd() {
   # Check if VPD is valid. Reset if required.
   debug_msg "Checking VPD partitions..."
   for vpd_name in $vpd_list; do
-    if ! silent_invoke "vpd -i $vpd_name -f $output"; then
+    if ! silent_invoke vpd -i "$vpd_name" -f "$output"; then
       alert "Warning: corrupted VPD ($vpd_name) - Reset."
-      silent_invoke "vpd -O -i $vpd_name -f $output"
+      silent_invoke vpd -O -i "$vpd_name" -f "$output"
     fi
   done
 
@@ -290,7 +290,7 @@ crosfw_update_pd() {
 # to the file (ex, prepare_main_image) must be invoked AFTER this call.
 crosfw_preserve_hwid() {
   [ -s "$IMAGE_MAIN" ] || die "preserve_hwid: no main firmware."
-  silent_invoke "futility gbb -s --hwid='$HWID' $IMAGE_MAIN"
+  silent_invoke futility gbb -s --hwid="$HWID" "$IMAGE_MAIN"
 }
 
 crosfw_preserve_vpd() {
@@ -305,10 +305,10 @@ crosfw_preserve_bmpfv() {
   debug_msg "Preseving main firmware bitmap volume data..."
   [ -s "$IMAGE_MAIN" ] || die "crosfw_preserve_bmpfv: no main firmware."
   # Preserves V1, V2 bitmap volumes.
-  silent_invoke "flashrom $TARGET_OPT_MAIN -i GBB:_gbb.bin -r _temp.rom"
-  silent_invoke "futility gbb -g --bmpfv=_bmpfv.bin _gbb.bin"
+  silent_invoke flashrom $TARGET_OPT_MAIN -i GBB:_gbb.bin -r _temp.rom
+  silent_invoke futility gbb -g --bmpfv=_bmpfv.bin _gbb.bin
   [ -s "_bmpfv.bin" ] || die "crosfw_preserve_bmpfv: invalid bmpfv"
-  silent_invoke "futility gbb -s --bmpfv=_bmpfv.bin $IMAGE_MAIN"
+  silent_invoke futility gbb -s --bmpfv=_bmpfv.bin "$IMAGE_MAIN"
 }
 
 crosfw_preserve_gbb() {
@@ -318,14 +318,14 @@ crosfw_preserve_gbb() {
   fi
   debug_msg "Preseving main firmware GBB data..."
   [ -s "$IMAGE_MAIN" ] || die "crosfw_preserve_gbb: no main firmware."
-  silent_invoke "flashrom $TARGET_OPT_MAIN -i GBB:_gbb.bin -r _temp.rom"
+  silent_invoke flashrom $TARGET_OPT_MAIN -i GBB:_gbb.bin -r _temp.rom
 
   # Preseves flags (--flags output format: "flags: 0x0000001")
   local flags="$(futility gbb -g --flags _gbb.bin 2>/dev/null |
                  sed -nr 's/^flags: ([x0-9]+)/\1/p')"
   debug_msg "Current firmware flags: $flags"
   if [ -n "$flags" ]; then
-    silent_invoke "futility gbb -s --flags=$((flags)) $IMAGE_MAIN"
+    silent_invoke futility gbb -s --flags=$((flags)) "$IMAGE_MAIN"
   fi
 }
 
@@ -343,11 +343,11 @@ crosfw_preserve_nvram() {
   fi
 
   debug_msg "Preseving main firmware NVRAM data..."
-  silent_invoke "flashrom $TARGET_OPT_MAIN -r -i RW_NVRAM:_nvram.rom"
+  silent_invoke flashrom $TARGET_OPT_MAIN -r -i RW_NVRAM:_nvram.rom
   if [ "$size" != $(cros_get_file_size _nvram.rom) ]; then
     verbose_msg "RW_NVRAM size changed, cannot preserve old state!"
     return
   fi
-  silent_invoke "dd seek=$offset count=$size bs=1 conv=notrunc \
-  		 if=_nvram.rom of=$IMAGE_MAIN"
+  silent_invoke dd seek=$offset count=$size bs=1 conv=notrunc \
+     if=_nvram.rom of="$IMAGE_MAIN"
 }

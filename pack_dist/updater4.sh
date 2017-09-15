@@ -347,8 +347,8 @@ load_keyset() {
     die "Failed to update rootkey from keyset [$keyid]."
   local size_input="$(cros_get_file_size "$IMAGE_MAIN")"
   local param="dummy:emulate=VARIABLE_SIZE,image=$IMAGE_MAIN,size=$size_input"
-  local write_list="-i VBLOCK_A:$vblock_a -i VBLOCK_B:$vblock_b"
-  silent_invoke "flashrom -p $param -w $IMAGE_MAIN $write_list" ||
+  silent_invoke flashrom -p "$param" -w "$IMAGE_MAIN" \
+    -i "VBLOCK_A:$vblock_a" -i "VBLOCK_B:$vblock_b" ||
     die "Failed to update VBLOCK from keyset [$keyid]."
   # TODO(hungte) Verify key correctness after building new image files.
   verbose_msg "Firmware keys changed to set [$keyid]."
