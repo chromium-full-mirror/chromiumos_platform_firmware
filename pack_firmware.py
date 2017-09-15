@@ -14,7 +14,6 @@ It requires:
 
 from __future__ import print_function
 
-import argparse
 import collections
 import glob
 import md5
@@ -27,6 +26,7 @@ from StringIO import StringIO
 import tarfile
 import tempfile
 
+from chromite.lib import commandline
 from chromite.lib import cros_build_lib
 from chromite.lib import osutils
 
@@ -129,12 +129,11 @@ class FirmwarePacker(object):
     Returns:
       argparse.Namespace object containing the attributes.
     """
-    parser = argparse.ArgumentParser(
-        description='Produce a firmware update shell-ball')
+    parser = commandline.ArgumentParser(description=__doc__)
     parser.add_argument('-m', '--model', type=str, dest='models',
                         action='append',
                         help='Model name to include in firmware update')
-    parser.add_argument('-c', '--config', type=str,
+    parser.add_argument('-c', '--config', type='path',
                         help='Filename of master configuration .dtb file')
     parser.add_argument(
         '-l', '--local', action='store_true',
@@ -143,40 +142,40 @@ class FirmwarePacker(object):
              'each model. You can use MODEL in the filenames as a placeholder '
              'for the model name. For example '
              '-b "${root}/firmware/image-BUILD_TARGET.bin"')
-    parser.add_argument('-i', '--imagedir', type=str, default='.',
+    parser.add_argument('-i', '--imagedir', type='path', default='.',
                         help='Default locations for source images')
-    parser.add_argument('-b', '--bios_image', type=str,
+    parser.add_argument('-b', '--bios_image', type='path',
                         help='Path of input AP (BIOS) firmware image')
-    parser.add_argument('-w', '--bios_rw_image', type=str,
+    parser.add_argument('-w', '--bios_rw_image', type='path',
                         help='Path of input BIOS RW firmware image')
-    parser.add_argument('-e', '--ec_image', type=str,
+    parser.add_argument('-e', '--ec_image', type='path',
                         help='Path of input Embedded Controller firmware image')
-    parser.add_argument('-p', '--pd_image', type=str,
+    parser.add_argument('-p', '--pd_image', type='path',
                         help='Path of input Power Delivery firmware image')
     parser.add_argument('--script', type=str, default='updater.sh',
                         help='File name of main script file')
-    parser.add_argument('-o', '--output', type=str,
+    parser.add_argument('-o', '--output', type='path',
                         help='Path of output filename')
     parser.add_argument(
         '--extra', type=str,
         help='Directory list (separated by :) of files to be merged')
 
-    arg_parser = parser.add_mutually_exclusive_group(required=False)
-    arg_parser.add_argument(
+    group = parser.add_mutually_exclusive_group(required=False)
+    group.add_argument(
         '--remove_inactive_updaters', default=True,
         action='store_true', help='Remove inactive updater scripts')
-    arg_parser.add_argument(
+    group.add_argument(
         '--no-remove_inactive_updaters',
         action='store_false', dest='remove_inactive_updaters',
         help="Don't remove inactive updater scripts")
 
     parser.add_argument('--create_bios_rw_image', action='store_true',
                         help='Resign and generate a BIOS RW image')
-    arg_parser = parser.add_mutually_exclusive_group(required=False)
-    arg_parser.add_argument(
+    group = parser.add_mutually_exclusive_group(required=False)
+    group.add_argument(
         '--merge_bios_rw_image', default=True, action='store_true',
         help='Merge the --bios_rw_image into --bios_image RW sections')
-    arg_parser.add_argument(
+    group.add_argument(
         '--no-merge_bios_rw_image', action='store_false',
         dest='merge_bios_rw_image',
         help="Don't Merge the --bios_rw_image into --bios_image RW sections")
@@ -191,8 +190,7 @@ class FirmwarePacker(object):
 
     # embedded tools
     parser.add_argument(
-        '--tools', type=str,
-        default='flashrom mosys crossystem futility vpd',
+        '--tools', action='split_extend',
         help='List of tool programs to be bundled into updater')
 
     # TODO(sjg@chromium.org: Consider making this accumulate rather than using
@@ -202,7 +200,14 @@ class FirmwarePacker(object):
         help='Default source locations for tools programs (delimited by colon)')
     parser.add_argument('-q', '--quiet', action='store_true',
                         help='Avoid output except for warnings/errors')
-    return parser.parse_args(argv)
+
+    opts = parser.parse_args(argv)
+
+    if opts.tools is None:
+      opts.tools = ['flashrom', 'mosys', 'crossystem', 'futility', 'vpd']
+
+    opts.Freeze()
+    return opts
 
   @staticmethod
   def _EnsureCommand(cmd, package):
@@ -1138,9 +1143,7 @@ class FirmwarePacker(object):
     if args.local:
       create_bios_rw_image = False
 
-    tools = self._GetStringList(node, 'tools')
-    for tool in args.tools.split():
-      tools.append(tool)
+    tools = self._GetStringList(node, 'tools') + args.tools
 
     image_files = self._ProcessModel(
         bios_image=bios_image,
@@ -1258,7 +1261,7 @@ class FirmwarePacker(object):
             ec_image=args.ec_image,
             pd_image=args.pd_image,
             create_bios_rw_image=args.create_bios_rw_image,
-            tools=args.tools.split(),
+            tools=args.tools,
             tool_base=tool_base,
             extras=args.extra.split(':') if args.extra else [],
             shared_image_files=None)

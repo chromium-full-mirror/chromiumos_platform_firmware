@@ -182,8 +182,8 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         self.assertEqual(None, self.packer.ParseArgs(['--invalid']))
 
     self.assertEqual(None, self.packer.ParseArgs([]).bios_image)
-    self.assertEqual('bios.bin',
-                     self.packer.ParseArgs(['-b', 'bios.bin']).bios_image)
+    self.assertEqual('/bios.bin',
+                     self.packer.ParseArgs(['-b', '/bios.bin']).bios_image)
 
     self.assertEqual(True, self.packer.ParseArgs([]).remove_inactive_updaters)
     self.assertEqual(False,
@@ -500,7 +500,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     rc.AddCmdResult(partial_mock.ListRegex(
         'futility dump_fmap -x .*test/image_rw.bin'), returncode=0)
     rc.AddCmdResult(
-        partial_mock.ListRegex('futility dump_fmap -p test/image_rw.bin'),
+        partial_mock.ListRegex('futility dump_fmap -p .*/test/image_rw.bin'),
         returncode=0, output=FMAP_OUTPUT)
     rc.AddCmdResult(
         partial_mock.ListRegex('futility dump_fmap -p .*image.binrw'),
