@@ -236,6 +236,40 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     # Run the shellball to make sure we can do a fake autoupdate.
     self._RunScript(outfile, REEF_HWID, REEF_MODEL, REEF_RO_MAIN_VERSION)
 
+  def testToolsRootFlag(self):
+    """Run the firmware packer to pull tools from a root."""
+    # We pull these from the SDK (for ease of testing), so we can only depend
+    # on programs guaranteed to be installed there.
+    tools = ('bash', 'gzip', 'bzip2')
+
+    outfile = os.path.join(self.outdir, 'output.sh')
+    argv = [
+        '-o', outfile, '-q', '-L',
+        '--script', UPDATER,
+        '-b', os.path.join(self.indir, 'image.bin'),
+        '--tools', ' '.join(tools), '--root', '/',
+    ]
+
+    # Create the shellball, extract it, and check the results.
+    self.packer.Start(argv)
+    cros_build_lib.RunCommand([outfile, '--sb_extract', self.unpackdir],
+                              quiet=True, mute_output=True)
+
+    # Check each of these ELF programs were copied over.
+    bindir = os.path.join(self.unpackdir, 'bin')
+    self.assertExists(bindir)
+    for tool in tools:
+      self.assertExists(os.path.join(bindir, tool))
+      self.assertExists(os.path.join(bindir, '%s.elf' % (tool,)))
+
+    # Check some libraries were copied over.  Don't want to hardcode specific
+    # lib names as they might change over time.
+    libdir = os.path.join(self.unpackdir, 'lib')
+    self.assertExists(libdir)
+    # We assume libc.so and at least one other library.
+    self.assertGreaterEqual(len(glob.glob(os.path.join(libdir, 'lib*.so*'))), 2)
+    self.assertEqual(1, len(glob.glob(os.path.join(libdir, 'ld*.so*'))))
+
   def _CheckVersionsReef(self, versions):
     """Check the versions match expectations for reef.
 

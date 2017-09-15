@@ -247,9 +247,18 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     """Check finding of required tools."""
     self.packer._args = self.packer.ParseArgs(['--tool_base', 'test'])
     with self.assertRaises(pack_firmware.PackError) as e:
-      self.packer._FindTool(['test'], 'does-not-exist')
+      self.packer._FindTool(None, ['test'], 'does-not-exist')
     self.assertIn("'does-not-exist'", str(e.exception))
-    self.packer._FindTool(['test'], 'flashrom')
+    self.assertEqual('test/flashrom',
+                     self.packer._FindTool(None, ['test'], 'flashrom'))
+
+  def testFindToolRoot(self):
+    """Check finding of required tools with a root."""
+    self.packer._args = self.packer.ParseArgs(['--tool_base', 'test'])
+    with self.assertRaises(pack_firmware.PackError) as e:
+      self.packer._FindTool('/', ['/foo'], 'sh')
+    self.assertIn("'sh'", str(e.exception))
+    self.assertEqual('/bin/sh', self.packer._FindTool('/', ['/bin'], 'sh'))
 
   def testTmpdirs(self):
     """Check creation and removal of temporary directories."""
@@ -267,7 +276,8 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     with cros_test_lib.RunCommandMock() as rc:
       rc.AddCmdResult(partial_mock.ListRegex('file'), returncode=0,
                       output='ELF 64-bit LSB executable, etc.\n')
-      self.packer._AddFlashromVersion(self.packer._args.tool_base.split(':'))
+      self.packer._AddFlashromVersion(
+          None, self.packer._args.tool_base.split(':'))
     result = self.packer._versions.getvalue().splitlines()
     self.assertIn('flashrom(8)', result[1])
     self.assertIn('ELF 64-bit LSB executable', result[2])
@@ -285,7 +295,8 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     with cros_test_lib.RunCommandMock() as rc:
       rc.AddCmdResult(partial_mock.ListRegex('file'), returncode=0,
                       output='ELF 64-bit LSB executable, etc.\n')
-      self.packer._AddFlashromVersion(self.packer._args.tool_base.split(':'))
+      self.packer._AddFlashromVersion(
+          None, self.packer._args.tool_base.split(':'))
     result = self.packer._versions.getvalue().splitlines()
     self.assertIn('flashrom(8)', result[1])
     self.assertIn('ELF 64-bit LSB executable', result[2])

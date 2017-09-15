@@ -183,6 +183,9 @@ class FirmwarePacker(object):
         '--tools', action='split_extend',
         help='List of tool programs to be bundled into updater')
 
+    parser.add_argument('--root', type='path',
+                        help='The board sysroot to find all tools under')
+
     # TODO(sjg@chromium.org: Consider making this accumulate rather than using
     # the ':' separator.
     parser.add_argument(
@@ -195,6 +198,8 @@ class FirmwarePacker(object):
 
     if opts.tools is None:
       opts.tools = ['flashrom', 'mosys', 'crossystem', 'futility', 'vpd']
+    if not opts.tool_base:
+      opts.tool_base = '/usr/sbin:/usr/bin:/sbin:/bin'
 
     opts.Freeze()
     return opts
@@ -211,15 +216,16 @@ class FirmwarePacker(object):
       raise PackError("You need '%s' (package '%s')" % (cmd, package))
 
   @staticmethod
-  def _FindTool(tool_base, tool):
+  def _FindTool(root, tool_base, tool):
     """Find a tool in the tool_base path list, raising an exception if missing.
 
     Args:
+      root: The board sysroot to check (e.g. /build/$BOARD).
       tool_base: List of directories to check.
       tool: Name of tool to find (just the name, not the full path).
     """
     path = ':'.join(tool_base)
-    fname = osutils.Which(tool, path=path)
+    fname = osutils.Which(tool, path=path, root=root)
     if fname is None:
       raise PackError("Cannot find tool program '%s' to bundle" % tool)
     return fname
@@ -240,13 +246,14 @@ class FirmwarePacker(object):
       shutil.rmtree(fname)
     self._tmp_dirs = []
 
-  def _AddFlashromVersion(self, tool_base):
+  def _AddFlashromVersion(self, root, tool_base):
     """Add flashrom version info to the collection of version information.
 
     Args:
+      root: The board sysroot to check (e.g. /build/$BOARD).
       tool_base: List of directories to check.
     """
-    flashrom = self._FindTool(tool_base, 'flashrom')
+    flashrom = self._FindTool(root, tool_base, 'flashrom')
 
     # Look for a string ending in UTC.
     data = osutils.ReadFile(flashrom, mode='rb')
@@ -675,6 +682,21 @@ class FirmwarePacker(object):
     os.chmod(dst, os.stat(dst).st_mode | mode)
     return dst
 
+  @staticmethod
+  def _CopyElfs(root, elfs, dst):
+    """Copy an ELF (and its dependencies) to the destination directory.
+
+    Args:
+      root: The board sysroot to copy additional files from.
+      elfs: A list of source ELFs to copy.
+      dst: Destination directory to copy all files.
+    """
+    cros_build_lib.RunCommand(
+        ['lddtree', '--copy-to-tree', dst, '--bindir=/bin', '--libdir=/lib',
+         '--generate-wrappers', '--copy-non-elfs', '--no-auto-root',
+         '--root', root] + elfs,
+        quiet=True)
+
   def _CopyUpdateScript(self, script):
     """Copy the update script into the base directory.
 
@@ -703,25 +725,36 @@ class FirmwarePacker(object):
       raise PackError("Cannot find required file '%s'" %
                       os.path.join(self._pack_dist, script))
 
-  def _CopyBaseFiles(self, tool_base, tools):
+  def _CopyBaseFiles(self, root, tool_base, tools):
     """Copy base files that every firmware update needs.
 
     Args:
+      root: The board sysroot to check (e.g. /build/$BOARD).
       tool_base: List of directories to check.
       tools: List of tools to copy.
     """
     self._CopyFile(self._shflags_file, self._basedir)
-    bindir = self._BaseDirPath('bin')
-    osutils.SafeMakedirs(bindir)
-    for tool in tools:
-      tool_fname = self._FindTool(tool_base, tool)
-      # Most tools are dynamically linked, but if there is a statically
-      # linked version (denoted by a '_s' suffix) use that in preference.
-      # This helps to reduce run-time dependencies for firmware update,
-      # which is a critical process.
-      if os.path.exists(tool_fname + '_s'):
-        tool_fname += '_s'
-      self._CopyFile(tool_fname, os.path.join(bindir, tool), CHMOD_ALL_EXEC)
+
+    if root is None:
+      bindir = self._BaseDirPath('bin')
+      osutils.SafeMakedirs(bindir)
+      for tool in tools:
+        tool_fname = self._FindTool(root, tool_base, tool)
+        # Most tools are dynamically linked, but if there is a statically
+        # linked version (denoted by a '_s' suffix) use that in preference.
+        # This helps to reduce run-time dependencies for firmware update,
+        # which is a critical process.
+        if os.path.exists(tool_fname + '_s'):
+          tool_fname += '_s'
+        if not self._args.quiet:
+          print('Bundling ELF %s' % (tool_fname,))
+        self._CopyFile(tool_fname, os.path.join(bindir, tool), CHMOD_ALL_EXEC)
+    else:
+      elfs = [self._FindTool(root, tool_base, x) for x in tools]
+      if elfs:
+        if not self._args.quiet:
+          print('Bundling ELFs:\n  %s' % ('\n  '.join(elfs),))
+        self._CopyElfs(root, elfs, self._basedir)
 
   def _CopyExtraFiles(self, extras):
     """Copy extra files into the base directory.
@@ -733,6 +766,7 @@ class FirmwarePacker(object):
         image directory (--imagedir) and unpacked to obtain the (single-file)
         contents.
     """
+    root = self._args.root if self._args else None
     for extra in extras:
       if extra.startswith('bcs://'):
         src = os.path.join(self._args.imagedir, extra.replace('bcs://', ''))
@@ -743,13 +777,20 @@ class FirmwarePacker(object):
         if not fnames:
           raise PackError("cannot copy extra files from folder '%s'" %
                           extra)
-        for fname in fnames:
-          if not os.path.isdir(fname):
-            self._CopyFile(fname, self._basedir)
+        if root is None:
+          for fname in fnames:
+            if not os.path.isdir(fname):
+              self._CopyFile(fname, self._basedir)
+        else:
+          self._CopyElfs(root, [x for x in fnames if not os.path.isdir(x)],
+                         self._basedir)
         print('Extra files from folder: %s' % extra,
               file=self._versions)
       else:
-        self._CopyFile(extra, self._basedir)
+        if root is None:
+          self._CopyFile(extra, self._basedir)
+        else:
+          self._CopyElfs(root, [extra], self._basedir)
         print('Extra file: %s' % extra, file=self._versions)
 
   @staticmethod
@@ -844,7 +885,7 @@ class FirmwarePacker(object):
         print(osutils.ReadFile(fname))
 
   def _ProcessModel(self, model, bios_image, bios_rw_image, ec_image, pd_image,
-                    create_bios_rw_image, tools, tool_base, extras,
+                    create_bios_rw_image, tools, root, tool_base, extras,
                     shared_image_files, target_dir):
     """Set up the firmware update for one model.
 
@@ -858,6 +899,7 @@ class FirmwarePacker(object):
       create_bios_rw_image: True to create a RW BIOS image from the main one
           if not provided.
       tools: List of tools to include in the update (e.g. ['mosys', 'ectool'].
+      root: Root directory to find board files.
       tool_base: List of directories to look in for tools.
       extras: List of extra files/directories to include.
       shared_image_files: Dict of image file information for the model whose
@@ -872,7 +914,7 @@ class FirmwarePacker(object):
         value: ImageFile, containing filename and version.
     """
     for tool in tools:
-      self._FindTool(tool_base, tool)
+      self._FindTool(root, tool_base, tool)
     if shared_image_files:
       image_files = shared_image_files
     else:
@@ -887,7 +929,7 @@ class FirmwarePacker(object):
           create_bios_rw_image=create_bios_rw_image,
           target_dir=target_dir)
     self._WriteVersions(model, image_files)
-    self._CopyBaseFiles(tool_base, tools)
+    self._CopyBaseFiles(root, tool_base, tools)
     if extras:
       self._CopyExtraFiles(extras)
     return image_files
@@ -996,6 +1038,7 @@ class FirmwarePacker(object):
         pd_image=pd_image,
         create_bios_rw_image=firmware.create_bios_rw_image,
         tools=tools,
+        root=args.root,
         tool_base=tool_base,
         extras=extras,
         model=firmware.model,
@@ -1066,7 +1109,7 @@ class FirmwarePacker(object):
         raise PackError('Missing output file')
       self._basedir = self._CreateTmpDir()
       self._tmpdir = self._CreateTmpDir()
-      self._AddFlashromVersion(tool_base)
+      self._AddFlashromVersion(args.root, tool_base)
       model_details = OrderedDict()
       if not args.legacy:
         # Most of the arguments are meaningless with unified builds since we
@@ -1113,6 +1156,7 @@ class FirmwarePacker(object):
             pd_image=args.pd_image,
             create_bios_rw_image=args.create_bios_rw_image,
             tools=args.tools,
+            root=args.root,
             tool_base=tool_base,
             extras=args.extra.split(':') if args.extra else [],
             shared_image_files=None,
