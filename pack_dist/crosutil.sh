@@ -328,17 +328,11 @@ cros_add_tool_path() {
   return $FLAGS_FALSE
 }
 
-# Configures PATH by detecting if current architecture is compatible with
-# bundled executable binaries, then "32b" (if exist) or system default ones.
+# Configures PATH to use the bundled executable binaries.
 cros_setup_path() {
   local base="$(readlink -f "$SCRIPT_BASE")"
   if cros_add_tool_path "$base" "crossystem"; then
     debug_msg "Using programs in $base."
-    return
-  fi
-
-  if cros_add_tool_path "$base/32b" "crossystem"; then
-    debug_msg "Using programs in $base/32b."
     return
   fi
 
