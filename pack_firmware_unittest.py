@@ -106,9 +106,9 @@ RW_FWID 262468 32
 '''
 
 # Common flags that we use in several tests.
-COMMON_FLAGS = [
+_COMMON_FLAGS = [
     '--script=updater5.sh', '--tools', 'flashrom dump_fmap',
-    '--tool_base', 'test', '-b', 'test/image.bin', '-q', '-o' 'out',
+    '--tool_base', 'test', '-b', 'test/image.bin', '-q', '-o',
 ]
 
 
@@ -129,6 +129,9 @@ def capture_sys_output():
 class TestUnit(cros_test_lib.MockTempDirTestCase):
   """Test cases for common program flows."""
   def setUp(self):
+    self.output = os.path.join(self.tempdir, 'out')
+    self.common_flags = _COMMON_FLAGS + [self.output]
+
     pack_firmware_utils.MakeTestFiles()
     self.packer = pack_firmware.FirmwarePacker('.')
     # Limit the resolution of timestamps to aid comparison.
@@ -541,7 +544,8 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     """Start up with a valid updater script and BIOS."""
     pack_firmware.FirmwarePacker._GetPreambleFlags = (
         mock.Mock(side_effect=self._MockGetPreambleFlags))
-    args = ['.', '--create_bios_rw_image', '-e', 'test/ec.bin'] + COMMON_FLAGS
+    args = ['.', '--create_bios_rw_image', '-e',
+            'test/ec.bin'] + self.common_flags
     with cros_build_lib_unittest.RunCommandMock() as rc:
       self._AddMocks(rc)
       rc.AddCmdResult(partial_mock.ListRegex('resign_firmwarefd.sh'),
@@ -556,7 +560,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         mock.Mock(side_effect=self._MockGetPreambleFlags))
     args = ['--bios_rw_image', 'test/image_rw.bin',
             '--merge_bios_rw_image', '-e', 'test/ec.bin', '-p', 'test/pd.bin',
-            '--remove_inactive_updaters'] + COMMON_FLAGS
+            '--remove_inactive_updaters'] + self.common_flags
     with cros_build_lib_unittest.RunCommandMock() as rc:
       self._AddMocks(rc)
       self._AddMergeMocks(rc)
@@ -591,7 +595,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
       List of arguments to pass to pack_firmware.main()
     """
 
-    args = ['.', '-m', 'reef', '-m', 'pyro', '-q', '-o' 'out',
+    args = ['.', '-m', 'reef', '-m', 'pyro', '-q', '-o', self.output,
             '-c', 'test/%s' % config_fname, '--tool_base', 'test',
             '--tools', 'flashrom dump_fmap', '-i', 'functest']
     os.environ['SYSROOT'] = 'test'
@@ -637,7 +641,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     """Simple test of creating RW firmware."""
     pack_firmware.FirmwarePacker._GetPreambleFlags = (
         mock.Mock(side_effect=self._MockGetPreambleFlags))
-    args = ['--create_bios_rw_image', '-e', 'test/ec.bin'] + COMMON_FLAGS
+    args = ['--create_bios_rw_image', '-e', 'test/ec.bin'] + self.common_flags
     with cros_build_lib_unittest.RunCommandMock() as rc:
       self._AddMocks(rc)
       rc.AddCmdResult(partial_mock.ListRegex('resign_firmwarefd.sh'),
@@ -664,7 +668,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
 
   def testNoECFirmware(self):
     """Simple test of creating firmware without an EC image."""
-    args = COMMON_FLAGS
+    args = self.common_flags
     with cros_build_lib_unittest.RunCommandMock() as rc:
       self._AddMocks(rc)
       self.packer.Start(args)
@@ -675,7 +679,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     self.assertEqual(8, len(result.splitlines()))
 
     # In the script, the EC version should be ''.
-    with open('out') as fd:
+    with open(self.output) as fd:
       lines = fd.read().splitlines()
     self.assertIn('', self._FindLineInList(lines, 'TARGET_ECID'))
 
