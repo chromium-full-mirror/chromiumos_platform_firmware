@@ -1,3 +1,4 @@
+#!/usr/bin/env python2
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -56,7 +57,7 @@ Preamble:
 Body verification succeeded.
 '''
 
-# Expected output from 'dump_fmap -p' for main image.
+# Expected output from 'futility dump_fmap -p' for main image.
 FMAP_OUTPUT = '''WP_RO 0 4194304
 SI_DESC 0 4096
 IFWI 4096 2093056
@@ -96,7 +97,7 @@ UNUSED_HOLE 16773120 4096
 # Size of dummy 'ecrw' file.
 ECRW_SIZE = 0x38000
 
-# Expected output from 'dump_fmap -p' for EC image.
+# Expected output from 'futility dump_fmap -p' for EC image.
 FMAP_OUTPUT_EC = '''EC_RO 64 229376
 FR_MAIN 64 229376
 RO_FRID 388 32
@@ -108,7 +109,7 @@ RW_FWID 262468 32
 
 # Common flags that we use in several tests.
 _COMMON_FLAGS = [
-    '--script=updater5.sh', '--tools', 'flashrom dump_fmap',
+    '--script=updater5.sh', '--tools', 'flashrom futility',
     '--tool_base', 'test', '-b', 'test/image.bin', '-q', '-o',
 ]
 
@@ -281,7 +282,8 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     self.packer._testing = True
     self.packer._args = self.packer.ParseArgs(['--bios_image', 'image.bin'])
     with cros_build_lib_unittest.RunCommandMock() as rc:
-      rc.AddCmdResult(partial_mock.ListRegex('dump_fmap'), returncode=0)
+      rc.AddCmdResult(partial_mock.ListRegex('futility dump_fmap'),
+                      returncode=0)
       self.assertEqual(RO_FRID, self.packer._ExtractFrid('image.bin'))
 
   def testExtractFridTrailingSpace(self):
@@ -295,8 +297,8 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     self.packer._testing = True
     self.packer._args = self.packer.ParseArgs(['--bios_image', 'image.bin'])
     with cros_build_lib_unittest.RunCommandMock() as rc:
-      rc.AddCmdResult(partial_mock.ListRegex('dump_fmap'), returncode=0,
-                      side_effect=_SetupImage)
+      rc.AddCmdResult(partial_mock.ListRegex('futility dump_fmap'),
+                      returncode=0, side_effect=_SetupImage)
       self.assertEqual('TESTING', self.packer._ExtractFrid('image.bin'))
     self.packer._RemoveTmpdirs()
 
@@ -457,18 +459,20 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     rc.AddCmdResult(partial_mock.Regex('type shar'), returncode=0)
     rc.AddCmdResult(partial_mock.ListRegex('file'), returncode=0,
                     output='ELF 64-bit LSB executable, etc.\n')
-    rc.AddCmdResult(partial_mock.ListRegex('dump_fmap -x .*image.bin'),
+    rc.AddCmdResult(partial_mock.ListRegex('futility dump_fmap -x .*image.bin'),
                     side_effect=_CopySections, returncode=0)
-    rc.AddCmdResult(partial_mock.ListRegex('gbb_utility'), returncode=0,
+    rc.AddCmdResult(partial_mock.ListRegex('futility gbb'), returncode=0,
                     output=' - exported root_key to file: rootkey.bin')
-    rc.AddCmdResult(partial_mock.ListRegex('vbutil_firmware'), returncode=0,
-                    output=VBUTIL_OUTPUT)
-    rc.AddCmdResult(partial_mock.ListRegex('dump_fmap -x .*bios_rw.bin'),
-                    side_effect=_CopySections, returncode=0)
+    rc.AddCmdResult(
+        partial_mock.ListRegex('futility vbutil_firmware'),
+        returncode=0, output=VBUTIL_OUTPUT)
+    rc.AddCmdResult(
+        partial_mock.ListRegex('futility dump_fmap -x .*bios_rw.bin'),
+        side_effect=_CopySections, returncode=0)
     rc.AddCmdResult(partial_mock.ListRegex('--sb_repack'), returncode=0)
-    rc.AddCmdResult(partial_mock.ListRegex('dump_fmap -x .*ec.bin'),
+    rc.AddCmdResult(partial_mock.ListRegex('futility dump_fmap -x .*ec.bin'),
                     side_effect=_CopySections, returncode=0)
-    rc.AddCmdResult(partial_mock.ListRegex('dump_fmap -x .*pd.bin'),
+    rc.AddCmdResult(partial_mock.ListRegex('futility dump_fmap -x .*pd.bin'),
                     side_effect=_CopySections, returncode=0)
 
   @staticmethod
@@ -494,19 +498,21 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
   @classmethod
   def _AddMergeMocks(cls, rc):
     rc.AddCmdResult(partial_mock.ListRegex(
-        'dump_fmap -x .*test/image_rw.bin'), returncode=0)
-    rc.AddCmdResult(partial_mock.ListRegex('dump_fmap -p test/image_rw.bin'),
-                    returncode=0, output=FMAP_OUTPUT)
-    rc.AddCmdResult(partial_mock.ListRegex('dump_fmap -p .*image.binrw'),
-                    returncode=0, output=FMAP_OUTPUT)
-    rc.AddCmdResult(partial_mock.ListRegex('dump_fmap -p .*bios.bin'),
+        'futility dump_fmap -x .*test/image_rw.bin'), returncode=0)
+    rc.AddCmdResult(
+        partial_mock.ListRegex('futility dump_fmap -p test/image_rw.bin'),
+        returncode=0, output=FMAP_OUTPUT)
+    rc.AddCmdResult(
+        partial_mock.ListRegex('futility dump_fmap -p .*image.binrw'),
+        returncode=0, output=FMAP_OUTPUT)
+    rc.AddCmdResult(partial_mock.ListRegex('futility dump_fmap -p .*bios.bin'),
                     returncode=0, output=FMAP_OUTPUT)
     rc.AddCmdResult(partial_mock.Regex('extract_ecrw'), returncode=0)
-    rc.AddCmdResult(partial_mock.ListRegex('dump_fmap -p .*ec.bin'),
+    rc.AddCmdResult(partial_mock.ListRegex('futility dump_fmap -p .*ec.bin'),
                     returncode=0, output=FMAP_OUTPUT_EC)
     rc.AddCmdResult(partial_mock.ListRegex('cbfstool'), returncode=0,
                     side_effect=cls._CreateFile)
-    rc.AddCmdResult(partial_mock.ListRegex('dump_fmap -p .*pd.bin'),
+    rc.AddCmdResult(partial_mock.ListRegex('futility dump_fmap -p .*pd.bin'),
                     returncode=0, output=FMAP_OUTPUT_EC)
 
   # If we use _ to indicate an unused parameter, cros lint wants us to call it
@@ -597,7 +603,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
 
     args = ['.', '-m', 'reef', '-m', 'pyro', '-q', '-o', self.output,
             '-c', 'test/%s' % config_fname, '--tool_base', 'test',
-            '--tools', 'flashrom dump_fmap', '-i', 'functest']
+            '--tools', 'flashrom futility', '-i', 'functest']
     os.environ['SYSROOT'] = 'test'
     os.environ['FILESDIR'] = 'test'
     return args

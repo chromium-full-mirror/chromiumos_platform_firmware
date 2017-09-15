@@ -12,7 +12,7 @@
 # Allowed commands are:
 # - standard shell commands
 # - flashrom
-# - gbb_utility
+# - futility
 # - crossystem
 # All other special commands should be defined by a function in crosutil.sh.
 #
@@ -193,7 +193,7 @@ need_update_main_ro() {
   # HWID should be already preserved.
   local file
   for file in .ro_from .ro_to .gbb_from .gbb_to; do
-    gbb_utility -s --flags=0 "${file}" >/dev/null 2>&1
+    futility gbb -s --flags=0 "${file}" >/dev/null 2>&1
   done
 
   if ! cros_compare_file .gbb_from .gbb_to; then
@@ -343,7 +343,7 @@ load_keyset() {
     die "Failed to load keysets for customization ID [$keyid]."
   fi
   # Override keys
-  gbb_utility -s --rootkey="$rootkey" "$IMAGE_MAIN" ||
+  futility gbb -s --rootkey="$rootkey" "$IMAGE_MAIN" ||
     die "Failed to update rootkey from keyset [$keyid]."
   local size_input="$(cros_get_file_size "$IMAGE_MAIN")"
   local param="dummy:emulate=VARIABLE_SIZE,image=$IMAGE_MAIN,size=$size_input"

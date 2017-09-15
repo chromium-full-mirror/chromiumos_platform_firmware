@@ -43,7 +43,7 @@ crosfw_unpack_image() {
   fi
   cp -f "$image_name" "$DIR_TARGET/$image_name"
   ( cd "$DIR_TARGET/$type_name";
-    dump_fmap -x "../$image_name" >/dev/null 2>&1) ||
+    futility dump_fmap -x "../$image_name" >/dev/null 2>&1) ||
     die "Invalid firmware image (missing FMAP) in $image_name."
 }
 
@@ -64,7 +64,7 @@ crosfw_unpack_current_image() {
   invoke "flashrom $target_opt $list -r $DIR_CURRENT/$image_name"
   # current may not have FMAP... (ex, from factory setup)
   ( cd "$DIR_CURRENT/$type_name";
-    dump_fmap -x "../$image_name" >/dev/null 2>&1) || true
+    futility dump_fmap -x "../$image_name" >/dev/null 2>&1) || true
 }
 
 # Copies VPD data by merging sections from current system into target firmware
@@ -102,13 +102,17 @@ crosfw_dupe_vpd() {
   local is_trusted_vpd=1
   local param="dummy:emulate=VARIABLE_SIZE,image=$output,size=$size_input"
 
-  if dump_fmap "$input" >/dev/null 2>&1; then
+  if futility dump_fmap "$input" >/dev/null 2>&1; then
     # Trust the FMAP in input
     debug_msg "Using VPD location from input FMAP"
     is_trusted_vpd=
     local tmpdir="_dupe_vpd.tmp"
     local input_path="$(readlink -f "$input")"
-    (mkdir "$tmpdir"; cd "$tmpdir"; dump_fmap -x "$input_path") >/dev/null 2>&1
+    (
+      mkdir "$tmpdir"
+      cd "$tmpdir"
+      futility dump_fmap -x "$input_path"
+    ) >/dev/null 2>&1
     for vpd_name in $vpd_list; do
       vpd_list_cmd="$vpd_list_cmd -i $vpd_name:$tmpdir/$vpd_name"
     done
@@ -286,7 +290,7 @@ crosfw_update_pd() {
 # to the file (ex, prepare_main_image) must be invoked AFTER this call.
 crosfw_preserve_hwid() {
   [ -s "$IMAGE_MAIN" ] || die "preserve_hwid: no main firmware."
-  silent_invoke "gbb_utility -s --hwid='$HWID' $IMAGE_MAIN"
+  silent_invoke "futility gbb -s --hwid='$HWID' $IMAGE_MAIN"
 }
 
 crosfw_preserve_vpd() {
@@ -302,9 +306,9 @@ crosfw_preserve_bmpfv() {
   [ -s "$IMAGE_MAIN" ] || die "crosfw_preserve_bmpfv: no main firmware."
   # Preserves V1, V2 bitmap volumes.
   silent_invoke "flashrom $TARGET_OPT_MAIN -i GBB:_gbb.bin -r _temp.rom"
-  silent_invoke "gbb_utility -g --bmpfv=_bmpfv.bin _gbb.bin"
+  silent_invoke "futility gbb -g --bmpfv=_bmpfv.bin _gbb.bin"
   [ -s "_bmpfv.bin" ] || die "crosfw_preserve_bmpfv: invalid bmpfv"
-  silent_invoke "gbb_utility -s --bmpfv=_bmpfv.bin $IMAGE_MAIN"
+  silent_invoke "futility gbb -s --bmpfv=_bmpfv.bin $IMAGE_MAIN"
 }
 
 crosfw_preserve_gbb() {
@@ -317,11 +321,11 @@ crosfw_preserve_gbb() {
   silent_invoke "flashrom $TARGET_OPT_MAIN -i GBB:_gbb.bin -r _temp.rom"
 
   # Preseves flags (--flags output format: "flags: 0x0000001")
-  local flags="$(gbb_utility -g --flags _gbb.bin 2>/dev/null |
+  local flags="$(futility gbb -g --flags _gbb.bin 2>/dev/null |
                  sed -nr 's/^flags: ([x0-9]+)/\1/p')"
   debug_msg "Current firmware flags: $flags"
   if [ -n "$flags" ]; then
-    silent_invoke "gbb_utility -s --flags=$((flags)) $IMAGE_MAIN"
+    silent_invoke "futility gbb -s --flags=$((flags)) $IMAGE_MAIN"
   fi
 }
 
@@ -331,8 +335,8 @@ crosfw_preserve_nvram() {
     return
   fi
   [ -s "$IMAGE_MAIN" ] || die "crosfw_preserve_nvram: no main firmware."
-  local offset=$(dump_fmap -p "$IMAGE_MAIN" RW_NVRAM | cut -d' ' -f2)
-  local size=$(dump_fmap -p "$IMAGE_MAIN" RW_NVRAM | cut -d' ' -f3)
+  local offset=$(futility dump_fmap -p "$IMAGE_MAIN" RW_NVRAM | cut -d' ' -f2)
+  local size=$(futility dump_fmap -p "$IMAGE_MAIN" RW_NVRAM | cut -d' ' -f3)
   if [ -z "$size" ]; then
     debug_msg "crosfw_preserve_nvram: System doesn't have flash NVRAM. Skip."
     return

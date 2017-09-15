@@ -192,7 +192,7 @@ class FirmwarePacker(object):
     # embedded tools
     parser.add_argument(
         '--tools', type=str,
-        default='flashrom mosys crossystem gbb_utility vpd dump_fmap',
+        default='flashrom mosys crossystem futility vpd',
         help='List of tool programs to be bundled into updater')
 
     # TODO(sjg@chromium.org: Consider making this accumulate rather than using
@@ -325,8 +325,8 @@ class FirmwarePacker(object):
     # Remove any file that might be in the way (if not testing).
     if not self._testing and os.path.exists(fname):
       os.remove(fname)
-    cros_build_lib.RunCommand(['dump_fmap', '-x', image_file], quiet=True,
-                              cwd=self._tmpdir, error_code_ok=True)
+    cros_build_lib.RunCommand(['futility', 'dump_fmap', '-x', image_file],
+                              quiet=True, cwd=self._tmpdir, error_code_ok=True)
     if os.path.exists(fname):
       with open(fname) as fd:
         return fd.read().replace('\x00', '').strip()
@@ -353,12 +353,13 @@ class FirmwarePacker(object):
       Preamble flags as an integer. See VB2_FIRMWARE_PREAMBLE_... for available
       flags; the most common one is VB2_FIRMWARE_PREAMBLE_USE_RO_NORMAL.
     """
-    cros_build_lib.RunCommand(['dump_fmap', '-x', fname],
+    cros_build_lib.RunCommand(['futility', 'dump_fmap', '-x', fname],
                               quiet=True, cwd=self._tmpdir)
-    cros_build_lib.RunCommand(['gbb_utility', '--rootkey=rootkey.bin', 'GBB'],
+    cros_build_lib.RunCommand(['futility', 'gbb', '--rootkey=rootkey.bin',
+                               'GBB'],
                               quiet=True, cwd=self._tmpdir)
     result = cros_build_lib.RunCommand(
-        ['vbutil_firmware', '--verify', 'VBLOCK_A', '--signpubkey',
+        ['futility', 'vbutil_firmware', '--verify', 'VBLOCK_A', '--signpubkey',
          'rootkey.bin', '--fv', 'FW_MAIN_A'], quiet=True, cwd=self._tmpdir)
     lines = ([line for line in result.output.splitlines()
               if 'Preamble flags' in line])
@@ -439,7 +440,7 @@ class FirmwarePacker(object):
         key: Section name.
         value: Section() named tuple containing offset and size.
     """
-    result = cros_build_lib.RunCommand(['dump_fmap', '-p', fname],
+    result = cros_build_lib.RunCommand(['futility', 'dump_fmap', '-p', fname],
                                        quiet=True, cwd=self._tmpdir)
     sections = {}
     for line in result.output.splitlines():
@@ -486,8 +487,9 @@ class FirmwarePacker(object):
       fname: Filename of firmware image (relative or absolute path).
       ecrw_fname: Filename to put EC binary into (relative or absolute path).
     """
-    cros_build_lib.RunCommand(['dump_fmap', '-x', fname, 'EC_MAIN_A'],
-                              quiet=True, cwd=self._tmpdir)
+    cros_build_lib.RunCommand(
+        ['futility', 'dump_fmap', '-x', fname, 'EC_MAIN_A'],
+        quiet=True, cwd=self._tmpdir)
     ec_main_a = os.path.join(self._tmpdir, 'EC_MAIN_A')
     with open(ec_main_a) as fd:
       count, offset, size = struct.unpack('<III', fd.read(12))
@@ -838,8 +840,7 @@ class FirmwarePacker(object):
   def _WriteVersionFile(self):
     """Write out the VERSION file with our collected version information."""
     print(file=self._versions)
-    with open(self._BaseDirPath('VERSION'), 'w') as fd:
-      fd.write(self._versions.getvalue())
+    osutils.WriteFile(self._BaseDirPath('VERSION'), self._versions.getvalue())
 
   def _BuildShellball(self):
     """Build a shell-ball containing the firmware update.

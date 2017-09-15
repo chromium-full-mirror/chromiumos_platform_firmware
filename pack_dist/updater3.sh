@@ -12,7 +12,7 @@
 # Allowed commands are:
 # - standard shell commands
 # - flashrom
-# - gbb_utility
+# - futility
 # - crossystem
 # All other special commands should be defined by a function in crosutil.sh.
 #

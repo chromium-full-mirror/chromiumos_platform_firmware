@@ -1,7 +1,8 @@
+#!/usr/bin/env python2
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-#
+
 """Functional test for pack_firmware.py.
 
 This runs a basic scenario and checks the output by running the update script
@@ -82,7 +83,7 @@ class TestFunctional(unittest.TestCase):
     """
     expected_files = (
         'crosfw.sh crosutil.sh flashrom mosys VERSION.md5 common.sh crossystem '
-        'dump_fmap gbb_utility shflags VERSION vpd').split(' ')
+        'futility shflags VERSION vpd').split(' ')
     expected_files.append(UPDATER)
     if extra_files:
       expected_files += extra_files
@@ -189,7 +190,7 @@ class TestFunctional(unittest.TestCase):
     outfile, files, versions = self._RunPackFirmware(extra_args)
 
     # Check that we got the right files.
-    self.assertEqual(14, len(files))
+    self.assertEqual(13, len(files))
     self.assertEqual(self._ExpectedFiles(['bios.bin']), files)
 
     # Comb through the VERSION file and check that everything is as expected.
@@ -281,7 +282,7 @@ class TestFunctional(unittest.TestCase):
     models, extra_args = self._SetupArgs()
     outfile, files, versions = self._RunPackFirmware(extra_args)
 
-    self.assertEqual(28, len(files))
+    self.assertEqual(27, len(files))
     expected_files = self._ExpectedFiles(
         ['fake_extra_tool',
          'ectool',

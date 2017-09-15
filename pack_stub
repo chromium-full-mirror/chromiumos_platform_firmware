@@ -141,12 +141,12 @@ find_version_string() {
     return
   fi
 
-  # Chrome OS & chroot has dump_fmap, and standard Linux desktop has strings.
-  if type dump_fmap >/dev/null 2>&1; then
+  # Chrome OS & chroot has futility, and standard Linux desktop has strings.
+  if type futility >/dev/null 2>&1; then
 
     local tmpdir="$(mktemp -d)"
     local filepath="$(readlink -f "$filename")"
-    (cd "$tmpdir"; dump_fmap -x "$filepath" "$section") >/dev/null 2>&1
+    (cd "$tmpdir"; futility dump_fmap -x "$filepath" "$section") >/dev/null 2>&1
     cat "$tmpdir/$section" #2>/dev/null
     rm -rf "$tmpdir"
 
@@ -183,7 +183,7 @@ find_version_string() {
 
   else
 
-    (echo "WARNING: 'strings' and 'dump_fmap' are both not available."
+    (echo "WARNING: 'strings' and 'futility' are both not available."
      echo "         TARGET_{FW,EC,PD}ID can't be updated."
      echo "         You have to manually change that or repack on a desktop."
      ) >&2
