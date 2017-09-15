@@ -15,7 +15,6 @@ import mock
 import os
 import shutil
 import sys
-import unittest
 
 try:
   from StringIO import StringIO
@@ -23,16 +22,13 @@ except ImportError:
   from io import StringIO
 
 from chromite.lib import cros_build_lib_unittest
+from chromite.lib import cros_test_lib
 from chromite.lib import partial_mock
-import chromite.lib.cros_logging as logging
 import pack_firmware
 import pack_firmware_utils
 
 # We need to poke around in internal members of PackFirmware.
 # pylint: disable=W0212
-
-# Disable all logging as it's confusing to get log output from tests.
-logging.getLogger().setLevel(logging.CRITICAL + 1)
 
 # Pre-set ID expected for test/image.bin. Note the 'R' in the first is a 'W'
 # in the second. It is confusing but this is how the firmware images are
@@ -130,7 +126,7 @@ def capture_sys_output():
     sys.stdout, sys.stderr = old_out, old_err
 
 
-class TestUnit(unittest.TestCase):
+class TestUnit(cros_test_lib.MockTempDirTestCase):
   """Test cases for common program flows."""
   def setUp(self):
     pack_firmware_utils.MakeTestFiles()
@@ -683,5 +679,6 @@ class TestUnit(unittest.TestCase):
       lines = fd.read().splitlines()
     self.assertIn('', self._FindLineInList(lines, 'TARGET_ECID'))
 
+
 if __name__ == '__main__':
-  unittest.main()
+  cros_test_lib.main(module=__name__)
