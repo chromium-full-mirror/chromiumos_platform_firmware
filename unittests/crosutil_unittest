@@ -4,9 +4,11 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-. ../lib/shflags/shflags
+SCRIPT_ROOT="$(dirname "$0")"
 
-SCRIPT_BASE="$(dirname "$0")/../pack_dist"
+. "${SCRIPT_ROOT}/../lib/shflags/shflags" || exit
+
+SCRIPT_BASE="${SCRIPT_ROOT}/../pack_dist"
 . "${SCRIPT_BASE}/common.sh"
 
 #----------------------------------------------------------------------
@@ -41,7 +43,7 @@ Preamble:
   Preamble flags:        1
 Body verification succeeded."
 
-SAMPLE_FILE="../LICENSE"
+SAMPLE_FILE="${SCRIPT_ROOT}/../LICENSE"
 SAMPLE_FILE_SIZE="1566"
 SAMPLE_FILE_HASH="562c740877935f40b262db8af30bca36"
 
@@ -300,4 +302,4 @@ test_cros_check_compatible_platform() {
     "cros_check_compatible_platform Google_Snow Google_Snow_New"
 }
 
-. ../lib/shunit2/shunit2
+. "${SCRIPT_ROOT}/../lib/shunit2/shunit2"
