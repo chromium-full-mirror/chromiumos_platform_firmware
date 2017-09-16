@@ -276,8 +276,8 @@ class TestFunctional(unittest.TestCase):
         lambda(x): self.assertEqual('EC version:   reef_v1.1.5857-77f6ed7', x),
         lambda(x): self.assertEqual('Extra files from folder: test/extra', x),
         lambda(x): self.assertEqual('Extra file: test/usr/sbin/ectool', x),
-        lambda(x): self.assertIn('Extra BCS file: bcs://Reef.9000.0.0.tbz2: '
-                                 '/tmp', x),
+        lambda(x): self.assertIn(
+            'Extra BCS file: bcs://Reef.9000.0.0.tbz2:', x),
         lambda(x): self.assertEqual('', x),
         lambda(x): self.assertIn('pyro', x),
         lambda(x): self.assertIn('pyro/image.bin', x),
@@ -292,8 +292,8 @@ class TestFunctional(unittest.TestCase):
         lambda(x): self.assertEqual('EC version:   reef_v1.1.5857-77f6ed7', x),
         lambda(x): self.assertEqual('Extra files from folder: test/extra', x),
         lambda(x): self.assertEqual('Extra file: test/usr/sbin/ectool', x),
-        lambda(x): self.assertIn('Extra BCS file: bcs://Reef.9000.0.0.tbz2: '
-                                 '/tmp', x),
+        lambda(x): self.assertIn(
+            'Extra BCS file: bcs://Reef.9000.0.0.tbz2:', x),
         lambda(x): self.assertEqual('', x),
     ]
     self.assertEqual(len(assertions), len(lines))
