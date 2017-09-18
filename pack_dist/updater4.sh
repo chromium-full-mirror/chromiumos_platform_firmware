@@ -32,6 +32,27 @@ eval set -- "$FLAGS_ARGV"
 # Use bundled tools with highest priority, to prevent dependency when updating
 cros_setup_path
 
+# This setup must occur before anything else since the unibuild
+# variables need to be set before the rest of the initialization.
+if [ -n "${UNIBUILD}" ]; then
+  model="${FLAGS_model}"
+  if [ "${FLAGS_mode}" = "output" ]; then
+    [ -n "${model}" ] || die \
+      "Model (--model) must be specified with --mode=output"
+    [ -n "${FLAGS_output_file}" ] || die \
+      "Output file (--output_file) must be specified with --mode=output"
+  fi
+
+  if [ -z "${model}" ]; then
+    model="$(mosys platform model)"
+    [ -n "${model}" ] || die "Cannot get model from mosys."
+  fi
+  # Image and key files were set in the shared crosfw.sh file. Set them again
+  # here, since we want to use the files specific to the chosen model.
+  cros_set_unibuild_vars "${model}"
+fi
+
+
 # ----------------------------------------------------------------------------
 # Customization Section
 
@@ -534,24 +555,6 @@ mode_factory_install() {
 main() {
   cros_acquire_lock
   set_flags
-
-  if [ -n "${UNIBUILD}" ]; then
-    local model="${FLAGS_model}"
-    if [ "${FLAGS_mode}" = "output" ]; then
-      [ -n "${model}" ] || die \
-        "Model (--model) must be specified with --mode=output"
-      [ -n "${FLAGS_output_file}" ] || die \
-        "Output file (--output_file) must be specified with --mode=output"
-    fi
-
-    if [ -z "${model}" ]; then
-      model="$(mosys platform model)"
-      [ -n "${model}" ] || die "Cannot get model from mosys."
-    fi
-    # Image and key files were set in the shared crosfw.sh file. Set them again
-    # here, since we want to use the files specific to the chosen model.
-    cros_set_unibuild_vars "${model}"
-  fi
 
   # factory compatibility
   if [ "${FLAGS_factory}" = ${FLAGS_TRUE} ] ||
