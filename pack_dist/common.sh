@@ -38,8 +38,8 @@ DEFINE_boolean update_ec $FLAGS_TRUE "Enable updating Embedded Firmware." ""
 DEFINE_boolean update_pd $FLAGS_TRUE "Enable updating PD Firmware." ""
 DEFINE_boolean update_main $FLAGS_TRUE "Enable updating Main Firmware." ""
 
-DEFINE_string output_file "" \
-  "Sets the output file generated using --mode=output" "o"
+DEFINE_string output_dir "" \
+  "Sets the output directory for files generated using --mode=output" "o"
 
 DEFINE_boolean check_keys $FLAGS_TRUE "Check firmware keys before updating." ""
 DEFINE_boolean check_rw_compatible $FLAGS_TRUE \

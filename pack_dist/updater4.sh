@@ -39,8 +39,8 @@ if [ -n "${UNIBUILD}" ]; then
   if [ "${FLAGS_mode}" = "output" ]; then
     [ -n "${model}" ] || die \
       "Model (--model) must be specified with --mode=output"
-    [ -n "${FLAGS_output_file}" ] || die \
-      "Output file (--output_file) must be specified with --mode=output"
+    [ -n "${FLAGS_output_dir}" ] || die \
+      "Output directory (--output_dir) must be specified with --mode=output"
   fi
 
   if [ -z "${model}" ]; then
@@ -362,12 +362,13 @@ is_vboot2() {
 # Core logic in different modes
 
 # For unified builds that support separate root/fw keys per model,
-# this option allows creation of a targeted model specific bios image, which
+# this option allows creation of a targeted model specific bios/ec image, which
 # can then be used to automate the factory imaging process without requiring
 # an firmware install specific logic.
 mode_output() {
-  cp "${IMAGE_MAIN}" "${FLAGS_output_file}"
-  verbose_msg "Firmware image generated to: ${FLAGS_output_file}"
+  cp "${IMAGE_MAIN}" "${FLAGS_output_dir}"
+  cp "${IMAGE_EC}" "${FLAGS_output_dir}"
+  verbose_msg "Firmware images generated to: ${FLAGS_output_dir}"
 }
 
 # Startup
