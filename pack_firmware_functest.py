@@ -88,7 +88,8 @@ class TestFunctional(unittest.TestCase):
         expected_files.append(os.path.join(MODELS_DIR, model, 'setvars.sh'))
     return sorted(expected_files)
 
-  def _RunScript(self, outfile, hwid, model, stable_main_version):
+  def _RunScript(self, outfile, hwid, model, stable_main_version,
+                 mode='autoupdate'):
     """Run an autoupdate with the shellball and check that it works.
 
     This relies on fake tools, principally crossystem which is controlled by
@@ -99,6 +100,10 @@ class TestFunctional(unittest.TestCase):
       hwid: Hardware ID to provide when the script asks for the hardware ID
       model: Model name to provide when the script asks for it.
       stable_main_version: Value to return when RO_FWID is requested.
+      mode: Execution mode (can be 'autoupdate' or '-V')
+
+    Returns:
+      List of lines output from the script
     """
     # These are used by our fake crossystem script (see functest/ directory).
     os.environ['FAKE_BIOS_BIN'] = os.path.join(self.indir, 'image.bin')
@@ -114,14 +119,19 @@ class TestFunctional(unittest.TestCase):
     os.environ['FAKE_TPM_FWVER'] = '1'
     os.environ['FAKE_WPSW_CUR'] = '1'    # RO firmware is write-protected.
     os.environ['FAKE_VDAT_FLAGS'] = '0'  # Not using RO normal.
-    result = cros_build_lib.RunCommand(
-        [SHELL, outfile, '--mode', 'autoupdate', '--verbose', '--debug'],
-        capture_output=True)
+    cmd = [SHELL, outfile]
+    if mode == '-V':
+      cmd.append('-V')
+    else:
+      cmd += ['--mode', mode]
+    cmd += ['--verbose', '--debug']
+    result = cros_build_lib.RunCommand(cmd, capture_output=True)
 
     # We expect debugging output but should not get anything else.
     errors = [line for line in result.error.splitlines()
               if not line.startswith(' (DEBUG')]
     self.assertEqual(errors, [])
+    return result.output.splitlines()
 
   def _RunPackFirmware(self, extra_args):
     """Run the FirmwarePacker process and read the resulting shellball.
@@ -252,16 +262,17 @@ class TestFunctional(unittest.TestCase):
     outfile, files, versions = self._RunPackFirmware(extra_args)
 
     self.assertEqual(28, len(files))
-    self.assertEqual(self._ExpectedFiles(
+    expected_files = self._ExpectedFiles(
         ['fake_extra_tool',
          'ectool',
          'image.bin',
          'models/electro/setvars.sh',
          'models/basking/setvars.sh',
          'signer_config.csv'],
-        models), files)
+        models)
+    self.assertEqual(expected_files, files)
     with open(os.path.join(self.unpackdir, 'VERSION')) as fd:
-      lines = fd.read().splitlines()
+      version_lines = fd.read().splitlines()
 
     # Each assertion matches to a line:
     assertions = [
@@ -312,10 +323,10 @@ class TestFunctional(unittest.TestCase):
         lambda(x): self.assertEqual('EC version:   reef_v1.1.5857-77f6ed7', x),
         lambda(x): self.assertEqual('', x),
     ]
-    self.assertEqual(len(assertions), len(lines))
+    self.assertEqual(len(assertions), len(version_lines))
     for i, assertion in enumerate(assertions):
       if assertion:
-        assertion(lines[i])
+        assertion(version_lines[i])
 
     self.assertEqual('yes', versions['UNIBUILD'])
     for var in pack_firmware.REPLACE_VARS:
@@ -351,6 +362,30 @@ class TestFunctional(unittest.TestCase):
     self._RunScript(outfile, 'Pyro C25-R45-W23-H63-M33', 'pyro',
                     'Google_Pyro.9021.00.0')
     self._RunScript(outfile, REEF_HWID, 'electro', REEF_STABLE_MAIN_VERSION)
+
+    # Check the output of -V
+    check_version_lines = self._RunScript(
+        outfile, REEF_HWID, REEF_MODEL, REEF_STABLE_MAIN_VERSION, '-V')
+    self.assertEqual(version_lines, check_version_lines[:len(version_lines)])
+
+    # Now check the second part of the -V output, which is the contents of
+    # the VERSIONS.md5 file. Note that VERSION and VERSION.md5 do not have
+    # entries in this output.
+    first_md5_line, remaining_md5_lines = (
+        check_version_lines[len(version_lines)],
+        check_version_lines[len(version_lines) + 1:])
+    self.assertEqual('Package Content:', first_md5_line)
+
+    # We want to get the filename, The line format is:
+    #
+    # ab911c951ccf0dddf023defee22dea83 *./crosfw.sh
+    #
+    # so split into two words and strip the *./ off the second word
+    re_file = re.compile('.* ...(.*)$')
+    files = [re_file.match(line).group(1) for line in remaining_md5_lines]
+    expected_files.remove('VERSION')
+    expected_files.remove('VERSION.md5')
+    self.assertEqual(set(expected_files), set(files))
 
   def _MakeImage(self, outfile, ro_id, rw_id=''):
     """Create a new firmware image with the given IDs."
