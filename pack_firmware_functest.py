@@ -10,6 +10,7 @@ with a few fake tools.
 
 from __future__ import print_function
 
+import glob
 import os
 import re
 import shutil
@@ -45,23 +46,26 @@ class TestFunctional(unittest.TestCase):
     indir: Directory which contains the input firmware files (e,g. image.bin).
     basedir: Directory containing this script.
     outdir: Directory to place output shellball.
+    tmp_base: Temporary directory to use as our base for other temp dirs.
     unpackdir: Directory used to unpack shellball into.
   """
 
   def setUp(self):
     pack_firmware_utils.MakeTestFiles()
     self.packer = FirmwarePacker('test')
-    tmp_base = 'pack_firmwaretest-%d' % os.getpid()
-    self.indir = tempfile.mkdtemp(tmp_base)
+    self.tmp_base = 'pack_firmwaretest-%d' % os.getpid()
+    self.indir = tempfile.mkdtemp(self.tmp_base)
     with tarfile.open('functest/Reef.9042.50.0.tbz2') as tar:
+      tar.extractall(self.indir)
+    with tarfile.open('functest/Reef_EC.9042.50.0.tbz2') as tar:
       tar.extractall(self.indir)
     self.basedir = os.path.realpath(os.path.dirname(__file__))
     if os.path.exists('/etc/cros_chroot_version'):
       self.chroot = '/'
     else:
       self.chroot = os.path.join(self.basedir, '../../../chroot')
-    self.outdir = tempfile.mkdtemp(tmp_base)
-    self.unpackdir = tempfile.mkdtemp(tmp_base)
+    self.outdir = tempfile.mkdtemp(self.tmp_base)
+    self.unpackdir = tempfile.mkdtemp(self.tmp_base)
     self.packer._force_dash = HAVE_DASH
 
   @staticmethod
@@ -100,7 +104,7 @@ class TestFunctional(unittest.TestCase):
       hwid: Hardware ID to provide when the script asks for the hardware ID
       model: Model name to provide when the script asks for it.
       stable_main_version: Value to return when RO_FWID is requested.
-      mode: Execution mode (can be 'autoupdate' or '-V')
+      mode: Execution mode (can be 'autoupdate', 'output' or '-V')
 
     Returns:
       List of lines output from the script
@@ -124,6 +128,8 @@ class TestFunctional(unittest.TestCase):
       cmd.append('-V')
     else:
       cmd += ['--mode', mode]
+    if mode == 'output':
+      cmd += ['--model', model, '--output_dir', self.outdir]
     cmd += ['--verbose', '--debug']
     result = cros_build_lib.RunCommand(cmd, capture_output=True)
 
@@ -474,6 +480,92 @@ class TestFunctional(unittest.TestCase):
     shutil.rmtree(self.indir)
     shutil.rmtree(self.outdir)
     shutil.rmtree(self.unpackdir)
+
+  def _AssertFileEqual(self, expect_fname, fname):
+    """Check that two files have the same contents.
+
+    This causes a test failure if the file contents do not match.
+
+    Args:
+      expect_fname: File containing expected contents
+      fname: File containing contents to check
+    """
+    with open(expect_fname) as fd:
+      expect = fd.read()
+    with open(fname) as fd:
+      data = fd.read()
+    if expect != data:
+      self.fail("Contents of '%s' does not match '%s'" % (fname, expect_fname))
+
+  def _GetUnequalRegions(self, expect_fname, fname):
+    """Get a list of firmware regions which are not the same
+
+    This is used to compare two firmware images. It checks the files regions
+    by region. Any regions which do not match are added to the returned list.
+
+    The goal of this function is to check that the firmware the updater would
+    write has the correct keys inside it for the model being written. Note that
+    'SECTION' regions (include 'WP_RO' are ignored since they cover other
+    regions (all of which we check).
+
+    Args:
+      expect_fname: File containing expected contents
+      fname: File containing contents to check
+
+    Returns:
+      List of file regions that differ  (e.g. ['GBB']) excluding any
+      'section' regions
+    """
+    try:
+      expect_dir = tempfile.mkdtemp(self.tmp_base)
+      cros_build_lib.RunCommand(['dump_fmap', '-x', expect_fname], quiet=True,
+                                cwd=expect_dir)
+      actual_dir = tempfile.mkdtemp(self.tmp_base)
+      cros_build_lib.RunCommand(['dump_fmap', '-x', fname], quiet=True,
+                                cwd=actual_dir)
+      differ = []
+      for expect_fname in glob.glob('%s/*' % expect_dir):
+        with open(expect_fname) as fd:
+          expect = fd.read()
+        basename = os.path.basename(expect_fname)
+        with open(os.path.join(actual_dir, basename)) as fd:
+          data = fd.read()
+        if 'SECTION' not in basename and basename != 'WP_RO' and expect != data:
+          differ.append(basename)
+    finally:
+      shutil.rmtree(expect_dir)
+      shutil.rmtree(actual_dir)
+
+    return differ
+
+  def testFirmwareOutput(self):
+    """Check the --output feature."""
+    _, extra_args = self._SetupArgs()
+    outfile, files, _ = self._RunPackFirmware(extra_args)
+    lines = self._RunScript(outfile, REEF_HWID, REEF_MODEL,
+                            REEF_STABLE_MAIN_VERSION, 'output')
+    self.assertIn('Firmware update (output) completed.', lines)
+    self.assertIn('Firmware images generated to: %s' % self.outdir, lines)
+
+    # Check that the files were written correctly
+    files = glob.glob('%s/*' % self.outdir)
+    ec_file = '%s/ec.bin' % self.outdir
+    bios_file = '%s/bios.bin' % self.outdir
+    self.assertIn(ec_file, files)
+    self.assertIn(bios_file, files)
+
+    # Now check that the file contents match. We allow a few sections to have
+    # differences due to the actions of the firmware packer. Specifically it
+    # changes some fields in the GBB.
+    regions = self._GetUnequalRegions(bios_file, '%s/image.bin' % self.indir)
+    self.assertEqual(['GBB'], regions)
+    self._AssertFileEqual(ec_file, '%s/ec.bin' % self.indir)
+
+    # Electro should be the same as reef
+    self._RunScript(outfile, REEF_HWID, 'electro', REEF_STABLE_MAIN_VERSION,
+                    'output')
+    regions = self._GetUnequalRegions(bios_file, '%s/image.bin' % self.indir)
+    self.assertEqual(['GBB'], regions)
 
 
 if __name__ == '__main__':
