@@ -11,6 +11,7 @@ with a few fake tools.
 from __future__ import print_function
 
 import glob
+import gzip
 import os
 import re
 import shutil
@@ -497,11 +498,15 @@ class TestFunctional(unittest.TestCase):
     if expect != data:
       self.fail("Contents of '%s' does not match '%s'" % (fname, expect_fname))
 
-  def _GetUnequalRegions(self, expect_fname, fname):
+  def _GetUnequalRegions(self, expect_fname, fname, sig_id=None,
+                         expect_root_sum=None):
     """Get a list of firmware regions which are not the same
 
     This is used to compare two firmware images. It checks the files regions
     by region. Any regions which do not match are added to the returned list.
+    For vblock regions the contents are checked against the corresponding
+    vblock file in functest rather than the contents of expect_fname. For
+    GBB regions the root key is checked against expect_root_sum.
 
     The goal of this function is to check that the firmware the updater would
     write has the correct keys inside it for the model being written. Note that
@@ -511,6 +516,8 @@ class TestFunctional(unittest.TestCase):
     Args:
       expect_fname: File containing expected contents
       fname: File containing contents to check
+      sig_id: Signature ID for vblock, or None
+      expect_root_sum: Expected SHA1 sum of the root key (as a string), or None
 
     Returns:
       List of file regions that differ  (e.g. ['GBB']) excluding any
@@ -530,12 +537,29 @@ class TestFunctional(unittest.TestCase):
         basename = os.path.basename(expect_fname)
         with open(os.path.join(actual_dir, basename)) as fd:
           data = fd.read()
+        if sig_id and basename in ['VBLOCK_A', 'VBLOCK_B']:
+          expect = self._GetVblock(sig_id, basename[-1])
+        elif expect_root_sum and basename == 'GBB':
+          result = cros_build_lib.RunCommand(
+              ['futility', 'show', fname], quiet=True, mute_output=True,
+              error_code_ok=True)
+          # Relevant output is:
+          #   Root Key:
+          #     Vboot API:           1.0
+          #     Algorithm:           11 RSA8192 SHA512
+          #     Key Version:         1
+          #     Key sha1sum:         ac7c01b1bea84da486f30a52bba5eb67ff45f50f
+          lines = result.output.splitlines()
+          filtered_lines = [line for line in lines if 'sha1sum' in line]
+          data = re.match(' *Key sha1sum: *(.*)$', filtered_lines[0]).group(1)
+          expect = expect_root_sum
+
         if 'SECTION' not in basename and basename != 'WP_RO' and expect != data:
           differ.append(basename)
+
     finally:
       shutil.rmtree(expect_dir)
       shutil.rmtree(actual_dir)
-
     return differ
 
   def testFirmwareOutput(self):
@@ -566,6 +590,91 @@ class TestFunctional(unittest.TestCase):
                     'output')
     regions = self._GetUnequalRegions(bios_file, '%s/image.bin' % self.indir)
     self.assertEqual(['GBB'], regions)
+
+  def _GetVblock(self, sig_id, a_or_b):
+    """Get the contents of an A or B vblock for a given signature ID
+
+    Args:
+      sig_id: Signature ID for vblock (this is key_id in the update script)
+      a_or_b: Either 'A' or 'B' to select which vblock to use
+
+    Returns:
+      Contents of the vblock file as a string
+    """
+    self.assertIn(a_or_b, ['A', 'B'])
+    with gzip.GzipFile('functest/vblock_%s.%s.gz' % (a_or_b, sig_id)) as fd:
+      return fd.read()
+
+  def _CopyVblock(self, keydir, sig_id, a_or_b):
+    """Copy a vblock file into the firmware-update key directory
+
+    Args:
+      keydir: Destination directory to add files into
+      sig_id: Signature ID for vblock
+      a_or_b: Either 'A' or 'B' to select which vblock to use
+    """
+    with open(os.path.join(keydir, 'vblock_%s.%s' %
+                           (a_or_b, sig_id)), 'wb') as fd:
+      fd.write(self._GetVblock(sig_id, a_or_b))
+
+  def _AddKeys(self, keydir, sig_id):
+    """Add root key and vblock information for testing.
+
+    Args:
+      keydir: Destination directory to add files into
+      sig_id: Signature ID used to identify files in functest/
+
+    Returns:
+      SHA1 hash of the root key (as a string)
+    """
+    rootkey = 'functest/rootkey.%s' % sig_id
+    shutil.copy(rootkey, keydir)
+    self._CopyVblock(keydir, sig_id, 'A')
+    self._CopyVblock(keydir, sig_id, 'B')
+    result = cros_build_lib.RunCommand([
+        'futility', 'show', rootkey], quiet=True, mute_output=True)
+
+    # The last output line has the following format:
+    #   Key sha1sum:         ac7c01b1bea84da486f30a52bba5eb67ff45f50f
+    return result.output.splitlines()[-1].split()[2]
+
+  def _CheckOutput(self, outfile, model, rootkey_sum):
+    """Check that the firmware updater can generate the correct output.
+
+    This runs the firmware in 'output' mode with the given model and checks
+    that the resulting firmware image is correctly signed for that model.
+
+    Args:
+      outfile: Firmware update shellball filename
+      model: Name of model to generate firmware for
+      rootkey_sum: SHA1 sum of the root key (as a string)
+    """
+    lines = self._RunScript(outfile, REEF_HWID, model,
+                            REEF_STABLE_MAIN_VERSION, 'output')
+    self.assertIn('Firmware keys changed to set [%s].' % model, lines)
+    bios_file = '%s/bios.bin' % self.outdir
+    regions = self._GetUnequalRegions('%s/image.bin' % self.indir, bios_file,
+                                      model, rootkey_sum)
+    self.assertEqual([], regions)
+
+  def testSignedFirmwareOutput(self):
+    """Check the --output feature with signed firmware."""
+    _, extra_args = self._SetupArgs()
+    outfile, _, _ = self._RunPackFirmware(extra_args)
+
+    # Add some fake root keys and vblocks for some of the models, to simulate
+    # the action of the signer.
+    cros_build_lib.RunCommand([outfile, '--sb_extract', self.unpackdir],
+                              quiet=True, mute_output=True)
+    keydir = os.path.join(self.unpackdir, 'keyset')
+    os.mkdir(keydir)
+    reef_sum = self._AddKeys(keydir, 'reef')
+    electro_sum = self._AddKeys(keydir, 'electro')
+    cros_build_lib.RunCommand([outfile, '--sb_repack', self.unpackdir],
+                              quiet=True, mute_output=True)
+
+    self._CheckOutput(outfile, REEF_MODEL, reef_sum)
+    self._CheckOutput(outfile, 'electro', electro_sum)
 
 
 if __name__ == '__main__':
