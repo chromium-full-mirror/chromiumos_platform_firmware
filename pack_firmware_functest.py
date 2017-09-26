@@ -266,8 +266,8 @@ class TestFunctional(unittest.TestCase):
 
     Returns:
       Tuple:
-        List of models to include in the firmware update
         List of extra arguments to pass to the firmware updater
+        List of files we expect to see in the firmware update
     """
     models = ['reef', 'pyro', 'sand']
     all_models = models + ['electro', 'basking']  # Share others firmware
@@ -275,14 +275,6 @@ class TestFunctional(unittest.TestCase):
     for model in all_models:
       extra_args += ['-m', model]
     extra_args += ['-c', 'test/config.dtb', '-i', 'functest']
-    return models, extra_args
-
-  def testFirmwareUpdateUnibuild(self):
-    """Run the firmware packer, unpack the result and check it."""
-    models, extra_args = self._SetupArgs()
-    outfile, files, versions = self._RunPackFirmware(extra_args)
-
-    self.assertEqual(27, len(files))
     expected_files = self._ExpectedFiles(
         ['fake_extra_tool',
          'ectool',
@@ -291,6 +283,14 @@ class TestFunctional(unittest.TestCase):
          'models/basking/setvars.sh',
          'signer_config.csv'],
         models)
+    return extra_args, expected_files
+
+  def testFirmwareUpdateUnibuild(self):
+    """Run the firmware packer, unpack the result and check it."""
+    extra_args, expected_files = self._SetupArgs()
+    outfile, files, versions = self._RunPackFirmware(extra_args)
+
+    self.assertEqual(27, len(files))
     self.assertEqual(expected_files, files)
     with open(os.path.join(self.unpackdir, 'VERSION')) as fd:
       version_lines = fd.read().splitlines()
@@ -565,7 +565,7 @@ class TestFunctional(unittest.TestCase):
 
   def testFirmwareOutput(self):
     """Check the --output feature."""
-    _, extra_args = self._SetupArgs()
+    extra_args, _ = self._SetupArgs()
     outfile, files, _ = self._RunPackFirmware(extra_args)
     lines = self._RunScript(outfile, REEF_HWID, REEF_MODEL,
                             REEF_STABLE_MAIN_VERSION, 'output')
@@ -660,7 +660,7 @@ class TestFunctional(unittest.TestCase):
 
   def testSignedFirmwareOutput(self):
     """Check the --output feature with signed firmware."""
-    _, extra_args = self._SetupArgs()
+    extra_args, _ = self._SetupArgs()
     outfile, _, _ = self._RunPackFirmware(extra_args)
 
     # Add some fake root keys and vblocks for some of the models, to simulate
