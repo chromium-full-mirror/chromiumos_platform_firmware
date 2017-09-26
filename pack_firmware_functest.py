@@ -384,9 +384,15 @@ class TestFunctional(unittest.TestCase):
                     'Google_Pyro.9021.00.0')
     self._RunScript(outfile, REEF_HWID, 'electro', REEF_STABLE_MAIN_VERSION)
 
-    # Check the output of -V
+  def testVersionOutput(self):
+    """Check that the -V option shows version information as expected"""
+    extra_args, expected_files = self._SetupArgs()
+    outfile, files, _ = self._RunPackFirmware(extra_args)
     check_version_lines = self._RunScript(
         outfile, REEF_HWID, REEF_MODEL, REEF_STABLE_MAIN_VERSION, '-V')
+    with open(os.path.join(self.unpackdir, 'VERSION')) as fd:
+      version_lines = fd.read().splitlines()
+
     self.assertEqual(version_lines, check_version_lines[:len(version_lines)])
 
     # Now check the second part of the -V output, which is the contents of
