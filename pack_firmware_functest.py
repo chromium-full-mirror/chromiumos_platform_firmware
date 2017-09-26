@@ -251,14 +251,27 @@ class TestFunctional(unittest.TestCase):
     self.assertEqual(base % 'pd.bin', versions['IMAGE_PD'])
     self.assertEqual(signature_id, versions['SIGNATURE_ID'])
 
-  def testFirmwareUpdateUnibuild(self):
-    """Run the firmware packer, unpack the result and check it."""
+  def _SetupArgs(self):
+    """Set up the arguments to execute a functional test
+
+    This is a convenience function to hold common code.
+
+    Returns:
+      Tuple:
+        List of models to include in the firmware update
+        List of extra arguments to pass to the firmware updater
+    """
     models = ['reef', 'pyro', 'sand']
     all_models = models + ['electro', 'basking']  # Share others firmware
     extra_args = []
     for model in all_models:
       extra_args += ['-m', model]
     extra_args += ['-c', 'test/config.dtb', '-i', 'functest']
+    return models, extra_args
+
+  def testFirmwareUpdateUnibuild(self):
+    """Run the firmware packer, unpack the result and check it."""
+    models, extra_args = self._SetupArgs()
     outfile, files, versions = self._RunPackFirmware(extra_args)
 
     self.assertEqual(28, len(files))
