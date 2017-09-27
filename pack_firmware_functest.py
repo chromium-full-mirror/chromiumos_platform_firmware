@@ -18,8 +18,8 @@ import re
 import shutil
 import tarfile
 import tempfile
-import unittest
 
+from chromite.lib import cros_test_lib
 from chromite.lib import cros_build_lib
 
 import pack_firmware
@@ -41,7 +41,7 @@ HAVE_DASH = os.path.exists('/bin/dash')
 SHELL = '/bin/dash' if HAVE_DASH else '/bin/sh'
 
 
-class TestFunctional(unittest.TestCase):
+class TestFunctional(cros_test_lib.TestCase):
   """Functional test for firmware packer script.
 
   Members:
@@ -699,5 +699,6 @@ class TestFunctional(unittest.TestCase):
     self.assertIn('  --[no]force:  Try to force update. (default: false)',
                   lines)
 
+
 if __name__ == '__main__':
-  unittest.main()
+  cros_test_lib.main(module=__name__)
