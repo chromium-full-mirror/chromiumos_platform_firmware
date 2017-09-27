@@ -198,7 +198,7 @@ class TestFunctional(unittest.TestCase):
       lines = fd.read().splitlines()
     self.assertEqual(8, len(lines))
     self.assertEqual(
-        'flashrom(8): 27d59f95527b6a3bfa28c40cfe6bdf5d '
+        'flashrom(8): 7404a736f0c1a92b75cddc7722f21b4d '
         '*%s/functest/flashrom' % self.basedir, lines[1])
     self.assertEqual('             data', lines[2])
     self.assertEqual('             0.9.4  : 1bb61e1 : Feb 07 2017 18:29:17 UTC',
@@ -299,7 +299,7 @@ class TestFunctional(unittest.TestCase):
     assertions = [
         None,  # Skip testing first line.
         lambda(x): self.assertEqual(
-            'flashrom(8): 27d59f95527b6a3bfa28c40cfe6bdf5d '
+            'flashrom(8): 7404a736f0c1a92b75cddc7722f21b4d '
             '*%s/functest/flashrom' % self.basedir, x),
         lambda(x): self.assertEqual('             data', x),
         lambda(x): self.assertEqual(
