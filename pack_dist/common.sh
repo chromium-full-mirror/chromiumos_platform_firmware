@@ -197,7 +197,7 @@ silent_invoke() {
 
 # Prints a verbose message before calling silent_invoke.
 invoke() {
-  verbose_msg " * invoke: $@"
+  verbose_msg " * invoke: $*"
   silent_invoke "$@" || die "Execution FAILED."
 }
 

@@ -61,7 +61,7 @@ crosfw_unpack_current_image() {
   if [ -n "$(dirname ${image_name})" ]; then
     mkdir -p "${DIR_CURRENT}/$(dirname ${image_name})"
   fi
-  invoke "flashrom $target_opt $list -r $DIR_CURRENT/$image_name"
+  invoke flashrom ${target_opt} ${list} -r "${DIR_CURRENT}/${image_name}"
   # current may not have FMAP... (ex, from factory setup)
   ( cd "$DIR_CURRENT/$type_name";
     futility dump_fmap -x "../$image_name" >/dev/null 2>&1) || true
@@ -189,12 +189,13 @@ crosfw_dup2_mainfw() {
   local temp_image="_dup2_temp_image"
   debug_msg "invoking: crosfw_dup2_mainfw($@)"
   local opt_read_slots="-i $slot_from:$temp_from -i $slot_to:$temp_to"
-  invoke "flashrom $TARGET_OPT_MAIN $opt_read_slots -r $temp_image"
+  invoke flashrom ${TARGET_OPT_MAIN} ${opt_read_slots} -r "${temp_image}"
   if [ -s "$temp_from" ] && cros_compare_file "$temp_from" "$temp_to"; then
     debug_msg "crosfw_dup2_mainfw: slot content is the same, no need to copy."
   else
     slot="$slot_to:$temp_from"
-    invoke "flashrom $TARGET_OPT_MAIN $WRITE_OPT -w $temp_image -i $slot"
+    invoke flashrom ${TARGET_OPT_MAIN} ${WRITE_OPT} -w "${temp_image}" \
+      -i "${slot}"
   fi
 }
 
@@ -238,14 +239,16 @@ crosfw_update_main() {
   # TODO(hungte) verify if slot is valid.
   [ -s "$IMAGE_MAIN" ] || die "missing firmware image: $IMAGE_MAIN"
   if [ "$slot" = "" ]; then
-    invoke "flashrom $TARGET_OPT_MAIN $WRITE_OPT -w $IMAGE_MAIN"
+    invoke flashrom ${TARGET_OPT_MAIN} ${WRITE_OPT} -w "${IMAGE_MAIN}"
   elif [ "$source_type" = "" ]; then
-    invoke "flashrom $TARGET_OPT_MAIN $WRITE_OPT -w $IMAGE_MAIN -i $slot"
+    invoke flashrom ${TARGET_OPT_MAIN} ${WRITE_OPT} -w "${IMAGE_MAIN}" \
+      -i "${slot}"
   else
     local section_file="$DIR_TARGET/$TYPE_MAIN/$source_type"
     [ -s "$section_file" ] || die "crosfw_update_main: missing $section_file"
     slot="$slot:$section_file"
-    invoke "flashrom $TARGET_OPT_MAIN $WRITE_OPT -w $IMAGE_MAIN -i $slot"
+    invoke flashrom ${TARGET_OPT_MAIN} ${WRITE_OPT} -w "${IMAGE_MAIN}" \
+      -i "${slot}"
   fi
 }
 
@@ -261,9 +264,9 @@ crosfw_update_ec() {
   [ -s "$IMAGE_EC" ] || die "missing firmware image: $IMAGE_EC"
   [ -z "$CUSTOMIZATION_EC_PRE_UPDATE" ] || "$CUSTOMIZATION_EC_PRE_UPDATE"
   if [ -n "$slot" ]; then
-    invoke "flashrom $TARGET_OPT_EC $WRITE_OPT -w $IMAGE_EC -i $slot"
+    invoke flashrom ${TARGET_OPT_EC} ${WRITE_OPT} -w "${IMAGE_EC}" -i "${slot}"
   else
-    invoke "flashrom $TARGET_OPT_EC $WRITE_OPT -w $IMAGE_EC"
+    invoke flashrom ${TARGET_OPT_EC} ${WRITE_OPT} -w "${IMAGE_EC}"
   fi
   [ -z "$CUSTOMIZATION_EC_POST_UPDATE" ] || "$CUSTOMIZATION_EC_POST_UPDATE"
 }
@@ -279,9 +282,9 @@ crosfw_update_pd() {
   [ -s "$IMAGE_PD" ] || die "missing firmware image: $IMAGE_PD"
   [ -z "$CUSTOMIZATION_PD_PRE_UPDATE" ] || "$CUSTOMIZATION_PD_PRE_UPDATE"
   if [ -n "$slot" ]; then
-    invoke "flashrom $TARGET_OPT_PD $WRITE_OPT -w $IMAGE_PD -i $slot"
+    invoke flashrom ${TARGET_OPT_PD} ${WRITE_OPT} -w "${IMAGE_PD}" -i "${slot}"
   else
-    invoke "flashrom $TARGET_OPT_PD $WRITE_OPT -w $IMAGE_PD"
+    invoke flashrom ${TARGET_OPT_PD} ${WRITE_OPT} -w "${IMAGE_PD}"
   fi
   [ -z "$CUSTOMIZATION_PD_POST_UPDATE" ] || "$CUSTOMIZATION_PD_POST_UPDATE"
 }
