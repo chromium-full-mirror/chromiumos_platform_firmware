@@ -106,7 +106,7 @@ class TestFunctional(unittest.TestCase):
       hwid: Hardware ID to provide when the script asks for the hardware ID
       model: Model name to provide when the script asks for it.
       stable_main_version: Value to return when RO_FWID is requested.
-      mode: Execution mode (can be 'autoupdate', 'output' or '-V')
+      mode: Execution mode (can be 'autoupdate' or 'output')
 
     Returns:
       List of lines output from the script
@@ -126,10 +126,7 @@ class TestFunctional(unittest.TestCase):
     os.environ['FAKE_WPSW_CUR'] = '1'    # RO firmware is write-protected.
     os.environ['FAKE_VDAT_FLAGS'] = '0'  # Not using RO normal.
     cmd = [SHELL, outfile]
-    if mode == '-V':
-      cmd.append('-V')
-    else:
-      cmd += ['--mode', mode]
+    cmd += ['--mode', mode]
     if mode == 'output':
       cmd += ['--model', model, '--output_dir', self.outdir]
     cmd += ['--verbose', '--debug']
@@ -388,11 +385,13 @@ class TestFunctional(unittest.TestCase):
     """Check that the -V option shows version information as expected"""
     extra_args, expected_files = self._SetupArgs()
     outfile, files, _ = self._RunPackFirmware(extra_args)
-    check_version_lines = self._RunScript(
-        outfile, REEF_HWID, REEF_MODEL, REEF_STABLE_MAIN_VERSION, '-V')
+
+    cmd = [SHELL, outfile, '-V']
+    result = cros_build_lib.RunCommand(cmd, capture_output=True)
+    check_version_lines = result.output.splitlines()
+
     with open(os.path.join(self.unpackdir, 'VERSION')) as fd:
       version_lines = fd.read().splitlines()
-
     self.assertEqual(version_lines, check_version_lines[:len(version_lines)])
 
     # Now check the second part of the -V output, which is the contents of
