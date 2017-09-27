@@ -682,6 +682,22 @@ class TestFunctional(unittest.TestCase):
     self._CheckOutput(outfile, REEF_MODEL, reef_sum)
     self._CheckOutput(outfile, 'electro', electro_sum)
 
+  def testHelp(self):
+    """Check that the -h option shows help"""
+    extra_args, _ = self._SetupArgs()
+    outfile, _, _ = self._RunPackFirmware(extra_args)
+
+    cmd = [outfile, '-h']
+    result = cros_build_lib.RunCommand(cmd, capture_output=True, quiet=True,
+                                       mute_output=True, error_code_ok=True)
+    self.assertEqual(1, result.returncode)
+    self.assertIsNone(result.error)
+    lines = result.output.splitlines()
+    self.assertIn('USAGE: %s [bundle_option|--] [updater_options]' % outfile,
+                  lines)
+    self.assertIn('USAGE: ./updater4.sh [flags] args', lines)
+    self.assertIn('  --[no]force:  Try to force update. (default: false)',
+                  lines)
 
 if __name__ == '__main__':
   unittest.main()
