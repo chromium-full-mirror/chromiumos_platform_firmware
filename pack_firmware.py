@@ -249,20 +249,19 @@ class FirmwarePacker(object):
     flashrom = self._FindTool(tool_base, 'flashrom')
 
     # Look for a string ending in UTC.
-    with open(flashrom, 'rb') as fd:
-      data = fd.read()
-      m = re.search(r'([0-9.]+ +: +[a-z0-9]+ +: +.+UTC)', data)
-      if m:
-        version = m.group(1)
-      else:
-        # As a fallback, look for a version without git hash / date.
-        m = re.search(r'([0-9.]+ +:  +: +)', data)
-        if not m:
-          raise PackError('Could not find flashrom version number')
+    data = osutils.ReadFile(flashrom, mode='rb')
+    m = re.search(r'([0-9.]+ +: +[a-z0-9]+ +: +.+UTC)', data)
+    if m:
+      version = m.group(1)
+    else:
+      # As a fallback, look for a version without git hash / date.
+      m = re.search(r'([0-9.]+ +:  +: +)', data)
+      if not m:
+        raise PackError('Could not find flashrom version number')
 
-        # Don't show a partial version, it is not very useful and the
-        # pack_firmware.sh script (which predates this script) did not show it.
-        version = ''
+      # Don't show a partial version, it is not very useful and the
+      # pack_firmware.sh script (which predates this script) did not show it.
+      version = ''
 
     # crbug.com/695904: Can we use a SHA2-based algorithm?
     digest = md5.new()
@@ -284,9 +283,8 @@ class FirmwarePacker(object):
       version: Version string (e.g. 'Google_Reef.9042.40.0').
     """
     if fname:
-      with open(fname, 'rb') as fd:
-        digest = md5.new()
-        digest.update(fd.read())
+      digest = md5.new()
+      digest.update(osutils.ReadFile(fname, mode='rb'))
 
       # Modify the filename to replace any use of our base directory with a
       # constant string, so we produce the same output on each run. Also drop
@@ -323,8 +321,7 @@ class FirmwarePacker(object):
     cros_build_lib.RunCommand(['futility', 'dump_fmap', '-x', image_file],
                               quiet=True, cwd=self._tmpdir, error_code_ok=True)
     if os.path.exists(fname):
-      with open(fname) as fd:
-        return fd.read().replace('\x00', '').strip()
+      return osutils.ReadFile(fname).replace('\x00', '').strip()
     return ''
 
   def _BaseDirPath(self, basename):
@@ -695,9 +692,7 @@ class FirmwarePacker(object):
         with open(newfile) as fd:
           fd.readline()
           rest = fd.read()
-        with open(newfile, 'w') as fd:
-          fd.write('#!/bin/dash\n')
-          fd.write(rest)
+        osutils.WriteFile(newfile, '#!/bin/dash\n' + rest)
     if not copied:
       raise PackError("Cannot find required file '%s'" %
                       os.path.join(self._pack_dist, script))
@@ -788,14 +783,12 @@ class FirmwarePacker(object):
           key: String to replace.
           value: Value to replace with.
     """
-    with open(infile) as fd:
-      data = fd.read()
+    data = osutils.ReadFile(infile)
     rep = dict((re.escape(k), v) for k, v in replace_dict.iteritems())
     pattern = re.compile("|".join(rep.keys()))
     data = pattern.sub(lambda m: rep[re.escape(m.group(0))], data)
 
-    with open(outfile, 'w') as fd:
-      fd.write(data)
+    osutils.WriteFile(outfile, data)
     os.chmod(outfile, os.stat(outfile).st_mode | 0555)
 
   def _WriteUpdateScript(self, script, replace_dict):
@@ -840,8 +833,7 @@ class FirmwarePacker(object):
         quiet=self._args.quiet, mute_output=not self._args.quiet)
     if not self._args.quiet:
       for fname in glob.glob(self._BaseDirPath('VERSION*')):
-        with open(fname) as fd:
-          print(fd.read())
+        print(osutils.ReadFile(fname))
 
   def _ProcessModel(self, model, bios_image, bios_rw_image, ec_image, pd_image,
                     create_bios_rw_image, tools, tool_base, extras,
@@ -955,19 +947,16 @@ class FirmwarePacker(object):
 
     setvars_dirname = self._BaseDirPath(os.path.join(MODELS_DIR,
                                                      firmware.model))
-    if not os.path.exists(setvars_dirname):
-      os.mkdir(setvars_dirname)
+    osutils.SafeMakedirs(setvars_dirname)
     if firmware.shared_model:
       image_dirname = self._BaseDirPath(os.path.join(MODELS_DIR,
                                                      firmware.shared_model))
-      if not os.path.exists(image_dirname):
-        os.mkdir(image_dirname)
+      osutils.SafeMakedirs(image_dirname)
     else:
       image_dirname = setvars_dirname
     # Put all model files in a separate subdirectory.
     dirname = os.path.join(self._tmpdir, MODELS_DIR, firmware.model)
-    if not os.path.exists(dirname):
-      os.mkdir(dirname)
+    osutils.SafeMakedirs(dirname)
 
     if shared_image_files:
       bios_image, bios_rw_image, ec_image, pd_image = None, None, None, None
@@ -1091,8 +1080,8 @@ class FirmwarePacker(object):
 
         script = conf.GetFirmwareScript()
 
-        os.mkdir(self._BaseDirPath(MODELS_DIR))
-        os.mkdir(os.path.join(self._tmpdir, MODELS_DIR))
+        osutils.SafeMakedirs(self._BaseDirPath(MODELS_DIR))
+        osutils.SafeMakedirs(os.path.join(self._tmpdir, MODELS_DIR))
 
         firmware_info = conf.GetFirmwareInfo()
         # TODO: Ignore the passed-in model list and use the list from

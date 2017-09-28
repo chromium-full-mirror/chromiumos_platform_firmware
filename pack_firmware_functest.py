@@ -17,10 +17,11 @@ import os
 import re
 import shutil
 import tarfile
-import tempfile
 
 from chromite.lib import cros_test_lib
 from chromite.lib import cros_build_lib
+from chromite.lib import osutils
+from chromite.lib import path_util
 
 import pack_firmware
 from pack_firmware import FirmwarePacker
@@ -41,33 +42,39 @@ HAVE_DASH = os.path.exists('/bin/dash')
 SHELL = '/bin/dash' if HAVE_DASH else '/bin/sh'
 
 
-class TestFunctional(cros_test_lib.TestCase):
+class TestFunctional(cros_test_lib.TempDirTestCase):
   """Functional test for firmware packer script.
 
+  If a test needs additional writable paths, they can use self.tempdir.  Just
+  make sure to not pick a path already used by one of the other members (see
+  the code below for actual paths).
+
   Members:
-    indir: Directory which contains the input firmware files (e,g. image.bin).
+    indir: Directory which contains the input firmware files (e.g. image.bin).
     basedir: Directory containing this script.
     outdir: Directory to place output shellball.
-    tmp_base: Temporary directory to use as our base for other temp dirs.
+    tempdir: Temporary directory to use as our base for other temp dirs.
     unpackdir: Directory used to unpack shellball into.
   """
 
   def setUp(self):
+    # These are the named paths we use under self.tempdir.
+    self.indir = os.path.join(self.tempdir, 'indir')
+    self.outdir = os.path.join(self.tempdir, 'outdir')
+    self.unpackdir = os.path.join(self.tempdir, 'unpackdir')
+
+    osutils.SafeMakedirs(self.indir)
+    osutils.SafeMakedirs(self.outdir)
+    osutils.SafeMakedirs(self.unpackdir)
+
     pack_firmware_utils.MakeTestFiles()
     self.packer = FirmwarePacker('test')
-    self.tmp_base = 'pack_firmwaretest-%d' % os.getpid()
-    self.indir = tempfile.mkdtemp(self.tmp_base)
     with tarfile.open('functest/Reef.9042.50.0.tbz2') as tar:
       tar.extractall(self.indir)
     with tarfile.open('functest/Reef_EC.9042.50.0.tbz2') as tar:
       tar.extractall(self.indir)
     self.basedir = os.path.realpath(os.path.dirname(__file__))
-    if os.path.exists('/etc/cros_chroot_version'):
-      self.chroot = '/'
-    else:
-      self.chroot = os.path.join(self.basedir, '../../../chroot')
-    self.outdir = tempfile.mkdtemp(self.tmp_base)
-    self.unpackdir = tempfile.mkdtemp(self.tmp_base)
+    self.chroot = path_util.ToChrootPath('/')
     self.packer._force_dash = HAVE_DASH
 
   @staticmethod
@@ -193,8 +200,8 @@ class TestFunctional(cros_test_lib.TestCase):
     self.assertEqual(self._ExpectedFiles(['bios.bin']), files)
 
     # Comb through the VERSION file and check that everything is as expected.
-    with open(os.path.join(self.unpackdir, 'VERSION')) as fd:
-      lines = fd.read().splitlines()
+    lines = osutils.ReadFile(
+        os.path.join(self.unpackdir, 'VERSION')).splitlines()
     self.assertEqual(8, len(lines))
     self.assertEqual(
         'flashrom(8): 7404a736f0c1a92b75cddc7722f21b4d '
@@ -290,8 +297,8 @@ class TestFunctional(cros_test_lib.TestCase):
 
     self.assertEqual(27, len(files))
     self.assertEqual(expected_files, files)
-    with open(os.path.join(self.unpackdir, 'VERSION')) as fd:
-      version_lines = fd.read().splitlines()
+    version_lines = osutils.ReadFile(
+        os.path.join(self.unpackdir, 'VERSION')).splitlines()
 
     # Each assertion matches to a line:
     assertions = [
@@ -367,8 +374,8 @@ class TestFunctional(cros_test_lib.TestCase):
     self.assertEqual('Google_Pyro.9042.41.0', versions['TARGET_FWID'])
     self._CheckVars(versions, '${MODEL_DIR}/%s', 'pyro')
 
-    with open(os.path.join(self.unpackdir, 'signer_config.csv')) as fd:
-      lines = fd.read().splitlines()
+    lines = osutils.ReadFile(
+        os.path.join(self.unpackdir, 'signer_config.csv')).splitlines()
     self.assertEqual('model_name,firmware_image,key_id,ec_image', lines[0])
     self.assertEqual('reef,models/reef/bios.bin,REEF,models/reef/ec.bin',
                      lines[1])
@@ -397,8 +404,8 @@ class TestFunctional(cros_test_lib.TestCase):
                                        print_cmd=False)
     check_version_lines = result.output.splitlines()
 
-    with open(os.path.join(self.unpackdir, 'VERSION')) as fd:
-      version_lines = fd.read().splitlines()
+    version_lines = osutils.ReadFile(
+        os.path.join(self.unpackdir, 'VERSION')).splitlines()
     self.assertEqual(version_lines, check_version_lines[:len(version_lines)])
 
     # Now check the second part of the -V output, which is the contents of
@@ -441,7 +448,7 @@ class TestFunctional(cros_test_lib.TestCase):
     with open(os.path.join(self.unpackdir, outfile), 'wb') as fd:
       fd.write(ro_id + chr(0) * (256 - len(ro_id)))
       fd.write(rw_id + chr(0) * (256 - len(rw_id)))
-      fd.write(open('functest/fmap.bin').read())
+      fd.write(osutils.ReadFile('functest/fmap.bin'))
 
   def testRepack(self):
     """Repacking the shellball with new images should update versions."""
@@ -482,18 +489,11 @@ class TestFunctional(cros_test_lib.TestCase):
     # The shellball shows files in a comment with this format:
     # 16777216 -rw-r--r-- bios.bin
     re_files = re.compile(r'^# +[0-9]+ [-rwx]+ \(.*\)$')
-    with open(outfile) as fd:
-      for line in fd.read().splitlines():
-        m = re_files.match(line)
-        if m:
-          files.append(m.group(1))
+    for line in osutils.ReadFile(outfile).splitlines():
+      m = re_files.match(line)
+      if m:
+        files.append(m.group(1))
     self.assertEqual(files, sorted(files))
-
-  def tearDown(self):
-    """Remove temporary directories"""
-    shutil.rmtree(self.indir)
-    shutil.rmtree(self.outdir)
-    shutil.rmtree(self.unpackdir)
 
   def _AssertFileEqual(self, expect_fname, fname):
     """Check that two files have the same contents.
@@ -504,10 +504,8 @@ class TestFunctional(cros_test_lib.TestCase):
       expect_fname: File containing expected contents
       fname: File containing contents to check
     """
-    with open(expect_fname) as fd:
-      expect = fd.read()
-    with open(fname) as fd:
-      data = fd.read()
+    expect = osutils.ReadFile(expect_fname)
+    data = osutils.ReadFile(fname)
     if expect != data:
       self.fail("Contents of '%s' does not match '%s'" % (fname, expect_fname))
 
@@ -537,19 +535,19 @@ class TestFunctional(cros_test_lib.TestCase):
       'section' regions
     """
     try:
-      expect_dir = tempfile.mkdtemp(self.tmp_base)
+      expect_dir = os.path.join(self.tempdir, 'expect')
+      osutils.SafeMakedirs(expect_dir)
       cros_build_lib.RunCommand(['dump_fmap', '-x', expect_fname], quiet=True,
                                 cwd=expect_dir)
-      actual_dir = tempfile.mkdtemp(self.tmp_base)
+      actual_dir = os.path.join(self.tempdir, 'actual')
+      osutils.SafeMakedirs(actual_dir)
       cros_build_lib.RunCommand(['dump_fmap', '-x', fname], quiet=True,
                                 cwd=actual_dir)
       differ = []
       for expect_fname in glob.glob('%s/*' % expect_dir):
-        with open(expect_fname) as fd:
-          expect = fd.read()
+        expect = osutils.ReadFile(expect_fname)
         basename = os.path.basename(expect_fname)
-        with open(os.path.join(actual_dir, basename)) as fd:
-          data = fd.read()
+        data = osutils.ReadFile(os.path.join(actual_dir, basename))
         if sig_id and basename in ['VBLOCK_A', 'VBLOCK_B']:
           expect = self._GetVblock(sig_id, basename[-1])
         elif expect_root_sum and basename == 'GBB':
@@ -571,8 +569,8 @@ class TestFunctional(cros_test_lib.TestCase):
           differ.append(basename)
 
     finally:
-      shutil.rmtree(expect_dir)
-      shutil.rmtree(actual_dir)
+      osutils.RmDir(expect_dir)
+      osutils.RmDir(actual_dir)
     return differ
 
   def testFirmwareOutput(self):
@@ -626,9 +624,8 @@ class TestFunctional(cros_test_lib.TestCase):
       sig_id: Signature ID for vblock
       a_or_b: Either 'A' or 'B' to select which vblock to use
     """
-    with open(os.path.join(keydir, 'vblock_%s.%s' %
-                           (a_or_b, sig_id)), 'wb') as fd:
-      fd.write(self._GetVblock(sig_id, a_or_b))
+    path = os.path.join(keydir, 'vblock_%s.%s' % (a_or_b, sig_id))
+    osutils.WriteFile(path, self._GetVblock(sig_id, a_or_b), mode='wb')
 
   def _AddKeys(self, keydir, sig_id):
     """Add root key and vblock information for testing.
@@ -685,7 +682,7 @@ class TestFunctional(cros_test_lib.TestCase):
     cros_build_lib.RunCommand([outfile, '--sb_extract', self.unpackdir],
                               quiet=True, mute_output=True)
     keydir = os.path.join(self.unpackdir, 'keyset')
-    os.mkdir(keydir)
+    osutils.SafeMakedirs(keydir)
     key_sums = []
     for key_id in key_ids:
       key_sums.append(self._AddKeys(keydir, key_id))
@@ -726,8 +723,8 @@ class TestFunctional(cros_test_lib.TestCase):
     """Test generation of firmware for a whitelabel model"""
     extra_args, _ = self._SetupArgs(['whitelabel-test'])
     self._RunPackFirmware(extra_args)
-    with open(os.path.join(self.unpackdir, 'VERSION')) as fd:
-      version_lines = fd.read().splitlines()
+    version_lines = osutils.ReadFile(
+        os.path.join(self.unpackdir, 'VERSION')).splitlines()
 
     # Check that the whitelabel version output matches sand.
     found = None
@@ -757,8 +754,8 @@ class TestFunctional(cros_test_lib.TestCase):
     self._CheckVars(versions, 'models/sand/%s', 'whitelabel-test')
 
     # Check the signer instructions - the last line should be for whitelabel.
-    with open(os.path.join(self.unpackdir, 'signer_config.csv')) as fd:
-      lines = fd.read().splitlines()
+    lines = osutils.ReadFile(
+        os.path.join(self.unpackdir, 'signer_config.csv')).splitlines()
     self.assertEqual(
         'whitelabel-test,models/sand/bios.bin,WHITELABEL,models/sand/ec.bin',
         lines[-1])
@@ -776,8 +773,8 @@ class TestFunctional(cros_test_lib.TestCase):
     """
     extra_args, _ = self._SetupArgs([model] + wl_models)
     outfile, _, _ = self._RunPackFirmware(extra_args)
-    with open(os.path.join(self.unpackdir, 'VERSION')) as fd:
-      version_lines = fd.read().splitlines()
+    version_lines = osutils.ReadFile(
+        os.path.join(self.unpackdir, 'VERSION')).splitlines()
 
     # Check that the whitelabel version output matches sand.
     found = None
@@ -816,8 +813,8 @@ class TestFunctional(cros_test_lib.TestCase):
 
     # Check the signer instructions - we should get keys for the two
     # zero-touch whitelabels.
-    with open(os.path.join(self.unpackdir, 'signer_config.csv')) as fd:
-      lines = fd.read().splitlines()
+    lines = osutils.ReadFile(
+        os.path.join(self.unpackdir, 'signer_config.csv')).splitlines()
     self.assertEqual('basking,models/sand/bios.bin,BASKING,models/sand/ec.bin',
                      lines[-1 - len(wl_models)])
     for i, wl_model in enumerate(wl_models):

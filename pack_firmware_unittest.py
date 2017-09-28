@@ -181,21 +181,20 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     """Test some basic argument parsing as a sanity check."""
     with self.assertRaises(SystemExit):
       with capture_sys_output():
-        self.assertEqual(None, self.packer.ParseArgs(['--invalid']))
+        self.assertIsNone(self.packer.ParseArgs(['--invalid']))
 
-    self.assertEqual(None, self.packer.ParseArgs([]).bios_image)
+    self.assertIsNone(self.packer.ParseArgs([]).bios_image)
     self.assertEqual('/bios.bin',
                      self.packer.ParseArgs(['-b', '/bios.bin']).bios_image)
 
-    self.assertEqual(True, self.packer.ParseArgs([]).remove_inactive_updaters)
-    self.assertEqual(False,
-                     self.packer.ParseArgs(['--no-remove_inactive_updaters'])
+    self.assertTrue(self.packer.ParseArgs([]).remove_inactive_updaters)
+    self.assertFalse(self.packer.ParseArgs(['--no-remove_inactive_updaters'])
                      .remove_inactive_updaters)
 
-    self.assertEqual(True, self.packer.ParseArgs([]).merge_bios_rw_image)
-    self.assertEqual(True, self.packer.ParseArgs(['--merge_bios_rw_image'])
-                     .merge_bios_rw_image)
-    self.assertEqual(False, self.packer.ParseArgs(['--no-merge_bios_rw_image'])
+    self.assertTrue(self.packer.ParseArgs([]).merge_bios_rw_image)
+    self.assertTrue(self.packer.ParseArgs(['--merge_bios_rw_image'])
+                    .merge_bios_rw_image)
+    self.assertFalse(self.packer.ParseArgs(['--no-merge_bios_rw_image'])
                      .merge_bios_rw_image)
 
   def testEnsureCommand(self):
@@ -217,11 +216,11 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     """Check creation and removal of temporary directories."""
     dir1 = self.packer._CreateTmpDir()
     dir2 = self.packer._CreateTmpDir()
-    self.assertTrue(os.path.exists(dir1))
-    self.assertTrue(os.path.exists(dir2))
+    self.assertExists(dir1)
+    self.assertExists(dir2)
     self.packer._RemoveTmpdirs()
-    self.assertFalse(os.path.exists(dir1))
-    self.assertFalse(os.path.exists(dir2))
+    self.assertNotExists(dir1)
+    self.assertNotExists(dir2)
 
   def testAddFlashromVersion(self):
     """Test we can add the flashrom version to the version information."""
@@ -292,8 +291,8 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     """Check extracting a firmware ID with a trailing space."""
     def _SetupImage(_, **kwargs):
       destdir = kwargs['cwd']
-      with open(os.path.join(destdir, 'RO_FRID'), 'wb') as fd:
-        fd.write('TESTING \0\0\0')
+      osutils.WriteFile(os.path.join(destdir, 'RO_FRID'),
+                        'TESTING \0\0\0', mode='wb')
 
     self.packer._tmpdir = self.packer._CreateTmpDir()
     self.packer._testing = True
@@ -317,10 +316,8 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
                                     '-rw')
     self.assertEqual(os.path.basename(fname2), 'image.bin-rw')
     self.assertNotEqual(fname, fname2)
-    with open(fname) as fd:
-      data = fd.read()
-    with open(fname2) as fd:
-      data2 = fd.read()
+    data = osutils.ReadFile(fname)
+    data2 = osutils.ReadFile(fname2)
     self.assertNotEqual(data, data2)
 
     dirname = self.packer._CreateTmpDir()
@@ -410,10 +407,9 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         'test/reef-files/reef_fake_extra')
 
     # Since 'missing-prop' does not exist, this should return None.
-    self.assertEqual(
+    self.assertIsNone(
         self.packer._ExtractFile('reef', 'test/MODEL-files/MODEL_fake_extra',
-                                 None, None),
-        None)
+                                 None, None))
 
   def testExtractFileBcs(self):
     """Test handling file extraction based on a configuration property,"""
@@ -671,8 +667,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     self.assertEqual(8, len(result.splitlines()))
 
     # In the script, the EC version should be ''.
-    with open(self.output) as fd:
-      lines = fd.read().splitlines()
+    lines = osutils.ReadFile(self.output).splitlines()
     self.assertIn('', self._FindLineInList(lines, 'TARGET_ECID'))
 
 
