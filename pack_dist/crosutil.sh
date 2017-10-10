@@ -70,7 +70,7 @@ cros_set_prop() {
 
 # Queries a Chrome OS system property, return error if not available.
 cros_query_prop() {
-  crossystem "$@" 2>/dev/null || debug_msg "FAILURE: crossystem $@"
+  crossystem "$@" || debug_msg "FAILURE: crossystem $@"
 }
 
 # Sets the "startup update tries" counter.
@@ -220,7 +220,7 @@ cros_check_same_root_keys() {
   local ret=${FLAGS_TRUE}
 
   # current(1) may not contain root key, but target(2) MUST have a root key
-  if silent_invoke futility gbb -g --rootkey="$keyfile1" "$1" 2>/dev/null; then
+  if silent_invoke futility gbb -g --rootkey="$keyfile1" "$1"; then
     silent_invoke futility gbb -g --rootkey="$keyfile2" "$2" ||
       die "Cannot find ChromeOS GBB RootKey in $2."
     # to workaround key paddings...
@@ -246,14 +246,14 @@ cros_get_rw_firmware_info() {
   local image="$3"
 
   local rootkey="_rootkey"
-  silent_invoke futility gbb -g --rootkey="$rootkey" "$image" 2>/dev/null ||
+  silent_invoke futility gbb -g --rootkey="$rootkey" "$image" ||
     return
 
   local fw_info
   fw_info="$(futility vbutil_firmware \
                --verify "$vblock" \
                --signpubkey "$rootkey" \
-               --fv "$fw_main" 2>/dev/null)" || fw_info=""
+               --fv "$fw_main")" || fw_info=""
   echo "$fw_info"
 }
 
