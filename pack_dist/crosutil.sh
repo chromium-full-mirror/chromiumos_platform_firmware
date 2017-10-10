@@ -155,7 +155,7 @@ cros_is_software_write_protected() {
   local opt="$1"
   # Do not pipe flashrom stdout to grep to prevent SIGPIPE
   FLASHROM_OUT=$(flashrom $opt --wp-status 2>/dev/null)
-  echo $FLASHROM_OUT | grep -q "write protect is enabled"
+  echo "${FLASHROM_OUT}" | grep -q "write protect is enabled"
 }
 
 # Reports write protection status
