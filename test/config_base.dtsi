@@ -76,7 +76,7 @@
                     key-id = "electro";
                 };
             };
-            sand {
+            sand: sand {
                 firmware {
                     shares = <&reef_firmware_pinned>;
                     key-id = "sand";
@@ -86,6 +86,12 @@
                 firmware {
                     shares = <&reef_firmware_pinned>;
                     key-id = "basking";
+                };
+            };
+            whitelabel-test {
+                whitelabel = <&sand>;
+                firmware {
+                    key-id = "whitelabel";
                 };
             };
         };

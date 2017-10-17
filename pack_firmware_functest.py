@@ -256,10 +256,13 @@ class TestFunctional(cros_test_lib.TestCase):
     self.assertEqual(base % 'pd.bin', versions['IMAGE_PD'])
     self.assertEqual(signature_id, versions['SIGNATURE_ID'])
 
-  def _SetupArgs(self):
+  def _SetupArgs(self, extra_model=None):
     """Set up the arguments to execute a functional test
 
     This is a convenience function to hold common code.
+
+    Args:
+      extra_model: Extra model to generate firmware for, or None
 
     Returns:
       Tuple:
@@ -268,6 +271,8 @@ class TestFunctional(cros_test_lib.TestCase):
     """
     models = ['reef', 'pyro', 'sand']
     all_models = models + ['electro', 'basking']  # Share others firmware
+    if extra_model:
+      all_models.append(extra_model)
     extra_args = []
     for model in all_models:
       extra_args += ['-m', model]
@@ -698,6 +703,46 @@ class TestFunctional(cros_test_lib.TestCase):
     self.assertIn('USAGE: ./updater4.sh [flags] args', lines)
     self.assertIn('  --[no]force:  Try to force update. (default: false)',
                   lines)
+
+  def testWhitelabel(self):
+    """Test generation of firmware for a whitelabel model"""
+    extra_args, _ = self._SetupArgs('whitelabel-test')
+    self._RunPackFirmware(extra_args)
+    with open(os.path.join(self.unpackdir, 'VERSION')) as fd:
+      version_lines = fd.read().splitlines()
+
+    # Check that the whitelabel version output matches sand.
+    found = None
+    for linenum, line in enumerate(version_lines):
+      if 'whitelabel-test' in line:
+        found = linenum
+        break
+    self.assertTrue(found)
+    lines = version_lines[found:]
+    assertions = [
+        lambda(x): self.assertIn('whitelabel-test', x),
+        lambda(x): self.assertIn('sand/image.bin', x),
+        lambda(x): self.assertEqual('BIOS version: Google_Reef.9000.0.0', x),
+        lambda(x): self.assertIn('/sand/ec.bin', x),
+        lambda(x): self.assertEqual('EC version:   reef_v1.1.5857-77f6ed7', x),
+        lambda(x): self.assertEqual('', x),
+    ]
+    self.assertEqual(len(assertions), len(lines))
+    for i, assertion in enumerate(assertions):
+      if assertion:
+        assertion(lines[i])
+
+    # Check that the setvars.sh file is correct (points to sand).
+    versions = pack_firmware_utils.ReadVersions(
+        os.path.join(self.unpackdir, MODELS_DIR, 'whitelabel-test/setvars.sh'))
+    self.assertEqual('Google_Reef.9000.0.0', versions['TARGET_FWID'])
+    self._CheckVars(versions, 'models/sand/%s', 'whitelabel-test')
+
+    # Check the signer instructions - the last line should be for whitelabel.
+    with open(os.path.join(self.unpackdir, 'signer_config.csv')) as fd:
+      lines = fd.read().splitlines()
+    self.assertEqual('whitelabel-test,models/sand/bios.bin,whitelabel',
+                     lines[-1])
 
 
 if __name__ == '__main__':

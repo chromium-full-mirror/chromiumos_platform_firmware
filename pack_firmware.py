@@ -1015,6 +1015,8 @@ class FirmwarePacker(object):
   def _GetChildNode(self, node, prop_name):
     """Find the child node of a subnode by property name
 
+    This takes account of whitelabel support also.
+
     Args:
       node: Integer offset of node to check.
       prop_name: The property name of the offset to find.
@@ -1084,12 +1086,17 @@ class FirmwarePacker(object):
     Returns:
       ModelDetails object for |model|.
     """
+    model_node = self._config.path_offset('/chromeos/models/%s' % model)
+    whitelabel = self._GetPhandleNode(model_node, 'whitelabel')
+    base_model = self._config.get_name(whitelabel) if whitelabel else model
     firmware_node = self._config.path_offset('/chromeos/models/%s/firmware' %
                                              model)
+    base_firmware_node = self._config.path_offset(
+        '/chromeos/models/%s/firmware' % base_model)
 
     # If this model shares firmware with another model, get our
     # images from there.
-    image_node = self._GetPhandleNode(firmware_node, 'shares')
+    image_node = self._GetPhandleNode(base_firmware_node, 'shares')
     shared_image_files = None
     if image_node:
       node = image_node  # Override the node - use the shared firmware instead.
@@ -1097,7 +1104,7 @@ class FirmwarePacker(object):
       if shared_model in model_details:
         shared_image_files = model_details[shared_model].image_files
     else:
-      node = firmware_node
+      node = base_firmware_node
       shared_model = None
 
     os.mkdir(self._BaseDirPath(os.path.join(MODELS_DIR, model)))
