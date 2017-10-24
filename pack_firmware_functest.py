@@ -257,13 +257,13 @@ class TestFunctional(cros_test_lib.TestCase):
     self.assertEqual(base % 'pd.bin', versions['IMAGE_PD'])
     self.assertEqual(signature_id, versions['SIGNATURE_ID'])
 
-  def _SetupArgs(self, extra_model=None):
+  def _SetupArgs(self, extra_models=None):
     """Set up the arguments to execute a functional test
 
     This is a convenience function to hold common code.
 
     Args:
-      extra_model: Extra model to generate firmware for, or None
+      extra_models: List of extra models to generate firmware for, or None
 
     Returns:
       Tuple:
@@ -272,8 +272,8 @@ class TestFunctional(cros_test_lib.TestCase):
     """
     models = ['reef', 'pyro', 'sand']
     all_models = models + ['electro', 'basking']  # Share others firmware
-    if extra_model:
-      all_models.append(extra_model)
+    if extra_models:
+      all_models += extra_models
     extra_args = []
     for model in all_models:
       extra_args += ['-m', model]
@@ -670,6 +670,27 @@ class TestFunctional(cros_test_lib.TestCase):
                                       model, rootkey_sum)
     self.assertEqual([], regions)
 
+  def AddFakeKeys(self, outfile, key_ids):
+    """Add fake keys to an existing firmware update to allow testing
+
+    Args:
+      outfile: Firmware update file to modify
+      key_ids: List of key IDs to add
+
+    Returns:
+      List of sums for each key in key_ids
+    """
+    cros_build_lib.RunCommand([outfile, '--sb_extract', self.unpackdir],
+                              quiet=True, mute_output=True)
+    keydir = os.path.join(self.unpackdir, 'keyset')
+    os.mkdir(keydir)
+    key_sums = []
+    for key_id in key_ids:
+      key_sums.append(self._AddKeys(keydir, key_id))
+    cros_build_lib.RunCommand([outfile, '--sb_repack', self.unpackdir],
+                              quiet=True, mute_output=True)
+    return key_sums
+
   def testSignedFirmwareOutput(self):
     """Check the --output feature with signed firmware."""
     extra_args, _ = self._SetupArgs()
@@ -677,14 +698,7 @@ class TestFunctional(cros_test_lib.TestCase):
 
     # Add some fake root keys and vblocks for some of the models, to simulate
     # the action of the signer.
-    cros_build_lib.RunCommand([outfile, '--sb_extract', self.unpackdir],
-                              quiet=True, mute_output=True)
-    keydir = os.path.join(self.unpackdir, 'keyset')
-    os.mkdir(keydir)
-    reef_sum = self._AddKeys(keydir, 'reef')
-    electro_sum = self._AddKeys(keydir, 'electro')
-    cros_build_lib.RunCommand([outfile, '--sb_repack', self.unpackdir],
-                              quiet=True, mute_output=True)
+    reef_sum, electro_sum = self.AddFakeKeys(outfile, ['reef', 'electro'])
 
     self._CheckOutput(outfile, REEF_MODEL, reef_sum)
     self._CheckOutput(outfile, 'electro', electro_sum)
@@ -708,7 +722,7 @@ class TestFunctional(cros_test_lib.TestCase):
 
   def testWhitelabel(self):
     """Test generation of firmware for a whitelabel model"""
-    extra_args, _ = self._SetupArgs('whitelabel-test')
+    extra_args, _ = self._SetupArgs(['whitelabel-test'])
     self._RunPackFirmware(extra_args)
     with open(os.path.join(self.unpackdir, 'VERSION')) as fd:
       version_lines = fd.read().splitlines()
