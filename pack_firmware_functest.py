@@ -130,7 +130,8 @@ class TestFunctional(cros_test_lib.TestCase):
     if mode == 'output':
       cmd += ['--model', model, '--output_dir', self.outdir]
     cmd += ['--verbose', '--debug']
-    result = cros_build_lib.RunCommand(cmd, capture_output=True)
+    result = cros_build_lib.RunCommand(cmd, capture_output=True,
+                                       print_cmd=False)
 
     # We expect debugging output but should not get anything else.
     errors = [line for line in result.error.splitlines()
@@ -392,7 +393,8 @@ class TestFunctional(cros_test_lib.TestCase):
     outfile, files, _ = self._RunPackFirmware(extra_args)
 
     cmd = [SHELL, outfile, '-V']
-    result = cros_build_lib.RunCommand(cmd, capture_output=True)
+    result = cros_build_lib.RunCommand(cmd, capture_output=True,
+                                       print_cmd=False)
     check_version_lines = result.output.splitlines()
 
     with open(os.path.join(self.unpackdir, 'VERSION')) as fd:
