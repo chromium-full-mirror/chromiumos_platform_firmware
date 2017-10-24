@@ -3,4 +3,15 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 #
-# Purpose: Fake implementation of 'vpd' tool, which does nothing.
+# Purpose: Fake implementation of 'vpd' tool, used for obtaining the signature
+# ID for zero-touch whitelabels.
+
+case "$1" in
+  -g)
+    case "$2" in
+      customization_id)
+        echo ${FAKE_CUSTOMIZATION_ID}
+        ;;
+    esac
+  ;;
+esac

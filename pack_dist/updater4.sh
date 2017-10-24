@@ -316,6 +316,18 @@ load_keyset() {
   local keyid
 
   if [ -n "${UNIBUILD}" ]; then
+    if [ -z "${SIGNATURE_ID}" ]; then
+      SIGNATURE_ID="$FLAGS_customization_id"
+    fi
+    # Support zero-touch whitelabel where the signature ID is in VPD.
+    # TODO(sjg): Update this to use mosys (or perhaps cros_config).
+    if [ "${SIGNATURE_ID}" = "sig-id-in-customization-id" ]; then
+      debug_msg "Zero-touch whitelabel detected, looking up key in VPD"
+      SIGNATURE_ID="$(vpd -g "customization_id" || echo "")"
+      if [ -z "${SIGNATURE_ID}" ]; then
+        die "Unibuild: No customization_id in VPD/cmdline. Cannot continue."
+      fi
+    fi
     keyid="${SIGNATURE_ID}"
 
   # For non-unibuild we don't have access to KEY_ID so must use vpd to read the

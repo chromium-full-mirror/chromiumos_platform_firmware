@@ -95,7 +95,7 @@ class TestFunctional(cros_test_lib.TestCase):
     return sorted(expected_files)
 
   def _RunScript(self, outfile, hwid, model, stable_main_version,
-                 mode='autoupdate'):
+                 mode='autoupdate', customization_id=''):
     """Run an autoupdate with the shellball and check that it works.
 
     This relies on fake tools, principally crossystem which is controlled by
@@ -107,6 +107,7 @@ class TestFunctional(cros_test_lib.TestCase):
       model: Model name to provide when the script asks for it.
       stable_main_version: Value to return when RO_FWID is requested.
       mode: Execution mode (can be 'autoupdate' or 'output')
+      customization_id: Value to return for customization_id from the fake vpd
 
     Returns:
       List of lines output from the script
@@ -125,6 +126,7 @@ class TestFunctional(cros_test_lib.TestCase):
     os.environ['FAKE_TPM_FWVER'] = '1'
     os.environ['FAKE_WPSW_CUR'] = '1'    # RO firmware is write-protected.
     os.environ['FAKE_VDAT_FLAGS'] = '0'  # Not using RO normal.
+    os.environ['FAKE_CUSTOMIZATION_ID'] = customization_id
     cmd = [SHELL, outfile]
     cmd += ['--mode', mode]
     if mode == 'output':
@@ -656,7 +658,7 @@ class TestFunctional(cros_test_lib.TestCase):
     #   Key sha1sum:         ac7c01b1bea84da486f30a52bba5eb67ff45f50f
     return result.output.splitlines()[-1].split()[2]
 
-  def _CheckOutput(self, outfile, model, rootkey_sum):
+  def _CheckOutput(self, outfile, model, rootkey_sum, customization_id=''):
     """Check that the firmware updater can generate the correct output.
 
     This runs the firmware in 'output' mode with the given model and checks
@@ -666,13 +668,16 @@ class TestFunctional(cros_test_lib.TestCase):
       outfile: Firmware update shellball filename
       model: Name of model to generate firmware for
       rootkey_sum: SHA1 sum of the root key (as a string)
+      customization_id: Value to return for customization_id from the fake vpd
     """
     lines = self._RunScript(outfile, REEF_HWID, model,
-                            REEF_STABLE_MAIN_VERSION, 'output')
-    self.assertIn('Firmware keys changed to set [%s].' % model, lines)
+                            REEF_STABLE_MAIN_VERSION, 'output',
+                            customization_id)
+    expected_sig_id = customization_id if customization_id else model
+    self.assertIn('Firmware keys changed to set [%s].' % expected_sig_id, lines)
     bios_file = '%s/bios.bin' % self.outdir
     regions = self._GetUnequalRegions('%s/image.bin' % self.indir, bios_file,
-                                      model, rootkey_sum)
+                                      expected_sig_id, rootkey_sum)
     self.assertEqual([], regions)
 
   def AddFakeKeys(self, outfile, key_ids):
@@ -766,6 +771,69 @@ class TestFunctional(cros_test_lib.TestCase):
         'whitelabel-test,models/sand/bios.bin,WHITELABEL,models/sand/ec.bin',
         lines[-1])
 
+  def testZeroTouchWhitelabel(self):
+    """Test generation of firmware for a 'zero-touch' whitelabel model
+
+    This is one where the device cannot tell its model name by hardware
+    detection, but must use the model name stored in the VPD
+    customization_id.
+    """
+    extra_args, _ = self._SetupArgs(['zero-touch-whitelabel', 'zt1', 'zt2'])
+    outfile, _, _ = self._RunPackFirmware(extra_args)
+    with open(os.path.join(self.unpackdir, 'VERSION')) as fd:
+      version_lines = fd.read().splitlines()
+
+    # Check that the whitelabel version output matches sand.
+    found = None
+    for linenum, line in enumerate(version_lines):
+      if 'zero-touch-whitelabel' in line:
+        found = linenum
+        break
+    self.assertTrue(found)
+    lines = version_lines[found:]
+    assertions = [
+        lambda(x): self.assertIn('zero-touch-whitelabel', x),
+        lambda(x): self.assertIn('reef/image.bin', x),
+        lambda(x): self.assertEqual('BIOS version: Google_Reef.9042.50.0', x),
+        lambda(x): self.assertIn('/reef/ec.bin', x),
+        lambda(x): self.assertEqual('EC version:   reef_v1.1.5857-77f6ed7', x),
+        lambda(x): self.assertEqual('Extra files from folder: test/extra', x),
+        lambda(x): self.assertEqual('Extra file: test/usr/sbin/ectool', x),
+        lambda(x): self.assertIn(
+            'Extra BCS file: bcs://Reef.9000.0.0.tbz2:', x),
+        lambda(x): self.assertEqual('', x),
+    ]
+    self.assertEqual(len(assertions), len(lines))
+    for i, assertion in enumerate(assertions):
+      if assertion:
+        assertion(lines[i])
+
+    # We should not create setvars.sh scripts for zero-touch whitelabels.
+    self.assertNotExists(os.path.join(self.unpackdir, MODELS_DIR, 'zt1'))
+    self.assertNotExists(os.path.join(self.unpackdir, MODELS_DIR, 'zt2'))
+
+    # Check that the setvars.sh file is correct (points to sand).
+    versions = pack_firmware_utils.ReadVersions(
+        os.path.join(self.unpackdir, MODELS_DIR,
+                     'zero-touch-whitelabel/setvars.sh'))
+    self.assertEqual('Google_Reef.9042.50.0', versions['TARGET_FWID'])
+    self._CheckVars(versions, 'models/reef/%s', 'sig-id-in-customization-id')
+
+    # Check the signer instructions - we should get keys for the two
+    # zero-touch whitelabels.
+    with open(os.path.join(self.unpackdir, 'signer_config.csv')) as fd:
+      lines = fd.read().splitlines()
+    self.assertEqual('basking,models/sand/bios.bin,BASKING,models/sand/ec.bin',
+                     lines[-3])
+    self.assertEqual('zt1,models/reef/bios.bin,ZT1,models/reef/ec.bin',
+                     lines[-2])
+    self.assertEqual('zt2,models/reef/bios.bin,ZT2,models/reef/ec.bin',
+                     lines[-1])
+
+    zt1_sum, zt2_sum = self.AddFakeKeys(outfile, ['ZT1', 'ZT2'])
+
+    self._CheckOutput(outfile, 'zero-touch-whitelabel', zt1_sum, 'ZT1')
+    self._CheckOutput(outfile, 'zero-touch-whitelabel', zt2_sum, 'ZT2')
 
 if __name__ == '__main__':
   cros_test_lib.main(module=__name__)

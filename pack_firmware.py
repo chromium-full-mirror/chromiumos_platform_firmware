@@ -1111,6 +1111,14 @@ class FirmwarePacker(object):
     else:
       node = base_firmware_node
       shared_model = None
+    key_id = self._GetString(firmware_node, 'key-id')
+
+    if (whitelabel and base_firmware_node and
+        self._GetBool(base_firmware_node, 'sig-id-in-customization-id')):
+      # For zero-touch whitelabel devices, we don't need to generate anything
+      # since the device will never report this model at runtime. The
+      # signature ID will come from customization_id.
+      return ModelDetails(None, shared_model, key_id)
 
     setvars_dirname = self._BaseDirPath(os.path.join(MODELS_DIR, model))
     if not os.path.exists(setvars_dirname):
@@ -1185,8 +1193,14 @@ class FirmwarePacker(object):
     setvars_dict['REPLACE_MODEL'] = model
     if shared_model:
       setvars_dict['${MODEL_DIR}'] = 'models/%s' % shared_model
-    key_id = self._GetString(firmware_node, 'key-id')
-    setvars_dict['REPLACE_SIGNATURE_ID'] = model
+
+    # For zero-touch whitelabel devices tell the firmware updater to get its
+    # signature ID from the VPD.
+    # TODO(sjg): Update this to say that it comes from mosys.
+    if self._GetBool(firmware_node, 'sig-id-in-customization-id'):
+      setvars_dict['REPLACE_SIGNATURE_ID'] = 'sig-id-in-customization-id'
+    else:
+      setvars_dict['REPLACE_SIGNATURE_ID'] = model
     fname = os.path.join(self._basedir, MODELS_DIR, model, 'setvars.sh')
     self._CreateFileFromTemplate(self._setvars_template_file, fname,
                                  setvars_dict)
@@ -1214,6 +1228,10 @@ class FirmwarePacker(object):
       print('model_name,firmware_image,key_id,ec_image', file=fd)
       for model in models:
         details = model_details[model]
+        if not details.key_id:
+          # Some models will not have a key. At present this is normally
+          # just the zero-touch whitelabel devices.
+          continue
         image_fname = os.path.join(MODELS_DIR, details.shared_model or model,
                                    IMAGE_MAIN)
         ec_fname = os.path.join(MODELS_DIR, details.shared_model or model,

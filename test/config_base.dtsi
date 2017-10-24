@@ -94,6 +94,24 @@
                     key-id = "WHITELABEL";
                 };
             };
+            zt_whitelabel: zero-touch-whitelabel {
+                firmware {
+                    sig-id-in-customization-id;
+                    shares = <&reef_firmware>;
+                };
+            };
+            zt1 {
+                whitelabel = <&zt_whitelabel>;
+                firmware {
+                    key-id = "ZT1";
+                };
+            };
+            zt2 {
+                whitelabel = <&zt_whitelabel>;
+                firmware {
+                    key-id = "ZT2";
+                };
+            };
         };
     };
 };
