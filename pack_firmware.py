@@ -1185,6 +1185,10 @@ class FirmwarePacker(object):
     key IDs. The signer uses this to work out which images to sign, the key to
     use to sign each image and the model name to use in the vblock filename.
 
+    Note that a change with the format can break the code which has already
+    been released. Update all the consumers first so that they can handle
+    old and new formats, then push the change here.
+
     Args:
       models: List of models to process (each a string) in the order that the
           information is wanted in the instruction file.
@@ -1193,12 +1197,14 @@ class FirmwarePacker(object):
           value: ModelDetails object for that model.
     """
     with open(self._BaseDirPath('signer_config.csv'), 'w') as fd:
-      print('model_name,firmware_image,key_id', file=fd)
+      print('model_name,firmware_image,key_id,ec_image', file=fd)
       for model in models:
         details = model_details[model]
         image_fname = os.path.join(MODELS_DIR, details.shared_model or model,
                                    IMAGE_MAIN)
-        print('%s,%s,%s' % (model, image_fname, details.key_id), file=fd)
+        ec_fname = os.path.join(MODELS_DIR, details.shared_model or model,
+                                IMAGE_EC)
+        print(','.join((model, image_fname, details.key_id, ec_fname)), file=fd)
 
   def Start(self, argv, remove_tmpdirs=True):
     """Handle the creation of a firmware shell-ball.
