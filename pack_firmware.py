@@ -32,6 +32,8 @@ from chromite.lib import osutils
 
 import libfdt
 
+from libcros_config_host import libcros_config_host
+
 sys.path.append('utils')
 import merge_file
 
@@ -1244,6 +1246,13 @@ class FirmwarePacker(object):
           raise PackError('Cannot set stable versions with -m')
         if not args.config:
           raise PackError('Missing master configuration file (use -c)')
+
+        # TODO: Ignore the passed-in model list and use the list from
+        # libcros_config_host.
+        # TODO(sjg@chromium.org): Remove the -m args in cros-firmware.eclass,
+        # perhaps using a --legacy option to specify unibuild is not used.
+        with open(args.config) as fd:
+          conf = libcros_config_host.CrosConfig(fd)
 
         # This relies on an upstream pylibfdt which does not yet exist.
         # See here:
