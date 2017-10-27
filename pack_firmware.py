@@ -864,7 +864,7 @@ class FirmwarePacker(object):
 
   def _ProcessModel(self, model, bios_image, bios_rw_image, ec_image, pd_image,
                     create_bios_rw_image, tools, tool_base, extras,
-                    shared_image_files):
+                    shared_image_files, target_dir):
     """Set up the firmware update for one model.
 
     Args:
@@ -883,6 +883,7 @@ class FirmwarePacker(object):
           images we want to share (or None if none):
         key: Image name (e.g. 'BIOS (RW)' or 'EC').
         value: ImageFile object for that image.
+      target_dir: Target directory for image files.
 
     Returns:
       Dict containing information on the output image files:
@@ -891,7 +892,6 @@ class FirmwarePacker(object):
     """
     for tool in tools:
       self._FindTool(tool_base, tool)
-    models_dir = MODELS_DIR if model else ''
     if shared_image_files:
       image_files = shared_image_files
     else:
@@ -904,7 +904,7 @@ class FirmwarePacker(object):
           ec_image=ec_image,
           pd_image=pd_image,
           create_bios_rw_image=create_bios_rw_image,
-          target_dir=os.path.join(self._basedir, models_dir, model))
+          target_dir=target_dir)
     self._WriteVersions(model, image_files)
     self._CopyBaseFiles(tool_base, tools)
     if extras:
@@ -1109,7 +1109,15 @@ class FirmwarePacker(object):
       node = base_firmware_node
       shared_model = None
 
-    os.mkdir(self._BaseDirPath(os.path.join(MODELS_DIR, model)))
+    setvars_dirname = self._BaseDirPath(os.path.join(MODELS_DIR, model))
+    if not os.path.exists(setvars_dirname):
+      os.mkdir(setvars_dirname)
+    if shared_model:
+      image_dirname = self._BaseDirPath(os.path.join(MODELS_DIR, shared_model))
+      if not os.path.exists(image_dirname):
+        os.mkdir(image_dirname)
+    else:
+      image_dirname = setvars_dirname
     # Put all model files in a separate subdirectory.
     dirname = os.path.join(self._tmpdir, MODELS_DIR, model)
     if not os.path.exists(dirname):
@@ -1164,7 +1172,8 @@ class FirmwarePacker(object):
         tool_base=tool_base,
         extras=extras,
         model=model,
-        shared_image_files=shared_image_files)
+        shared_image_files=shared_image_files,
+        target_dir=image_dirname)
     setvars_dict = self._GetReplaceDict(
         image_files,
         self._GetString(node, 'stable-main-version'),
@@ -1286,7 +1295,8 @@ class FirmwarePacker(object):
             tools=args.tools,
             tool_base=tool_base,
             extras=args.extra.split(':') if args.extra else [],
-            shared_image_files=None)
+            shared_image_files=None,
+            target_dir=self._basedir)
         replace_dict = self._GetReplaceDict(image_files,
                                             args.stable_main_version,
                                             args.stable_ec_version,
