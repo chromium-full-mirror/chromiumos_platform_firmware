@@ -1235,7 +1235,8 @@ class FirmwarePacker(object):
       self._tmpdir = self._CreateTmpDir()
       self._AddFlashromVersion(tool_base)
       model_details = {}
-      if args.models:
+      model_list = []
+      if not args.legacy:
         # Most of the arguments are meaningless with unified builds since we
         # get the information from the master configuration. Add checks here
         # to avoid confusion. We could possibly do some of this using
@@ -1259,6 +1260,7 @@ class FirmwarePacker(object):
         # perhaps using a --legacy option to specify unibuild is not used.
         with open(args.config) as fd:
           conf = libcros_config_host.CrosConfig(fd)
+        model_list = args.models if args.models else conf.GetModelList()
 
         # This relies on an upstream pylibfdt which does not yet exist.
         # See here:
@@ -1276,7 +1278,7 @@ class FirmwarePacker(object):
         os.mkdir(self._BaseDirPath(MODELS_DIR))
         os.mkdir(os.path.join(self._tmpdir, MODELS_DIR))
 
-        for model in args.models:
+        for model in model_list:
           model_details[model] = self._GenerateOneModel(
               model, args, tool_base, model_details)
         replace_dict = {}
@@ -1302,7 +1304,7 @@ class FirmwarePacker(object):
       self._WriteUpdateScript(script, replace_dict)
       self._WriteVersionFile()
       if model_details:
-        self._WriteSignerInstructions(args.models, model_details)
+        self._WriteSignerInstructions(model_list, model_details)
       self._BuildShellball()
       if not args.quiet:
         print('Packed output image is: %s' % args.output)

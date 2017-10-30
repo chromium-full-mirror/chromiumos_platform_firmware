@@ -152,7 +152,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
 
     # Should complain if the selected updater is not available.
     with self.assertRaises(pack_firmware.PackError) as e:
-      pack_firmware.main(['test', '-o', 'out', '--tool_base', 'test',
+      pack_firmware.main(['test', '-o', 'out', '--tool_base', 'test', '-L',
                           '--tools', 'flashrom', '-b', 'test/image.bin'])
     self.assertIn("'pack_dist/updater.sh'", str(e.exception))
 
@@ -165,12 +165,12 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     # Should complain about missing tools.
     with self.assertRaises(pack_firmware.PackError) as e:
       pack_firmware.main(['.', '--script=updater5.sh', '--tool_base', 'test',
-                          '--tools', 'missing-tool', '-o', 'out'])
+                          '--tools', 'missing-tool', '-o', 'out', '-L'])
     self.assertIn("'missing-tool'", str(e.exception))
 
     # Should complain if we don't provide at least one image.
     with self.assertRaises(pack_firmware.PackError) as e:
-      args = ['.', '--script=updater5.sh', '--tools', 'ls',
+      args = ['.', '--script=updater5.sh', '--tools', 'ls', '-L',
               '--tool_base', '/bin:test', '-o', 'out']
       pack_firmware.main(args)
     self.assertIn('Must assign at least one', str(e.exception))
@@ -550,7 +550,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     """Start up with a valid updater script and BIOS."""
     pack_firmware.FirmwarePacker._GetPreambleFlags = (
         mock.Mock(side_effect=self._MockGetPreambleFlags))
-    args = ['.', '--create_bios_rw_image', '-e',
+    args = ['.', '--create_bios_rw_image', '-L', '-e',
             'test/ec.bin'] + self.common_flags
     with cros_build_lib_unittest.RunCommandMock() as rc:
       self._AddMocks(rc)
@@ -564,7 +564,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
 
     pack_firmware.FirmwarePacker._GetPreambleFlags = (
         mock.Mock(side_effect=self._MockGetPreambleFlags))
-    args = ['--bios_rw_image', 'test/image_rw.bin',
+    args = ['--bios_rw_image', 'test/image_rw.bin', '-L',
             '--merge_bios_rw_image', '-e', 'test/ec.bin', '-p', 'test/pd.bin',
             '--remove_inactive_updaters'] + self.common_flags
     with cros_build_lib_unittest.RunCommandMock() as rc:
@@ -647,7 +647,8 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     """Simple test of creating RW firmware."""
     pack_firmware.FirmwarePacker._GetPreambleFlags = (
         mock.Mock(side_effect=self._MockGetPreambleFlags))
-    args = ['--create_bios_rw_image', '-e', 'test/ec.bin'] + self.common_flags
+    args = ['--create_bios_rw_image', '-L',
+            '-e', 'test/ec.bin'] + self.common_flags
     with cros_build_lib_unittest.RunCommandMock() as rc:
       self._AddMocks(rc)
       rc.AddCmdResult(partial_mock.ListRegex('resign_firmwarefd.sh'),
@@ -674,7 +675,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
 
   def testNoECFirmware(self):
     """Simple test of creating firmware without an EC image."""
-    args = self.common_flags
+    args = self.common_flags + ['-L']
     with cros_build_lib_unittest.RunCommandMock() as rc:
       self._AddMocks(rc)
       self.packer.Start(args)

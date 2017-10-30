@@ -182,7 +182,7 @@ class TestFunctional(cros_test_lib.TestCase):
 
   def testFirmwareUpdate(self):
     """Run the firmware packer, unpack the result and check it."""
-    extra_args = ['-b', os.path.join(self.indir, 'image.bin'),
+    extra_args = ['-b', os.path.join(self.indir, 'image.bin'), '-L',
                   '--stable_main_version', REEF_STABLE_MAIN_VERSION,
                   '--script', UPDATER]
     outfile, files, versions = self._RunPackFirmware(extra_args)
@@ -445,7 +445,7 @@ class TestFunctional(cros_test_lib.TestCase):
 
   def testRepack(self):
     """Repacking the shellball with new images should update versions."""
-    extra_args = ['-b', os.path.join(self.indir, 'image.bin')]
+    extra_args = ['-b', os.path.join(self.indir, 'image.bin'), '-L']
     outfile, _, versions = self._RunPackFirmware(extra_args)
     self.assertEqual('Google_Reef.9042.50.0', versions['TARGET_RO_FWID'])
     self.assertEqual('Google_Reef.9042.50.0', versions['TARGET_FWID'])
@@ -476,7 +476,7 @@ class TestFunctional(cros_test_lib.TestCase):
 
   def testFilesSorted(self):
     """Files in the shellball should be sorted by filename."""
-    extra_args = ['-b', os.path.join(self.indir, 'image.bin')]
+    extra_args = ['-b', os.path.join(self.indir, 'image.bin'), '-L']
     outfile, files, _ = self._RunPackFirmware(extra_args)
 
     # The shellball shows files in a comment with this format:
