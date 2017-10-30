@@ -132,6 +132,9 @@ class FirmwarePacker(object):
       argparse.Namespace object containing the attributes.
     """
     parser = commandline.ArgumentParser(description=__doc__)
+    parser.add_argument('-L', '--legacy', action='store_true',
+                        help='Legacy mode for use with boards not using '
+                        'unified builds')
     parser.add_argument('-m', '--model', type=str, dest='models',
                         action='append',
                         help='Model name to include in firmware update')
