@@ -422,39 +422,6 @@ cros_override_rw_firmware_by_version() {
   fi
 }
 
-cros_check_stable_firmware() {
-  debug_msg "cros_check_stable_firmware($STABLE_FWID/$STABLE_ECID/$STABLE_PDID)"
-  if [ "$FLAGS_update_main" = "$FLAGS_TRUE" ]; then
-    if is_mainfw_write_protected; then
-      return $FLAGS_TRUE
-    elif [ -z "$STABLE_FWID" ] ||
-         cros_version_greater_than "$STABLE_FWID" "$RO_FWID"; then
-      alert "One-time RO+RW update from unstable firmware."
-      return $FLAGS_FALSE
-    fi
-  fi
-  if [ "$FLAGS_update_ec" = "$FLAGS_TRUE" ]; then
-    if is_ecfw_write_protected; then
-      return $FLAGS_TRUE
-    elif [ -z "$STABLE_ECID" ] ||
-         cros_version_greater_than "$STABLE_ECID" "$ECID"; then
-      alert "One-time RO+RW update from unstable EC firmware."
-      return $FLAGS_FALSE
-    fi
-  fi
-  if [ "$FLAGS_update_pd" = "$FLAGS_TRUE" ]; then
-    if is_pdfw_write_protected; then
-      return $FLAGS_TRUE
-    elif [ -z "$STABLE_PDID" ] ||
-         cros_version_greater_than "$STABLE_PDID" "$PDID"; then
-      alert "One-time RO+RW update from unstable PD firmware."
-      return $FLAGS_FALSE
-    fi
-  fi
-  debug_msg "cros_check_stable_firmware: firmware is STABLE."
-  return $FLAGS_TRUE
-}
-
 cros_check_compatible_platform() {
   local image="$1"
   local platform="$2"

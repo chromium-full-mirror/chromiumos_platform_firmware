@@ -55,9 +55,6 @@ class TestUnit(cros_test_lib.OutputTestCase):
 \t\t\tmain-image = "bcs://Reef.9042.87.0.tbz2";
 \t\t\tmain-rw-image = "bcs://Reef.9042.85.0.tbz2";
 \t\t\tpd-image = "bcs://Reef_PD.9042.80.0.tbz2";
-\t\t\tstable-ec-version = "reef_v1.1.5899-b349d2b";
-\t\t\tstable-main-version = "Google_Reef.9042.87.0";
-\t\t\tstable-pd-version = "reef_v1.1.5800-49d2bb3";
 \t\t};
 \t};
 

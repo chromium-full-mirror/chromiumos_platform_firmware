@@ -37,12 +37,6 @@ CROS_FIRMWARE_BCS_OVERLAY="overlay-reef-private"
 CROS_FIRMWARE_MAIN_IMAGE="bcs://Reef.9042.87.0.tbz2"
 CROS_FIRMWARE_EC_IMAGE="bcs://Reef_EC.9042.87.0.tbz2"
 
-
-# Stable firmware settings. Devices with firmware version smaller than stable
-# version will get RO+RW update if write protection is not enabled.
-CROS_FIRMWARE_STABLE_MAIN_VERSION="Google_Reef.9042.87.0"
-CROS_FIRMWARE_STABLE_EC_VERSION="reef_v1.1.5899-b349d2b"
-
 # Updater configurations
 CROS_FIRMWARE_PLATFORM="Reef"
 
