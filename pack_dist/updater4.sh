@@ -396,16 +396,7 @@ mode_autoupdate() {
     return 1
   fi
 
-  # TODO(hungte) Remove the STABLE_FWID path once we've migrated all projects.
-  if [ -n "${STABLE_FWID}" ]; then
-    debug_msg "Start legacy STABLE_FWID check."
-    if [ "${FLAGS_check_rw_compatible}" = ${FLAGS_TRUE}  ] && \
-         ! cros_check_stable_firmware; then
-      verbose_msg "Starting recovery for unstable RO firmware."
-      mode_recovery
-      return
-    fi
-  elif ! is_mainfw_write_protected && need_update_main_ro; then
+  if ! is_mainfw_write_protected && need_update_main_ro; then
     mode_recovery
     return
   fi

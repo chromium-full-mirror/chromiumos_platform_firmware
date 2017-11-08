@@ -10,8 +10,6 @@ This tool converts information in a firmware ebuild, such as:
   CROS_FIRMWARE_BCS_OVERLAY="overlay-reef-private"
   CROS_FIRMWARE_MAIN_IMAGE="bcs://Reef.9042.72.0.tbz2"
   CROS_FIRMWARE_EC_IMAGE="bcs://Reef_EC.9042.72.0.tbz2"
-  CROS_FIRMWARE_STABLE_MAIN_VERSION="Google_Reef.9042.72.0"
-  CROS_FIRMWARE_STABLE_EC_VERSION="reef_v1.1.5891-37adb2a"
   CROS_FIRMWARE_SCRIPT="updater4.sh"
 
 and converts it to a firmware node in the master configuration:
@@ -20,8 +18,6 @@ and converts it to a firmware node in the master configuration:
           bcs-overlay = "overlay-reef-private";
           main-image = "bcs://Reef.9042.72.0.tbz2";
           ec-image = "bcs://Reef_EC.9042.72.0.tbz2";
-          stable-main-version = "Google_Reef.9042.72.0";
-          stable-ec-version = "reef_v1.1.5891-37adb2a";
           script = "updater4.sh";
   };
 
@@ -55,9 +51,6 @@ TRANSLATE_TO_PROPERTY = {
     'EC_IMAGE': 'ec-image',
     'PD_IMAGE': 'pd-image',
     'PLATFORM': '',
-    'STABLE_MAIN_VERSION': 'stable-main-version',
-    'STABLE_EC_VERSION': 'stable-ec-version',
-    'STABLE_PD_VERSION': 'stable-pd-version',
     'BUILD_MAIN_RW_IMAGE': 'build-main-rw-image',
     'EXTRA_LIST': 'extras',
 }

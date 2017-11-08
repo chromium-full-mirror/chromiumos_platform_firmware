@@ -7,8 +7,6 @@
                     bcs-overlay = "overlay-reef-private";
                     main-image = "bcs://Reef.9042.50.0.tbz2";
                     ec-image = "bcs://Reef_EC.9042.50.0.tbz2";
-                    stable-main-version = "Google_Reef.9042.43.0";
-                    stable-ec-version = "reef-v1.1.5840-f0d7761";
                     extra = "${FILESDIR}/extra", "${SYSROOT}/usr/sbin/ectool", "bcs://Reef.9000.0.0.tbz2";
                     build-targets {
                         coreboot = "reef";
@@ -22,8 +20,6 @@
                     bcs-overlay = "overlay-reef-private";
                     main-image = "bcs://Reef.9000.0.0.tbz2";
                     ec-image = "bcs://Reef_EC.9042.50.0.tbz2";
-                    stable-main-version = "Google_Reef.9000.0.0";
-                    stable-ec-version = "reef-v1.1.5839-f0d7761";
                     build-targets {
                         coreboot = "reef";
                         ec = "reef";

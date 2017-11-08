@@ -195,60 +195,6 @@ test_cros_firmware_info() {
   assertTrue cros_is_ro_normal_boot
 }
 
-test_cros_check_stable_firmware() {
-  FLAGS_update_main=${FLAGS_TRUE}
-  FLAGS_update_ec=${FLAGS_FALSE}
-  FLAGS_update_pd=${FLAGS_FALSE}
-  RO_FWID="Link.123.0"
-  STABLE_FWID="Link.123.1"
-  FLAGS_wp=true
-  assertTrue "wp=1,s" cros_check_stable_firmware
-  FLAGS_wp=false
-  assertFalse "wp=0,s" cros_check_stable_firmware
-  RO_FWID="Link.123.2"
-  assertTrue "wp=0,s2" cros_check_stable_firmware
-
-  RO_FWID="Link.123.0"
-  STABLE_FWID=""
-  FLAGS_wp=true
-  assertTrue "wp=1,n" cros_check_stable_firmware
-  FLAGS_wp=false
-  assertFalse "wp=0,n" cros_check_stable_firmware
-
-  FLAGS_update_main=${FLAGS_FALSE}
-  FLAGS_update_ec=${FLAGS_TRUE}
-  FLAGS_update_pd=${FLAGS_FALSE}
-  ECID="link/v1.123.0"
-  STABLE_ECID="link/v1.123.1"
-  FLAGS_wp=true
-  assertTrue "wp=1,es" cros_check_stable_firmware
-  FLAGS_wp=false
-  assertFalse "wp=0,es" cros_check_stable_firmware
-  ECID="link/v1.123.2"
-  assertTrue "wp=0,es2" cros_check_stable_firmware
-  ECID="link/v1.123.0"
-  STABLE_ECID=""
-
-  FLAGS_update_main=${FLAGS_FALSE}
-  FLAGS_update_ec=${FLAGS_FALSE}
-  FLAGS_update_pd=${FLAGS_TRUE}
-  PDID="link/v1.123.0"
-  STABLE_PDID="link/v1.123.1"
-  FLAGS_wp=true
-  assertTrue "wp=1,es" cros_check_stable_firmware
-  FLAGS_wp=false
-  assertFalse "wp=0,es" cros_check_stable_firmware
-  PDID="link/v1.123.2"
-  assertTrue "wp=0,es2" cros_check_stable_firmware
-  PDID="link/v1.123.0"
-  STABLE_PDID=""
-
-  FLAGS_wp=true
-  assertTrue "wp=1,en" cros_check_stable_firmware
-  FLAGS_wp=false
-  assertFalse "wp=0,en" cros_check_stable_firmware
-}
-
 test_cros_override_rw_firmware_by_version() {
   local min_ro="Google_Snow_2695.90.0"
   local need_update="Google_Snow_2695.87"

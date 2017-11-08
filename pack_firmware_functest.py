@@ -31,7 +31,7 @@ import pack_firmware_utils
 
 REEF_HWID = 'Reef A12-B3C-D5E-F6G-H7I'
 REEF_MODEL = 'reef'
-REEF_STABLE_MAIN_VERSION = 'Google_Reef.9042.43.0'
+REEF_RO_MAIN_VERSION = 'Google_Reef.9042.43.0'
 UPDATER = 'updater4.sh'
 MODELS_DIR = 'models'
 
@@ -94,7 +94,7 @@ class TestFunctional(cros_test_lib.TestCase):
         expected_files.append(os.path.join(MODELS_DIR, model, 'setvars.sh'))
     return sorted(expected_files)
 
-  def _RunScript(self, outfile, hwid, model, stable_main_version,
+  def _RunScript(self, outfile, hwid, model, ro_main_version,
                  mode='autoupdate', customization_id=''):
     """Run an autoupdate with the shellball and check that it works.
 
@@ -105,7 +105,7 @@ class TestFunctional(cros_test_lib.TestCase):
       outfile: Shellball output file to test.
       hwid: Hardware ID to provide when the script asks for the hardware ID
       model: Model name to provide when the script asks for it.
-      stable_main_version: Value to return when RO_FWID is requested.
+      ro_main_version: Value to return when RO_FWID is requested.
       mode: Execution mode (can be 'autoupdate' or 'output')
       customization_id: Value to return for customization_id from the fake vpd
 
@@ -117,12 +117,12 @@ class TestFunctional(cros_test_lib.TestCase):
     os.environ['FAKE_GBB_BIN'] = os.path.join(self.basedir, 'test', 'gbb.bin')
     os.environ['FAKE_NVRAM_ROM'] = os.path.join(self.basedir, 'test',
                                                 'nvram.rom')
-    os.environ['FAKE_FWID'] = stable_main_version
+    os.environ['FAKE_FWID'] = ro_main_version
     os.environ['FAKE_FW_VBOOT2'] = '0'
     os.environ['FAKE_HWID'] = hwid
     os.environ['FAKE_MODEL'] = model
     os.environ['FAKE_MAINFW_ACT'] = 'A'
-    os.environ['FAKE_RO_FWID'] = stable_main_version
+    os.environ['FAKE_RO_FWID'] = ro_main_version
     os.environ['FAKE_TPM_FWVER'] = '1'
     os.environ['FAKE_WPSW_CUR'] = '1'    # RO firmware is write-protected.
     os.environ['FAKE_VDAT_FLAGS'] = '0'  # Not using RO normal.
@@ -185,7 +185,6 @@ class TestFunctional(cros_test_lib.TestCase):
   def testFirmwareUpdate(self):
     """Run the firmware packer, unpack the result and check it."""
     extra_args = ['-b', os.path.join(self.indir, 'image.bin'), '-L',
-                  '--stable_main_version', REEF_STABLE_MAIN_VERSION,
                   '--script', UPDATER]
     outfile, files, versions = self._RunPackFirmware(extra_args)
 
@@ -215,14 +214,11 @@ class TestFunctional(cros_test_lib.TestCase):
     self.assertEqual('', versions['TARGET_PDID'])
     self.assertEqual('Google_Reef', versions['TARGET_PLATFORM'])
     self.assertEqual(UPDATER, versions['TARGET_SCRIPT'])
-    self.assertEqual(REEF_STABLE_MAIN_VERSION, versions['STABLE_FWID'])
-    self.assertEqual('', versions['STABLE_ECID'])
-    self.assertEqual('', versions['STABLE_PDID'])
     self.assertEqual('', versions['UNIBUILD'])
     self.assertEqual(8, len(lines))
 
     # Run the shellball to make sure we can do a fake autoupdate.
-    self._RunScript(outfile, REEF_HWID, REEF_MODEL, REEF_STABLE_MAIN_VERSION)
+    self._RunScript(outfile, REEF_HWID, REEF_MODEL, REEF_RO_MAIN_VERSION)
 
   def _CheckVersionsReef(self, versions):
     """Check the versions match expectations for reef.
@@ -237,9 +233,6 @@ class TestFunctional(cros_test_lib.TestCase):
     self.assertEqual('reef_v1.1.5857-77f6ed7', versions['TARGET_ECID'])
 
     self.assertEqual('', versions['TARGET_PDID'])
-    self.assertEqual('Google_Reef.9042.43.0', versions['STABLE_FWID'])
-    self.assertEqual('reef-v1.1.5840-f0d7761', versions['STABLE_ECID'])
-    self.assertEqual('', versions['STABLE_PDID'])
     self.assertEqual('Google_Reef', versions['TARGET_PLATFORM'])
 
   def _CheckVars(self, versions, base, signature_id):
@@ -360,7 +353,7 @@ class TestFunctional(cros_test_lib.TestCase):
 
     versions = pack_firmware_utils.ReadVersions(
         os.path.join(self.unpackdir, MODELS_DIR, 'reef/setvars.sh'))
-    self.assertEqual(13, len(versions))
+    self.assertEqual(10, len(versions))
     self._CheckVersionsReef(versions)
     self._CheckVars(versions, 'models/reef/%s', 'reef')
 
@@ -389,10 +382,10 @@ class TestFunctional(cros_test_lib.TestCase):
                      lines[5])
 
     # Run the firmware update for Reef and Pyro.
-    self._RunScript(outfile, REEF_HWID, REEF_MODEL, REEF_STABLE_MAIN_VERSION)
+    self._RunScript(outfile, REEF_HWID, REEF_MODEL, REEF_RO_MAIN_VERSION)
     self._RunScript(outfile, 'Pyro C25-R45-W23-H63-M33', 'pyro',
                     'Google_Pyro.9021.00.0')
-    self._RunScript(outfile, REEF_HWID, 'electro', REEF_STABLE_MAIN_VERSION)
+    self._RunScript(outfile, REEF_HWID, 'electro', REEF_RO_MAIN_VERSION)
 
   def testVersionOutput(self):
     """Check that the -V option shows version information as expected"""
@@ -587,7 +580,7 @@ class TestFunctional(cros_test_lib.TestCase):
     extra_args, _ = self._SetupArgs()
     outfile, files, _ = self._RunPackFirmware(extra_args)
     lines = self._RunScript(outfile, REEF_HWID, REEF_MODEL,
-                            REEF_STABLE_MAIN_VERSION, 'output')
+                            REEF_RO_MAIN_VERSION, 'output')
     self.assertIn('Firmware update (output) completed.', lines)
     self.assertIn('Firmware images generated to: %s' % self.outdir, lines)
 
@@ -606,7 +599,7 @@ class TestFunctional(cros_test_lib.TestCase):
     self._AssertFileEqual(ec_file, '%s/ec.bin' % self.indir)
 
     # Electro should be the same as reef
-    self._RunScript(outfile, REEF_HWID, 'electro', REEF_STABLE_MAIN_VERSION,
+    self._RunScript(outfile, REEF_HWID, 'electro', REEF_RO_MAIN_VERSION,
                     'output')
     regions = self._GetUnequalRegions(bios_file, '%s/image.bin' % self.indir)
     self.assertEqual(['GBB'], regions)
@@ -670,9 +663,8 @@ class TestFunctional(cros_test_lib.TestCase):
       rootkey_sum: SHA1 sum of the root key (as a string)
       customization_id: Value to return for customization_id from the fake vpd
     """
-    lines = self._RunScript(outfile, REEF_HWID, model,
-                            REEF_STABLE_MAIN_VERSION, 'output',
-                            customization_id)
+    lines = self._RunScript(outfile, REEF_HWID, model, REEF_RO_MAIN_VERSION,
+                            'output', customization_id)
     expected_sig_id = customization_id if customization_id else model
     self.assertIn('Firmware keys changed to set [%s].' % expected_sig_id, lines)
     bios_file = '%s/bios.bin' % self.outdir

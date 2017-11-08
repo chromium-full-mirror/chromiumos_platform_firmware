@@ -69,9 +69,6 @@ REPLACE_VARS = [
     'TARGET_ECID',
     'TARGET_PDID',
     'TARGET_PLATFORM',
-    'STABLE_FWID',
-    'STABLE_ECID',
-    'STABLE_PDID',
 ]
 
 class PackError(Exception):
@@ -184,14 +181,6 @@ class FirmwarePacker(object):
         '--no-merge_bios_rw_image', action='store_false',
         dest='merge_bios_rw_image',
         help="Don't Merge the --bios_rw_image into --bios_image RW sections")
-
-    # stable settings
-    parser.add_argument('--stable_main_version', type=str,
-                        help='Version of stable main firmware')
-    parser.add_argument('--stable_ec_version', type=str,
-                        help='Version of stable EC firmware')
-    parser.add_argument('--stable_pd_version', type=str,
-                        help='Version of stable PD firmware')
 
     # embedded tools
     parser.add_argument(
@@ -765,17 +754,13 @@ class FirmwarePacker(object):
         print('Extra file: %s' % extra, file=self._versions)
 
   @staticmethod
-  def _GetReplaceDict(image_files, stable_main_version, stable_ec_version,
-                      stable_pd_version):
+  def _GetReplaceDict(image_files):
     """Build a dictionary of string replacements for use with the update script.
 
     Args:
       image_files: Dict with:
           key: Image type (e.g. 'BIOS').
           value: ImageFile object containing filename and version.
-      stable_main_version: Version name of stable main firmware, or None.
-      stable_ec_version: Version name of stable EC firmware, or None.
-      stable_pd_version: Version name of stable PD firmware, or None.
 
     Returns:
       Dict with:
@@ -794,9 +779,6 @@ class FirmwarePacker(object):
         # Set platform to first field of firmware version
         # (ex: Google_Link.1234 -> Google_Link).
         'REPLACE_TARGET_PLATFORM': image_files['BIOS'].version.split('.')[0],
-        'REPLACE_STABLE_FWID': stable_main_version,
-        'REPLACE_STABLE_ECID': stable_ec_version,
-        'REPLACE_STABLE_PDID': stable_pd_version,
     }
 
   @staticmethod
@@ -1171,11 +1153,7 @@ class FirmwarePacker(object):
         model=model,
         shared_image_files=shared_image_files,
         target_dir=image_dirname)
-    setvars_dict = self._GetReplaceDict(
-        image_files,
-        self._GetString(node, 'stable-main-version'),
-        self._GetString(node, 'stable-ec-version'),
-        self._GetString(node, 'stable-pd-version'))
+    setvars_dict = self._GetReplaceDict(image_files)
     setvars_dict['REPLACE_MODEL'] = model
     if shared_model:
       setvars_dict['${MODEL_DIR}'] = 'models/%s' % shared_model
@@ -1258,9 +1236,6 @@ class FirmwarePacker(object):
           raise PackError('Must provide -b, -e, -p with -l')
         if args.create_bios_rw_image:
           raise PackError('Cannot use --create_bios_rw_image with -m')
-        if (args.stable_main_version or args.stable_ec_version or
-            args.stable_pd_version):
-          raise PackError('Cannot set stable versions with -m')
         if not args.config:
           raise PackError('Missing master configuration file (use -c)')
 
@@ -1300,10 +1275,7 @@ class FirmwarePacker(object):
             extras=args.extra.split(':') if args.extra else [],
             shared_image_files=None,
             target_dir=self._basedir)
-        replace_dict = self._GetReplaceDict(image_files,
-                                            args.stable_main_version,
-                                            args.stable_ec_version,
-                                            args.stable_pd_version)
+        replace_dict = self._GetReplaceDict(image_files)
       self._CopyUpdateScript(script)
       self._WriteUpdateScript(script, replace_dict)
       self._WriteVersionFile()
