@@ -1003,20 +1003,6 @@ class FirmwarePacker(object):
       return None
     return target
 
-  def _GetParentNode(self, node):
-    """Find the parent node of a subnode.
-
-    Args:
-      node: Integer offset of node to check.
-
-    Returns:
-      Integer offset of the parent, or None if this is the root node.
-    """
-    parent = self._config.parent_offset(node, libfdt.QUIET_NOTFOUND)
-    if parent < 0:
-      return None
-    return parent
-
   def _GetChildNode(self, node, prop_name):
     """Find the child node of a subnode by property name
 
