@@ -29,6 +29,8 @@ from chromite.lib import partial_mock
 import pack_firmware
 import pack_firmware_utils
 
+from libcros_config_host import libcros_config_host
+
 # We need to poke around in internal members of PackFirmware.
 # pylint: disable=W0212
 
@@ -392,36 +394,16 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     Returns:
       Integer offset of the firmware node.
     """
-    self.packer._SetUpConfig('test/config.dtb')
-    return self.packer._config.path_offset('/chromeos/family/firmware/reef')
-
-  def testGetString(self):
-    """Check that we can read strings from the master configuration."""
-    node = self._SetUpConfigNode()
-    self.assertEqual(self.packer._GetString(node, 'bcs-overlay'),
-                     'overlay-reef-private')
-    self.assertEqual(self.packer._GetString(node, 'missing'), '')
-
-  def testGetStringList(self):
-    """Check that we can read string lists from the master configuration."""
-    node = self._SetUpConfigNode()
-    self.assertEqual(self.packer._GetStringList(node, 'extra'),
-                     ['${FILESDIR}/extra', '${SYSROOT}/usr/sbin/ectool',
-                      'bcs://Reef.9000.0.0.tbz2'])
-    self.assertEqual(self.packer._GetStringList(node, 'missing'), [])
-
-  def testGetBool(self):
-    """Check that we can read booleans from the master configuration."""
-    node = self._SetUpConfigNode()
-    self.assertEqual(self.packer._GetBool(node, 'bcs-overlay'), True)
-    self.assertEqual(self.packer._GetBool(node, 'missing'), False)
+    with open('test/config.dtb') as fd:
+      config = libcros_config_host.CrosConfig(fd)
+    return config.GetFamilyNode('/firmware/reef')
 
   def testExtractFileLocal(self):
     """Test handling file extraction based on a configuration property,"""
     node = self._SetUpConfigNode()
     self.packer._args = self.packer.ParseArgs(['-l'])
     # Since the 'extra' property exists, this should give as a valid file.
-    extra = self.packer._GetStringList(node, 'extra')
+    extra = node.GetStrList('extra')
     self.assertEqual(
         self.packer._ExtractFile('reef', 'test/MODEL-files/MODEL_fake_extra',
                                  extra, None),
@@ -442,11 +424,11 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
 
     # This should look up main-image, find that file in functest/, copy it to
     # our directory and return its filename.
-    main_image = self.packer._GetString(node, 'main-image')
+    main_image = node.GetStr('main-image')
     self.assertEqual(
         self.packer._ExtractFile(None, None, main_image, dirname),
         os.path.join(dirname, 'image.bin'))
-    ec_image = self.packer._GetString(node, 'ec-image')
+    ec_image = node.GetStr('ec-image')
     self.assertEqual(
         self.packer._ExtractFile(None, None, ec_image, dirname),
         os.path.join(dirname, 'ec.bin'))
