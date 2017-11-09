@@ -1003,7 +1003,7 @@ class FirmwarePacker(object):
     return child
 
   def _ExtractFile(
-      self, build_target, fname_template, node, prop_name, dirname, suffix=''):
+      self, build_target, fname_template, uri, dirname, suffix=''):
     """Obtain a file based on provided information.
 
     This obtains the file in one of two ways:
@@ -1020,15 +1020,13 @@ class FirmwarePacker(object):
     Args:
       build_target: The name of the build target uses, driving the file output.
       fname_template: Filename template to use in local model.
-      node: Integer offset of node to read.
-      prop_name: Property name in that node which contains the image path.
+      uri: URI containing the file
       dirname: Output directory where the unpacked file should be placed.
       suffix: String to append to output filename.
 
     Returns:
       Filename of the resulting image file.
     """
-    uri = self._GetString(node, prop_name)
     if not uri:
       return None
     if self._args.local:
@@ -1041,7 +1039,7 @@ class FirmwarePacker(object):
     return self._UntarFile(
         os.path.join(self._args.imagedir, fname), dirname, suffix)
 
-  def _GenerateOneModel(self, model, args, tool_base, model_details):
+  def _GenerateOneModel(self, conf, model, args, tool_base, model_details):
     """Generate the output files for a single model.
 
     Create the firmware files and set up the 'setvars.sh' script for a single
@@ -1049,6 +1047,7 @@ class FirmwarePacker(object):
     shared model rather than being recreated.
 
     Args:
+      conf: CrosConfig object containing the configuration.
       model: Name of model to process.
       args: Command-line arguments (argparse.Namespace object).
       tool_base: List of directories to check.
@@ -1059,40 +1058,19 @@ class FirmwarePacker(object):
     Returns:
       ModelDetails object for |model|.
     """
-    model_node = self._config.path_offset('/chromeos/models/%s' % model)
-    whitelabel = self._GetPhandleNode(model_node, 'whitelabel')
-    base_model = self._config.get_name(whitelabel) if whitelabel else model
-    firmware_node = self._config.path_offset('/chromeos/models/%s/firmware' %
-                                             model)
-    base_firmware_node = self._config.path_offset(
-        '/chromeos/models/%s/firmware' % base_model)
-
-    # If this model shares firmware with another model, get our
-    # images from there.
-    image_node = self._GetPhandleNode(base_firmware_node, 'shares')
+    firmware = conf.models[model].GetFirmwareInfo()
     shared_image_files = None
-    if image_node:
-      node = image_node  # Override the node - use the shared firmware instead.
-      shared_model = self._config.get_name(image_node)
-      if shared_model in model_details:
-        shared_image_files = model_details[shared_model].image_files
-    else:
-      node = base_firmware_node
-      shared_model = None
-    key_id = self._GetString(firmware_node, 'key-id')
-
-    if (whitelabel and base_firmware_node and
-        self._GetBool(base_firmware_node, 'sig-id-in-customization-id')):
-      # For zero-touch whitelabel devices, we don't need to generate anything
-      # since the device will never report this model at runtime. The
-      # signature ID will come from customization_id.
-      return ModelDetails(None, shared_model, key_id)
+    if firmware.shared_model and firmware.shared_model in model_details:
+      shared_image_files = model_details[firmware.shared_model].image_files
+    if not firmware.have_image:
+      return ModelDetails(None, firmware.shared_model, firmware.key_id)
 
     setvars_dirname = self._BaseDirPath(os.path.join(MODELS_DIR, model))
     if not os.path.exists(setvars_dirname):
       os.mkdir(setvars_dirname)
-    if shared_model:
-      image_dirname = self._BaseDirPath(os.path.join(MODELS_DIR, shared_model))
+    if firmware.shared_model:
+      image_dirname = self._BaseDirPath(os.path.join(MODELS_DIR,
+                                                     firmware.shared_model))
       if not os.path.exists(image_dirname):
         os.mkdir(image_dirname)
     else:
@@ -1105,48 +1083,32 @@ class FirmwarePacker(object):
     if shared_image_files:
       bios_image, bios_rw_image, ec_image, pd_image = None, None, None, None
     else:
-      # Firmware configuration supports both sharing the same fw image across
-      # multiple models and pinning specific models to different fw revisions.
-      # For context, see:
-      # https://chromium.googlesource.com/chromiumos/platform2/+/master/chromeos-config/README.md
-      #
-      # In order to support this, the firmware build target needs to be
-      # decoupled from models (since it can be shared).  This was supported
-      # in the config with 'build-targets', which drives the actual firmware
-      # build/targets.
-      #
-      # This takes advantage of that same config to determine what the target
-      # FW image will be named in the build output.  This allows a many to
-      # many mapping between models and firmware images.
-      build_node = self._GetChildNode(node, 'build-targets')
-
-      bios_build_target = self._GetString(build_node, 'coreboot')
       bios_image = self._ExtractFile(
-          bios_build_target, args.bios_image, node, 'main-image', dirname)
+          firmware.bios_build_target, args.bios_image, firmware.main_image_uri,
+          dirname)
       bios_rw_image = self._ExtractFile(
-          bios_build_target, None, node, 'main-rw-image', dirname, 'rw')
+          firmware.bios_build_target, None, firmware.main_rw_image_uri, dirname,
+          'rw')
 
-      ec_build_target = self._GetString(build_node, 'ec')
       ec_image = self._ExtractFile(
-          ec_build_target, args.ec_image, node, 'ec-image', dirname)
+          firmware.ec_build_target, args.ec_image, firmware.ec_image_uri,
+          dirname)
       pd_image = self._ExtractFile(
-          ec_build_target, args.pd_image, node, 'pd-image', dirname)
+          firmware.ec_build_target, args.pd_image, firmware.pd_image_uri,
+          dirname)
 
-    extras = self._GetStringList(node, 'extra')
-    if extras:
-      extras = [os.path.expandvars(extra) for extra in extras]
-    create_bios_rw_image = self._GetBool(node, 'create-bios-rw-image')
+    extras = [os.path.expandvars(extra) for extra in firmware.extra]
     if args.local:
-      create_bios_rw_image = False
+      firmware = firmware._replace(create_bios_rw_image=False)
 
-    tools = self._GetStringList(node, 'tools') + args.tools
+    tools = firmware.tools + args.tools
 
     image_files = self._ProcessModel(
         bios_image=bios_image,
         bios_rw_image=bios_rw_image,
         ec_image=ec_image,
         pd_image=pd_image,
-        create_bios_rw_image=create_bios_rw_image,
+        create_bios_rw_image=firmware.create_bios_rw_image,
         tools=tools,
         tool_base=tool_base,
         extras=extras,
@@ -1155,20 +1117,17 @@ class FirmwarePacker(object):
         target_dir=image_dirname)
     setvars_dict = self._GetReplaceDict(image_files)
     setvars_dict['REPLACE_MODEL'] = model
-    if shared_model:
-      setvars_dict['${MODEL_DIR}'] = 'models/%s' % shared_model
+    if firmware.shared_model:
+      setvars_dict['${MODEL_DIR}'] = 'models/%s' % firmware.shared_model
 
     # For zero-touch whitelabel devices tell the firmware updater to get its
     # signature ID from the VPD.
-    # TODO(sjg): Update this to say that it comes from mosys.
-    if self._GetBool(firmware_node, 'sig-id-in-customization-id'):
-      setvars_dict['REPLACE_SIGNATURE_ID'] = 'sig-id-in-customization-id'
-    else:
-      setvars_dict['REPLACE_SIGNATURE_ID'] = model
+    # TODO(sjg): Update this to say that it comes from mosys / cros_config.
+    setvars_dict['REPLACE_SIGNATURE_ID'] = firmware.sig_id
     fname = os.path.join(self._basedir, MODELS_DIR, model, 'setvars.sh')
     self._CreateFileFromTemplate(self._setvars_template_file, fname,
                                  setvars_dict)
-    return ModelDetails(image_files, shared_model, key_id)
+    return ModelDetails(image_files, firmware.shared_model, firmware.key_id)
 
   def _WriteSignerInstructions(self, models, model_details):
     """Write the signer instructions file.
@@ -1259,7 +1218,7 @@ class FirmwarePacker(object):
 
         for model in model_list:
           model_details[model] = self._GenerateOneModel(
-              model, args, tool_base, model_details)
+              conf, model, args, tool_base, model_details)
         replace_dict = {}
       else:
         script = args.script
