@@ -421,15 +421,16 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     node = self._SetUpConfigNode()
     self.packer._args = self.packer.ParseArgs(['-l'])
     # Since the 'extra' property exists, this should give as a valid file.
+    extra = self.packer._GetStringList(node, 'extra')
     self.assertEqual(
         self.packer._ExtractFile('reef', 'test/MODEL-files/MODEL_fake_extra',
-                                 node, 'extra', None),
+                                 extra, None),
         'test/reef-files/reef_fake_extra')
 
     # Since 'missing-prop' does not exist, this should return None.
     self.assertEqual(
         self.packer._ExtractFile('reef', 'test/MODEL-files/MODEL_fake_extra',
-                                 node, 'missing-prop', None),
+                                 None, None),
         None)
 
   def testExtractFileBcs(self):
@@ -441,11 +442,13 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
 
     # This should look up main-image, find that file in functest/, copy it to
     # our directory and return its filename.
+    main_image = self.packer._GetString(node, 'main-image')
     self.assertEqual(
-        self.packer._ExtractFile(None, None, node, 'main-image', dirname),
+        self.packer._ExtractFile(None, None, main_image, dirname),
         os.path.join(dirname, 'image.bin'))
+    ec_image = self.packer._GetString(node, 'ec-image')
     self.assertEqual(
-        self.packer._ExtractFile(None, None, node, 'ec-image', dirname),
+        self.packer._ExtractFile(None, None, ec_image, dirname),
         os.path.join(dirname, 'ec.bin'))
     self.packer._RemoveTmpdirs()
 
