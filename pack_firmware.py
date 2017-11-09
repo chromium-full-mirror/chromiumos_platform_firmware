@@ -30,8 +30,6 @@ from chromite.lib import commandline
 from chromite.lib import cros_build_lib
 from chromite.lib import osutils
 
-import libfdt
-
 from libcros_config_host import libcros_config_host
 
 sys.path.append('utils')
@@ -95,7 +93,6 @@ class FirmwarePacker(object):
     _versions: Collected version information (StringIO).
     _force_dash: Replace the /bin/sh shebang at the top of all scripts with
         /bin/dash. This is only used for testing.
-    _config: Master configuration file Fdt object.
   """
 
   def __init__(self, progname):
@@ -114,7 +111,6 @@ class FirmwarePacker(object):
     self._tmp_dirs = []
     self._versions = StringIO()
     self._force_dash = False
-    self._config = None
 
   @staticmethod
   def ParseArgs(argv):
@@ -896,112 +892,6 @@ class FirmwarePacker(object):
       self._CopyExtraFiles(extras)
     return image_files
 
-  def _SetUpConfig(self, fname):
-    """Set up the master configuration ready for use.
-
-    Args:
-      fname: Filename of master configuration.
-    """
-    self._config = libfdt.Fdt(open(fname).read())
-
-  def _GetString(self, node, prop_name):
-    """Get a string from a node in the master configuration.
-
-    Args:
-      node: Integer offset of node to read.
-      prop_name: Property name within that node to read.
-
-    Returns:
-      Value of property as a string, or ''.
-    """
-    prop = self._config.getprop(node, prop_name, libfdt.QUIET_NOTFOUND)
-    if type(prop) == int or prop[-1]:
-      return ''
-    return str(prop[:-1])
-
-  def _GetStringList(self, node, prop_name):
-    """Get a string list from a node in the master configuration.
-
-    Args:
-      node: Integer offset of node to read.
-      prop_name: Property name within that node to read.
-
-    Returns:
-      Value of property as a list of strings, which may be empty.
-    """
-    prop = self._config.getprop(node, prop_name, libfdt.QUIET_NOTFOUND)
-    if type(prop) == int or prop[-1]:
-      return []
-    return str(prop[:-1]).split('\0')
-
-  def _GetBool(self, node, prop_name):
-    """Get a boolean value from a node in the master configuration.
-
-    Args:
-      node: Integer offset of node to read.
-      prop_name: Property name within that node to read.
-
-    Returns:
-      True if the property is True (i.e. present), else False.
-    """
-    prop = self._config.getprop(node, prop_name, libfdt.QUIET_NOTFOUND)
-    if type(prop) == int:
-      return False
-    return True
-
-  @staticmethod
-  def _Fdt32ToCpu(val):
-    """Convert a device tree cell to an integer
-
-    Args:
-        val: Value to convert (4-character string representing the cell value).
-
-    Returns:
-        A native-endian integer value.
-    """
-    if sys.version_info > (3, 0):
-      if isinstance(val, bytes):
-        val = val.decode('utf-8')
-      val = val.encode('raw_unicode_escape')
-    return struct.unpack('>I', val)[0]
-
-  def _GetPhandleNode(self, node, prop_name):
-    """Follow a phandle to find the target node.
-
-    Args:
-      node: Integer offset of node to read from.
-      prop_name: Property name in that node which contains the phandle link.
-
-    Returns:
-      Integer offset of the target node, or None if the property or phandle
-      are not found.
-    """
-    prop = self._config.getprop(node, prop_name, libfdt.QUIET_NOTFOUND)
-    if type(prop) == int or prop[-1] < 0:
-      return None
-    phandle = self._Fdt32ToCpu(prop)
-    target = self._config.node_offset_by_phandle(phandle, libfdt.QUIET_NOTFOUND)
-    if target < 0:
-      return None
-    return target
-
-  def _GetChildNode(self, node, prop_name):
-    """Find the child node of a subnode by property name
-
-    This takes account of whitelabel support also.
-
-    Args:
-      node: Integer offset of node to check.
-      prop_name: The property name of the offset to find.
-
-    Returns:
-      Integer offset of the child, or None if child node isn't found.
-    """
-    child = self._config.subnode_offset(node, prop_name, libfdt.QUIET_NOTFOUND)
-    if child < 0:
-      return None
-    return child
-
   def _ExtractFile(
       self, build_target, fname_template, uri, dirname, suffix=''):
     """Obtain a file based on provided information.
@@ -1206,11 +1096,6 @@ class FirmwarePacker(object):
           conf = libcros_config_host.CrosConfig(fd)
         model_list = args.models if args.models else conf.GetModelList()
 
-        # This relies on an upstream pylibfdt which does not yet exist.
-        # See here:
-        # https://www.spinics.net/lists/devicetree-compiler/index.html#01166
-        # Series starts: [PATCH v9 0/5] Introduce Python bindings for libfdt
-        self._config = libfdt.Fdt(open(args.config).read())
         script = conf.GetFirmwareScript()
 
         os.mkdir(self._BaseDirPath(MODELS_DIR))
