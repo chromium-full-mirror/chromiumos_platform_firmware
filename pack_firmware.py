@@ -14,7 +14,7 @@ It requires:
 
 from __future__ import print_function
 
-import collections
+from collections import namedtuple, OrderedDict
 import glob
 import md5
 import os
@@ -40,8 +40,8 @@ IMAGE_MAIN_RW = 'bios_rw.bin'
 IMAGE_EC = 'ec.bin'
 IMAGE_PD = 'pd.bin'
 MODELS_DIR = 'models'
-Section = collections.namedtuple('Section', ['offset', 'size'])
-ImageFile = collections.namedtuple('ImageFile', ['filename', 'version'])
+Section = namedtuple('Section', ['offset', 'size'])
+ImageFile = namedtuple('ImageFile', ['filename', 'version'])
 
 # image_files:  Dict containing information on the output image files for this
 #     model:
@@ -50,8 +50,8 @@ ImageFile = collections.namedtuple('ImageFile', ['filename', 'version'])
 # shared_model: shared model name if this model shares firmware with another
 #     model (or None if it does not)
 # key_id: key ID to use to sign the image for this model
-ModelDetails = collections.namedtuple(
-    'ModelDetails', ['image_files', 'shared_model', 'key_id'])
+ModelDetails = namedtuple('ModelDetails',
+                          ['image_files', 'shared_model', 'key_id'])
 
 # File execution permissions. We could use state.S_... but that's confusing.
 CHMOD_ALL_READ = 0444
@@ -929,7 +929,7 @@ class FirmwarePacker(object):
     return self._UntarFile(
         os.path.join(self._args.imagedir, fname), dirname, suffix)
 
-  def _GenerateOneModel(self, conf, model, args, tool_base, model_details):
+  def _GenerateOneModel(self, firmware, args, tool_base, model_details):
     """Generate the output files for a single model.
 
     Create the firmware files and set up the 'setvars.sh' script for a single
@@ -937,8 +937,7 @@ class FirmwarePacker(object):
     shared model rather than being recreated.
 
     Args:
-      conf: CrosConfig object containing the configuration.
-      model: Name of model to process.
+      firmware: Firmware information to process (FirmwareInfo object)
       args: Command-line arguments (argparse.Namespace object).
       tool_base: List of directories to check.
       model_details: Dict:
@@ -948,14 +947,14 @@ class FirmwarePacker(object):
     Returns:
       ModelDetails object for |model|.
     """
-    firmware = conf.models[model].GetFirmwareInfo()
     shared_image_files = None
     if firmware.shared_model and firmware.shared_model in model_details:
       shared_image_files = model_details[firmware.shared_model].image_files
     if not firmware.have_image:
       return ModelDetails(None, firmware.shared_model, firmware.key_id)
 
-    setvars_dirname = self._BaseDirPath(os.path.join(MODELS_DIR, model))
+    setvars_dirname = self._BaseDirPath(os.path.join(MODELS_DIR,
+                                                     firmware.model))
     if not os.path.exists(setvars_dirname):
       os.mkdir(setvars_dirname)
     if firmware.shared_model:
@@ -966,7 +965,7 @@ class FirmwarePacker(object):
     else:
       image_dirname = setvars_dirname
     # Put all model files in a separate subdirectory.
-    dirname = os.path.join(self._tmpdir, MODELS_DIR, model)
+    dirname = os.path.join(self._tmpdir, MODELS_DIR, firmware.model)
     if not os.path.exists(dirname):
       os.mkdir(dirname)
 
@@ -1002,11 +1001,11 @@ class FirmwarePacker(object):
         tools=tools,
         tool_base=tool_base,
         extras=extras,
-        model=model,
+        model=firmware.model,
         shared_image_files=shared_image_files,
         target_dir=image_dirname)
     setvars_dict = self._GetReplaceDict(image_files)
-    setvars_dict['REPLACE_MODEL'] = model
+    setvars_dict['REPLACE_MODEL'] = firmware.model
     if firmware.shared_model:
       setvars_dict['${MODEL_DIR}'] = 'models/%s' % firmware.shared_model
 
@@ -1014,12 +1013,13 @@ class FirmwarePacker(object):
     # signature ID from the VPD.
     # TODO(sjg): Update this to say that it comes from mosys / cros_config.
     setvars_dict['REPLACE_SIGNATURE_ID'] = firmware.sig_id
-    fname = os.path.join(self._basedir, MODELS_DIR, model, 'setvars.sh')
+    fname = os.path.join(self._basedir, MODELS_DIR, firmware.model,
+                         'setvars.sh')
     self._CreateFileFromTemplate(self._setvars_template_file, fname,
                                  setvars_dict)
     return ModelDetails(image_files, firmware.shared_model, firmware.key_id)
 
-  def _WriteSignerInstructions(self, models, model_details):
+  def _WriteSignerInstructions(self, model_details):
     """Write the signer instructions file.
 
     This file tells the signer the mapping between models and their images and
@@ -1031,15 +1031,14 @@ class FirmwarePacker(object):
     old and new formats, then push the change here.
 
     Args:
-      models: List of models to process (each a string) in the order that the
-          information is wanted in the instruction file.
-      model_details: Dict:
-          key: Model name.
+      model_details: OrderedDict:
+          key: Model name (in the order that information is wanted in the
+              instruction file).
           value: ModelDetails object for that model.
     """
     with open(self._BaseDirPath('signer_config.csv'), 'w') as fd:
       print('model_name,firmware_image,key_id,ec_image', file=fd)
-      for model in models:
+      for model in model_details.keys():
         details = model_details[model]
         if not details.key_id:
           # Some models will not have a key. At present this is normally
@@ -1071,8 +1070,7 @@ class FirmwarePacker(object):
       self._basedir = self._CreateTmpDir()
       self._tmpdir = self._CreateTmpDir()
       self._AddFlashromVersion(tool_base)
-      model_details = {}
-      model_list = []
+      model_details = OrderedDict()
       if not args.legacy:
         # Most of the arguments are meaningless with unified builds since we
         # get the information from the master configuration. Add checks here
@@ -1088,22 +1086,22 @@ class FirmwarePacker(object):
         if not args.config:
           raise PackError('Missing master configuration file (use -c)')
 
-        # TODO: Ignore the passed-in model list and use the list from
-        # libcros_config_host.
-        # TODO(sjg@chromium.org): Remove the -m args in cros-firmware.eclass,
-        # perhaps using a --legacy option to specify unibuild is not used.
         with open(args.config) as fd:
           conf = libcros_config_host.CrosConfig(fd)
-        model_list = args.models if args.models else conf.GetModelList()
 
         script = conf.GetFirmwareScript()
 
         os.mkdir(self._BaseDirPath(MODELS_DIR))
         os.mkdir(os.path.join(self._tmpdir, MODELS_DIR))
 
-        for model in model_list:
+        firmware_info = conf.GetFirmwareInfo()
+        # TODO: Ignore the passed-in model list and use the list from
+        # libcros_config_host always. For now the passed-in list is used for
+        # testing.
+        models = args.models if args.models else firmware_info.keys()
+        for model in models:
           model_details[model] = self._GenerateOneModel(
-              conf, model, args, tool_base, model_details)
+              firmware_info[model], args, tool_base, model_details)
         replace_dict = {}
       else:
         script = args.script
@@ -1124,7 +1122,7 @@ class FirmwarePacker(object):
       self._WriteUpdateScript(script, replace_dict)
       self._WriteVersionFile()
       if model_details:
-        self._WriteSignerInstructions(model_list, model_details)
+        self._WriteSignerInstructions(model_details)
       self._BuildShellball()
       if not args.quiet:
         print('Packed output image is: %s' % args.output)
