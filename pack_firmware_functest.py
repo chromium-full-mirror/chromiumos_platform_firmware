@@ -375,15 +375,15 @@ class TestFunctional(cros_test_lib.TestCase):
     with open(os.path.join(self.unpackdir, 'signer_config.csv')) as fd:
       lines = fd.read().splitlines()
     self.assertEqual('model_name,firmware_image,key_id,ec_image', lines[0])
-    self.assertEqual('reef,models/reef/bios.bin,reef,models/reef/ec.bin',
+    self.assertEqual('reef,models/reef/bios.bin,REEF,models/reef/ec.bin',
                      lines[1])
-    self.assertEqual('pyro,models/pyro/bios.bin,pyro,models/pyro/ec.bin',
+    self.assertEqual('pyro,models/pyro/bios.bin,PYRO,models/pyro/ec.bin',
                      lines[2])
-    self.assertEqual('sand,models/sand/bios.bin,sand,models/sand/ec.bin',
+    self.assertEqual('sand,models/sand/bios.bin,SAND,models/sand/ec.bin',
                      lines[3])
-    self.assertEqual('electro,models/reef/bios.bin,electro,models/reef/ec.bin',
+    self.assertEqual('electro,models/reef/bios.bin,ELECTRO,models/reef/ec.bin',
                      lines[4])
-    self.assertEqual('basking,models/sand/bios.bin,basking,models/sand/ec.bin',
+    self.assertEqual('basking,models/sand/bios.bin,BASKING,models/sand/ec.bin',
                      lines[5])
 
     # Run the firmware update for Reef and Pyro.
@@ -763,7 +763,7 @@ class TestFunctional(cros_test_lib.TestCase):
     with open(os.path.join(self.unpackdir, 'signer_config.csv')) as fd:
       lines = fd.read().splitlines()
     self.assertEqual(
-        'whitelabel-test,models/sand/bios.bin,whitelabel,models/sand/ec.bin',
+        'whitelabel-test,models/sand/bios.bin,WHITELABEL,models/sand/ec.bin',
         lines[-1])
 
 
