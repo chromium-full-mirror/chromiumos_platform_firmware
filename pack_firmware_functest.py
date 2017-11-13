@@ -763,14 +763,18 @@ class TestFunctional(cros_test_lib.TestCase):
         'whitelabel-test,models/sand/bios.bin,WHITELABEL,models/sand/ec.bin',
         lines[-1])
 
-  def testZeroTouchWhitelabel(self):
+  def _CheckZeroTouchWhitelabel(self, model, wl_models):
     """Test generation of firmware for a 'zero-touch' whitelabel model
 
     This is one where the device cannot tell its model name by hardware
     detection, but must use the model name stored in the VPD
     customization_id.
+
+    Args:
+      model: Main whitelabel model to generate firmware for
+      wl_models: List of whitelabel models to generate firmware for
     """
-    extra_args, _ = self._SetupArgs(['zero-touch-whitelabel', 'zt1', 'zt2'])
+    extra_args, _ = self._SetupArgs([model] + wl_models)
     outfile, _, _ = self._RunPackFirmware(extra_args)
     with open(os.path.join(self.unpackdir, 'VERSION')) as fd:
       version_lines = fd.read().splitlines()
@@ -778,13 +782,13 @@ class TestFunctional(cros_test_lib.TestCase):
     # Check that the whitelabel version output matches sand.
     found = None
     for linenum, line in enumerate(version_lines):
-      if 'zero-touch-whitelabel' in line:
+      if model in line:
         found = linenum
         break
     self.assertTrue(found)
     lines = version_lines[found:]
     assertions = [
-        lambda(x): self.assertIn('zero-touch-whitelabel', x),
+        lambda(x): self.assertIn(model, x),
         lambda(x): self.assertIn('reef/image.bin', x),
         lambda(x): self.assertEqual('BIOS version: Google_Reef.9042.50.0', x),
         lambda(x): self.assertIn('/reef/ec.bin', x),
@@ -801,13 +805,12 @@ class TestFunctional(cros_test_lib.TestCase):
         assertion(lines[i])
 
     # We should not create setvars.sh scripts for zero-touch whitelabels.
-    self.assertNotExists(os.path.join(self.unpackdir, MODELS_DIR, 'zt1'))
-    self.assertNotExists(os.path.join(self.unpackdir, MODELS_DIR, 'zt2'))
+    for wl_model in wl_models:
+      self.assertNotExists(os.path.join(self.unpackdir, MODELS_DIR, wl_model))
 
     # Check that the setvars.sh file is correct (points to sand).
     versions = pack_firmware_utils.ReadVersions(
-        os.path.join(self.unpackdir, MODELS_DIR,
-                     'zero-touch-whitelabel/setvars.sh'))
+        os.path.join(self.unpackdir, MODELS_DIR, '%s/setvars.sh' % model))
     self.assertEqual('Google_Reef.9042.50.0', versions['TARGET_FWID'])
     self._CheckVars(versions, 'models/reef/%s', 'sig-id-in-customization-id')
 
@@ -816,16 +819,23 @@ class TestFunctional(cros_test_lib.TestCase):
     with open(os.path.join(self.unpackdir, 'signer_config.csv')) as fd:
       lines = fd.read().splitlines()
     self.assertEqual('basking,models/sand/bios.bin,BASKING,models/sand/ec.bin',
-                     lines[-3])
-    self.assertEqual('zt1,models/reef/bios.bin,ZT1,models/reef/ec.bin',
-                     lines[-2])
-    self.assertEqual('zt2,models/reef/bios.bin,ZT2,models/reef/ec.bin',
-                     lines[-1])
+                     lines[-1 - len(wl_models)])
+    for i, wl_model in enumerate(wl_models):
+      expect = ('%s,models/reef/bios.bin,%s,models/reef/ec.bin' %
+                (wl_model, wl_model.upper()))
+      self.assertEqual(expect, lines[i - len(wl_models)])
 
-    zt1_sum, zt2_sum = self.AddFakeKeys(outfile, ['zt1', 'zt2'])
+    sums = self.AddFakeKeys(outfile, wl_models)
 
-    self._CheckOutput(outfile, 'zero-touch-whitelabel', zt1_sum, 'zt1')
-    self._CheckOutput(outfile, 'zero-touch-whitelabel', zt2_sum, 'zt2')
+    for i, wl_model in enumerate(wl_models):
+      self._CheckOutput(outfile, model, sums[i], wl_model)
+
+  def testZeroTouchWhitelabel(self):
+    """Test generation of firmware for a 'zero-touch' whitelabel model
+
+    This uses the original schema, where each whitelabel is a model.
+    """
+    self._CheckZeroTouchWhitelabel('zero-touch-whitelabel', ['zt1', 'zt2'])
 
 if __name__ == '__main__':
   cros_test_lib.main(module=__name__)
