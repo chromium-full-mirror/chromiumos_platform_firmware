@@ -822,10 +822,10 @@ class TestFunctional(cros_test_lib.TestCase):
     self.assertEqual('zt2,models/reef/bios.bin,ZT2,models/reef/ec.bin',
                      lines[-1])
 
-    zt1_sum, zt2_sum = self.AddFakeKeys(outfile, ['ZT1', 'ZT2'])
+    zt1_sum, zt2_sum = self.AddFakeKeys(outfile, ['zt1', 'zt2'])
 
-    self._CheckOutput(outfile, 'zero-touch-whitelabel', zt1_sum, 'ZT1')
-    self._CheckOutput(outfile, 'zero-touch-whitelabel', zt2_sum, 'ZT2')
+    self._CheckOutput(outfile, 'zero-touch-whitelabel', zt1_sum, 'zt1')
+    self._CheckOutput(outfile, 'zero-touch-whitelabel', zt2_sum, 'zt2')
 
 if __name__ == '__main__':
   cros_test_lib.main(module=__name__)
