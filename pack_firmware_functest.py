@@ -760,7 +760,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         'whitelabel-test,models/sand/bios.bin,WHITELABEL,models/sand/ec.bin',
         lines[-1])
 
-  def _CheckZeroTouchWhitelabel(self, model, wl_models):
+  def _CheckZeroTouchWhitelabel(self, model, wl_models, wl_tags):
     """Test generation of firmware for a 'zero-touch' whitelabel model
 
     This is one where the device cannot tell its model name by hardware
@@ -770,8 +770,13 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     Args:
       model: Main whitelabel model to generate firmware for
       wl_models: List of whitelabel models to generate firmware for
+      wl_tags: List of whitelabel tags to generate firmware for
     """
-    extra_args, _ = self._SetupArgs([model] + wl_models)
+    extra_args, _ = self._SetupArgs([model] + wl_models + wl_tags)
+
+    # For our purposes we can treat the tags like models from here on.
+    if not wl_models:
+      wl_models = wl_tags
     outfile, _, _ = self._RunPackFirmware(extra_args)
     version_lines = osutils.ReadFile(
         os.path.join(self.unpackdir, 'VERSION')).splitlines()
@@ -832,7 +837,16 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
 
     This uses the original schema, where each whitelabel is a model.
     """
-    self._CheckZeroTouchWhitelabel('zero-touch-whitelabel', ['zt1', 'zt2'])
+    self._CheckZeroTouchWhitelabel('zero-touch-whitelabel', ['zt1', 'zt2'], [])
+
+  def testZeroTouchWhitelabelAlternate(self):
+    """Test generation of firmware for a 'zero-touch' whitelabel model
+
+    This uses the alternate schema, where whitelabels use a single model with
+    multiple 'whitelabel' tags associated with it.
+    """
+    self._CheckZeroTouchWhitelabel('whitelabel-alt', [], ['wltag1', 'wltag2'])
+
 
 if __name__ == '__main__':
   cros_test_lib.main(module=__name__)
