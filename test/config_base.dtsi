@@ -108,6 +108,19 @@
                     key-id = "ZT2";
                 };
             };
+            whitelabel-alt {
+                firmware {
+                    shares = <&reef_firmware>;
+                };
+                whitelabels {
+                    wltag1 {
+                        key-id = "WLTAG1";
+                    };
+                    wltag2 {
+                        key-id = "WLTAG2";
+                    };
+                };
+            };
         };
     };
 };
