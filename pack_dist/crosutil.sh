@@ -456,5 +456,5 @@ cros_set_unibuild_vars() {
   [ -e "${fname}" ] || die "Cannot find model script ${fname}"
 
   . "./${fname}"
-
+  verbose_msg "Model is ${model}"
 }
