@@ -110,7 +110,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     return sorted(expected_files)
 
   def _RunScript(self, outfile, hwid, model, ro_main_version,
-                 mode='autoupdate', customization_id=''):
+                 mode='autoupdate', signature_id=''):
     """Run an autoupdate with the shellball and check that it works.
 
     This relies on fake tools, principally crossystem which is controlled by
@@ -122,7 +122,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
       model: Model name to provide when the script asks for it.
       ro_main_version: Value to return when RO_FWID is requested.
       mode: Execution mode (can be 'autoupdate' or 'output')
-      customization_id: Value to return for customization_id from the fake vpd
+      signature_id: Value to return for signature_id from the fake mosys
 
     Returns:
       List of lines output from the script
@@ -141,7 +141,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     os.environ['FAKE_TPM_FWVER'] = '1'
     os.environ['FAKE_WPSW_CUR'] = '1'    # RO firmware is write-protected.
     os.environ['FAKE_VDAT_FLAGS'] = '0'  # Not using RO normal.
-    os.environ['FAKE_CUSTOMIZATION_ID'] = customization_id
+    os.environ['FAKE_SIGNATURE_ID'] = signature_id
+
     cmd = [SHELL, outfile]
     cmd += ['--mode', mode]
     if mode == 'output':
@@ -656,7 +657,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     #   Key sha1sum:         ac7c01b1bea84da486f30a52bba5eb67ff45f50f
     return result.output.splitlines()[-1].split()[2]
 
-  def _CheckOutput(self, outfile, model, rootkey_sum, customization_id=''):
+  def _CheckOutput(self, outfile, model, rootkey_sum, signature_id=''):
     """Check that the firmware updater can generate the correct output.
 
     This runs the firmware in 'output' mode with the given model and checks
@@ -666,11 +667,11 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
       outfile: Firmware update shellball filename
       model: Name of model to generate firmware for
       rootkey_sum: SHA1 sum of the root key (as a string)
-      customization_id: Value to return for customization_id from the fake vpd
+      signature_id: Value to return for signature_id from the fake mosys
     """
     lines = self._RunScript(outfile, REEF_HWID, model, REEF_RO_MAIN_VERSION,
-                            'output', customization_id)
-    expected_sig_id = customization_id if customization_id else model
+                            'output', signature_id)
+    expected_sig_id = signature_id if signature_id else model
     self.assertIn('Firmware keys changed to set [%s].' % expected_sig_id, lines)
     bios_file = '%s/bios.bin' % self.outdir
     regions = self._GetUnequalRegions('%s/image.bin' % self.indir, bios_file,

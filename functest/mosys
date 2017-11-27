@@ -10,6 +10,8 @@ case "$1" in
     case "$2" in
       model)
         echo ${FAKE_MODEL};;
+      signature)
+        echo ${FAKE_SIGNATURE_ID};;
       *)
       echo "Cannot handle command $1 $2" >&2;;
     esac

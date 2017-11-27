@@ -31,6 +31,7 @@ DEFINE_boolean allow_reboot $FLAGS_TRUE \
   "Allow rebooting system immediately if required."
 DEFINE_string customization_id "" \
   "Customization ID for keysets." ""
+DEFINE_string signature_id "" "Signature ID pointing to the keyset to use." ""
 DEFINE_string model "" \
   "Overrides the model used; instead of using 'mosys platform model'" ""
 
