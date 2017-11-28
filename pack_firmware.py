@@ -218,11 +218,11 @@ class FirmwarePacker(object):
       tool_base: List of directories to check.
       tool: Name of tool to find (just the name, not the full path).
     """
-    for path in tool_base:
-      fname = os.path.join(path, tool)
-      if os.path.exists(fname):
-        return os.path.realpath(fname)
-    raise PackError("Cannot find tool program '%s' to bundle" % tool)
+    path = ':'.join(tool_base)
+    fname = osutils.Which(tool, path=path)
+    if fname is None:
+      raise PackError("Cannot find tool program '%s' to bundle" % tool)
+    return fname
 
   def _CreateTmpDir(self):
     """Create a temporary directory, and remember it for later removal.
