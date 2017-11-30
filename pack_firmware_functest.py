@@ -88,12 +88,20 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     Returns:
       A sorted list of files to expect.
     """
-    expected_files = (
-        'crosfw.sh crosutil.sh flashrom mosys VERSION.md5 common.sh crossystem '
-        'futility shflags VERSION vpd').split(' ')
-    expected_files.append(UPDATER)
-    if extra_files:
-      expected_files += extra_files
+    expected_files = [
+        'common.sh',
+        'crosfw.sh',
+        'crossystem',
+        'crosutil.sh',
+        'flashrom',
+        'futility',
+        'mosys',
+        'shflags',
+        'VERSION',
+        'VERSION.md5',
+        'vpd',
+        UPDATER,
+    ] + extra_files
     if models:
       for model in models:
         expected_files.append(os.path.join(MODELS_DIR, model, 'bios.bin'))
