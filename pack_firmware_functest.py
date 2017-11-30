@@ -691,9 +691,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
                               quiet=True, mute_output=True)
     keydir = os.path.join(self.unpackdir, 'keyset')
     osutils.SafeMakedirs(keydir)
-    key_sums = []
-    for key_id in key_ids:
-      key_sums.append(self._AddKeys(keydir, key_id))
+    key_sums = [self._AddKeys(keydir, x) for x in key_ids]
     cros_build_lib.RunCommand([outfile, '--sb_repack', self.unpackdir],
                               quiet=True, mute_output=True)
     return key_sums
