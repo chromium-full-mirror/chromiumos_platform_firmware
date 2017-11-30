@@ -332,8 +332,8 @@ cros_add_tool_path() {
 # Configures PATH to use the bundled executable binaries.
 cros_setup_path() {
   local base="$(readlink -f "$SCRIPT_BASE")"
-  if cros_add_tool_path "$base" "crossystem"; then
-    debug_msg "Using programs in $base."
+  if cros_add_tool_path "$base/bin" "crossystem"; then
+    debug_msg "Using programs in $base/bin."
     return
   fi
 

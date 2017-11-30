@@ -91,15 +91,15 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     expected_files = [
         'common.sh',
         'crosfw.sh',
-        'crossystem',
         'crosutil.sh',
-        'flashrom',
-        'futility',
-        'mosys',
         'shflags',
         'VERSION',
         'VERSION.md5',
-        'vpd',
+        'bin/crossystem',
+        'bin/flashrom',
+        'bin/futility',
+        'bin/mosys',
+        'bin/vpd',
         UPDATER,
     ] + extra_files
     if models:
@@ -171,7 +171,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
           value: value of that variable.
     """
     tool_path = [
-        os.path.join(self.basedir, 'functest'),
+        os.path.join(self.basedir, 'functest/bin'),
         os.path.join(self.chroot, 'usr/sbin'),
         os.path.join(self.chroot, 'usr/bin'),
     ]
@@ -213,7 +213,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     self.assertEqual(8, len(lines))
     self.assertEqual(
         'flashrom(8): 7404a736f0c1a92b75cddc7722f21b4d '
-        '*%s/functest/flashrom' % self.basedir, lines[1])
+        '*%s/functest/bin/flashrom' % self.basedir, lines[1])
     self.assertEqual('             data', lines[2])
     self.assertEqual('             0.9.4  : 1bb61e1 : Feb 07 2017 18:29:17 UTC',
                      lines[3])
@@ -313,7 +313,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         None,  # Skip testing first line.
         lambda(x): self.assertEqual(
             'flashrom(8): 7404a736f0c1a92b75cddc7722f21b4d '
-            '*%s/functest/flashrom' % self.basedir, x),
+            '*%s/functest/bin/flashrom' % self.basedir, x),
         lambda(x): self.assertEqual('             data', x),
         lambda(x): self.assertEqual(
             '             0.9.4  : 1bb61e1 : Feb 07 2017 18:29:17 UTC', x),

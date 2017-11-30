@@ -710,6 +710,8 @@ class FirmwarePacker(object):
       tools: List of tools to copy.
     """
     self._CopyFile(self._shflags_file, self._basedir)
+    bindir = self._BaseDirPath('bin')
+    osutils.SafeMakedirs(bindir)
     for tool in tools:
       tool_fname = self._FindTool(tool_base, tool)
       # Most tools are dynamically linked, but if there is a statically
@@ -718,7 +720,7 @@ class FirmwarePacker(object):
       # which is a critical process.
       if os.path.exists(tool_fname + '_s'):
         tool_fname += '_s'
-      self._CopyFile(tool_fname, self._BaseDirPath(tool), CHMOD_ALL_EXEC)
+      self._CopyFile(tool_fname, os.path.join(bindir, tool), CHMOD_ALL_EXEC)
 
   def _CopyExtraFiles(self, extras):
     """Copy extra files into the base directory.
