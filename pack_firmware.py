@@ -472,22 +472,23 @@ class FirmwarePacker(object):
     self._CloneFirmwareSection(ro_fname, rw_fname, 'RW_SECTION_B')
     self._CopyTimestamp(rw_fname, ro_fname)
 
-  def _ExtractEcRwUsingFMAP(self, fname, ecrw_fname):
-    """Use the FMAP to extract the EC_MAIN_A section containing an EC binary.
+  def _ExtractEcRwUsingFMAP(self, fname, fmap_area_name, ecrw_fname):
+    """Use the FMAP to extract fmap_area_name section containing an EC binary.
 
     Args:
       fname: Filename of firmware image (relative or absolute path).
+      fmap_area_name: Name of the FMAP area which contains the EC binary.
       ecrw_fname: Filename to put EC binary into (relative or absolute path).
     """
     cros_build_lib.RunCommand(
-        ['futility', 'dump_fmap', '-x', fname, 'EC_MAIN_A'],
+        ['futility', 'dump_fmap', '-x', fname, fmap_area_name],
         quiet=True, cwd=self._tmpdir)
-    ec_main_a = os.path.join(self._tmpdir, 'EC_MAIN_A')
+    ec_main_a = os.path.join(self._tmpdir, fmap_area_name)
     with open(ec_main_a) as fd:
       count, offset, size = struct.unpack('<III', fd.read(12))
     if count != 1 or offset != 12:
-      raise PackError('Unexpected EC_MAIN_A (%d, %d). Cannot merge EC RW' %
-                      count, offset)
+      raise PackError('Unexpected %s (%d, %d). Cannot merge EC RW' %
+                      (fmap_area_name, count, offset))
     # To make sure files to be merged are both prepared, merge_file.py will
     # only accept existing files, so we have to create ecrw now.
     osutils.Touch(ecrw_fname)
@@ -505,39 +506,43 @@ class FirmwarePacker(object):
         ['cbfstool', fname, 'extract', '-n', cbfs_name, '-f', ecrw_fname, '-r',
          'FW_MAIN_A'], quiet=True, cwd=self._tmpdir)
 
-  def _ExtractEcRw(self, fname, cbfs_name, ecrw_fname):
+  def _ExtractEcRw(self, fname, fmap_area_name, cbfs_name, ecrw_fname):
     """Obtain the RW EC binary.
 
     Args:
       fname: Filename of firmware image (relative or absolute path).
+      fmap_area_name: Name of the section in FMAP which contains the EC
+          binary, will fall-back to CBFS if not present.
       cbfs_name: Name of file in CBFS which contains the EC binary, if the
-          image does not have an EC_MAIN_A section.
+          image does not have an fmap_area_name section.
       ecrw_fname: Filename to put EC binary into (relative or absolute path).
 
     Raises:
       PackError or RunCommandError if an error occurs.
     """
-    if 'EC_MAIN_A' in self._GetFMAP(fname):
-      self._ExtractEcRwUsingFMAP(fname, ecrw_fname)
+    if fmap_area_name in self._GetFMAP(fname):
+      self._ExtractEcRwUsingFMAP(fname, fmap_area_name, ecrw_fname)
     else:
       self._ExtractEcRwUsingCBFS(fname, cbfs_name, ecrw_fname)
 
-  def _MergeRwEcFirmware(self, ec_fname, rw_fname, cbfs_name):
+  def _MergeRwEcFirmware(self, ec_fname, rw_fname, fmap_area_name, cbfs_name):
     """Merge EC firmware from an image into the given file.
 
     Args:
       ec_fname: Filename to merge RW EC binary into (relative or absolute path).
       rw_fname: Filename of firmware image (relative or absolute path).
+      fmap_area_name: Name of the section in FMAP which contains the EC
+          binary, will fall-back to CBFS if not present.
       cbfs_name: Name of file in CBFS which contains the EC binary, if the
-          image does not have an EC_MAIN_A section.
+          image does not have an fmap_area_name section.
     """
-    ecrw_fname = os.path.join(self._tmpdir, 'ecrw')
-    self._ExtractEcRw(rw_fname, cbfs_name, ecrw_fname)
+    ecrw_fname = os.path.join(self._tmpdir, cbfs_name)
+    self._ExtractEcRw(rw_fname, fmap_area_name, cbfs_name, ecrw_fname)
     section = self._GetFMAP(ec_fname)['EC_RW']
     ecrw_size = os.stat(ecrw_fname).st_size
     if section.size < ecrw_size:
       raise PackError('New RW payload size %#x is larger than preserved FMAP '
-                      'section %#x, cannot merge' % (section.size, ecrw_size))
+                      'section %#x, cannot merge' % (ecrw_size, section.size))
     merge_file.merge_file(ec_fname, ecrw_fname, section.offset)
     self._CopyTimestamp(rw_fname, ec_fname)
 
@@ -594,7 +599,7 @@ class FirmwarePacker(object):
       image_files['EC'] = ImageFile(ec_image, ec_version)
       shutil.copy2(ec_image, image_ec)
       if merge_bios_rw_image:
-        self._MergeRwEcFirmware(image_ec, image_main, 'ecrw')
+        self._MergeRwEcFirmware(image_ec, image_main, 'EC_MAIN_A', 'ecrw')
         ec_rw_version = self._ExtractFrid(image_ec, 'RW_FWID')
         image_files['EC (RW)'] = ImageFile(None, ec_rw_version)
 
@@ -603,7 +608,7 @@ class FirmwarePacker(object):
       image_files['PD'] = ImageFile(pd_image, pd_version)
       shutil.copy2(pd_image, image_pd)
       if merge_bios_rw_image:
-        self._MergeRwEcFirmware(image_pd, image_main, 'pdrw')
+        self._MergeRwEcFirmware(image_pd, image_main, 'PD_MAIN_A', 'pdrw')
         pd_rw_version = self._ExtractFrid(image_pd, 'RW_FWID')
         image_files['PD (RW)'] = ImageFile(None, pd_rw_version)
     return image_files

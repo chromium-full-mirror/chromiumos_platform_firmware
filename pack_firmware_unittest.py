@@ -15,6 +15,7 @@ import glob
 import mock
 import os
 import shutil
+import struct
 import sys
 
 try:
@@ -94,6 +95,45 @@ RW_LEGACY 13828096 2097152
 BIOS_UNUSABLE 15925248 323584
 DEVICE_EXTENSION 16248832 524288
 UNUSED_HOLE 16773120 4096
+'''
+
+# Expected output from 'futility dump_fmap -p' for alternate main image.
+# This FMAP contains EC_MAIN_A and PD_MAIN_A sections, which will alter
+# the behavior of repack. A similar FMAP is used on some legacy Chrome OS
+# devices.
+FMAP_OUTPUT_LEGACY = '''SI_ALL 0 2097152
+SI_DESC 0 4096
+SI_ME 4096 2093056
+SI_BIOS 2097152 6291456
+RW_SECTION_A 2097152 983040
+VBLOCK_A 2097152 65536
+FW_MAIN_A 2162688 720896
+PD_MAIN_A 2883584 65536
+EC_MAIN_A 2949120 131008
+RW_FWID_A 3080128 64
+RW_SECTION_B 3080192 983040
+VBLOCK_B 3080192 65536
+FW_MAIN_B 3145728 720896
+PD_MAIN_B 3866624 65536
+EC_MAIN_B 3932160 131008
+RW_FWID_B 4063168 64
+RW_MRC_CACHE 4063232 65536
+RW_ELOG 4128768 16384
+RW_SHARED 4145152 16384
+SHARED_DATA 4145152 8192
+VBLOCK_DEV 4153344 8192
+RW_VPD 4161536 8192
+RW_UNUSED 4169728 24576
+RW_LEGACY 4194304 2097152
+WP_RO 6291456 2097152
+RO_VPD 6291456 16384
+RO_UNUSED 6307840 49152
+RO_SECTION 6356992 2031616
+FMAP 6356992 2048
+RO_FRID 6359040 64
+RO_FRID_PAD 6359104 1984
+GBB 6361088 978944
+BOOT_STUB 7340032 1048576
 '''
 
 # Size of dummy 'ecrw' file.
@@ -457,7 +497,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
                     side_effect=_CopySections, returncode=0)
 
   @staticmethod
-  def _CreateFile(cmd, **_kwargs):
+  def _CreateCbfstoolFile(cmd, **_kwargs):
     """Called as a side effect to emulate the effect of cbfstool.
 
     This handles the 'cbfstool...extract' command which is supposed to
@@ -473,28 +513,51 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     file_arg = cmd.index('-f')
     fname = cmd[file_arg + 1]
     with open(fname, 'wb') as fd:
-      fd.seek(ECRW_SIZE - 1)
-      fd.write('\0')
+      fd.truncate(ECRW_SIZE)
+
+  @staticmethod
+  def _CreateDumpfmapFile(cmd, **_kwargs):
+    """Called as a side effect to emulate the effect of dump_fmap.
+
+    This handles the 'dump_fmap -x' command which is supposed to
+    extract a particular region from a file with an FMAP descriptor.
+    See _ExtractEcRwUsingFMAP() for where this command is generated.
+
+    Args:
+      cmd: Arguments, of the form:
+          ['dump_fmap', '-x', <filename>, <region>]
+          <region> specifies the region to extract from <filename>, which
+          will be extracted to cwd in a file named <region>.
+          See _ExtractEcRwUsingFMAP() for where this is generated.
+    """
+    fname = os.path.join(_kwargs['cwd'], cmd.pop())
+    with open(fname, 'wb') as fd:
+      # Write a dummy header with image size = ECRW_SIZE, and payload of zeros
+      fd.write(struct.pack('<III', 1, 12, ECRW_SIZE))
+      fd.truncate(ECRW_SIZE + 12)
 
   @classmethod
-  def _AddMergeMocks(cls, rc):
+  def _AddMergeMocks(cls, rc, mocked_dump_fmap_output):
     rc.AddCmdResult(partial_mock.ListRegex(
         'futility dump_fmap -x .*test/image_rw.bin'), returncode=0)
     rc.AddCmdResult(
         partial_mock.ListRegex('futility dump_fmap -p .*/test/image_rw.bin'),
-        returncode=0, output=FMAP_OUTPUT)
+        returncode=0, output=mocked_dump_fmap_output)
     rc.AddCmdResult(
         partial_mock.ListRegex('futility dump_fmap -p .*image.binrw'),
-        returncode=0, output=FMAP_OUTPUT)
+        returncode=0, output=mocked_dump_fmap_output)
     rc.AddCmdResult(partial_mock.ListRegex('futility dump_fmap -p .*bios.bin'),
-                    returncode=0, output=FMAP_OUTPUT)
+                    returncode=0, output=mocked_dump_fmap_output)
     rc.AddCmdResult(partial_mock.Regex('extract_ecrw'), returncode=0)
     rc.AddCmdResult(partial_mock.ListRegex('futility dump_fmap -p .*ec.bin'),
                     returncode=0, output=FMAP_OUTPUT_EC)
     rc.AddCmdResult(partial_mock.ListRegex('cbfstool'), returncode=0,
-                    side_effect=cls._CreateFile)
+                    side_effect=cls._CreateCbfstoolFile)
     rc.AddCmdResult(partial_mock.ListRegex('futility dump_fmap -p .*pd.bin'),
                     returncode=0, output=FMAP_OUTPUT_EC)
+    rc.AddCmdResult(partial_mock.ListRegex(
+        'futility dump_fmap -x .*/bios.bin .*_MAIN_A'),
+                    returncode=0, side_effect=cls._CreateDumpfmapFile)
 
   # If we use _ to indicate an unused parameter, cros lint wants us to call it
   # 'kwargs'. If we call it 'kwargs' it complains about an unused parameter.
@@ -540,9 +603,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
       pack_firmware.main(args)
       pack_firmware.packer._versions.getvalue().splitlines()
 
-  def testMockedRunWithMerge(self):
-    """Start up with a valid updater script and merge the RW BIOS."""
-
+  def _testMockedRunWithMerge(self, mocked_dump_fmap_output):
     pack_firmware.FirmwarePacker._GetPreambleFlags = (
         mock.Mock(side_effect=self._MockGetPreambleFlags))
     args = ['--bios_rw_image', 'test/image_rw.bin', '-L',
@@ -550,7 +611,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             '--remove_inactive_updaters'] + self.common_flags
     with cros_build_lib_unittest.RunCommandMock() as rc:
       self._AddMocks(rc)
-      self._AddMergeMocks(rc)
+      self._AddMergeMocks(rc, mocked_dump_fmap_output)
       self.packer.Start(args, remove_tmpdirs=False)
     result = self.packer._versions.getvalue().splitlines()
     self.assertEqual(15, len(result))
@@ -563,6 +624,14 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     self.assertEqual(os.stat(ec_fname).st_mtime,
                      os.stat('test/image_rw.bin').st_mtime)
     self.packer._RemoveTmpdirs()
+
+  def testMockedRunWithMerge(self):
+    """Start up with a valid updater script and merge the RW BIOS."""
+    self._testMockedRunWithMerge(FMAP_OUTPUT)
+
+  def testMockedRunWithMergeLegacyFmap(self):
+    """Repeat merge test with alternate FMAP used on legacy devices."""
+    self._testMockedRunWithMerge(FMAP_OUTPUT_LEGACY)
 
   def testMockedRunUnibuildBad(self):
     """Try unified build options with invalid arguments."""
@@ -605,7 +674,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     args = self.SetupRunWithUnibuild('config_rw.dtb')
     with cros_build_lib_unittest.RunCommandMock() as rc:
       self._AddMocks(rc)
-      self._AddMergeMocks(rc)
+      self._AddMergeMocks(rc, FMAP_OUTPUT)
       pack_firmware.main(args)
       pack_firmware.packer._versions.getvalue().splitlines()
 
