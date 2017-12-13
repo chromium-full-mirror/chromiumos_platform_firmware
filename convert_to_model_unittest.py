@@ -23,13 +23,7 @@ class TestUnit(cros_test_lib.OutputTestCase):
   """Test cases for common program flows."""
 
   def runWithModel(self, model, ebuild_model):
-    """Run a test with the given model and ebuild model.
-
-    Normally these two are the same (e.g. 'reef') but for 'reef-uni' we use
-    the chromeos-firmware-reef ebuild and thus we need to distinguish between
-    the ebuild we use ('reef') and the board we use ('reef-uni'). The script
-    has special-case code for this so we need to test it.
-    """
+    """Run a test with the given model and ebuild model."""
     converter = convert_to_model.ModelConverter([model])
     converter._srcpath = 'test'
     converter._path_format = 'chromeos-firmware-%(model)s*.ebuild'
@@ -67,7 +61,6 @@ ebuild /mnt/host/source/src/chromeos-firmware-reef-0.0.1-r56.ebuild manifest
   def testEbuild(self):
     """Simple test of processing an ebuild"""
     self.runWithModel('reef', 'reef')
-    self.runWithModel('reef-uni', 'reef')
 
 
 if __name__ == '__main__':

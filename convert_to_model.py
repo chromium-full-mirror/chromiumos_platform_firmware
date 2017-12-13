@@ -191,11 +191,8 @@ class ModelConverter(object):
       Partial pathname of the ebuild that was processed (the part after
           self._src).
     """
-    # Deal with something like reef-uni which does not have its own
-    # chromeos-firmware-reef-uni ebuild but uses chromeos-firmware-reef.
-    ebuild_model = re.sub('-uni$', '', model)
     pathname = os.path.join(
-        self._srcpath, self._path_format % {'model': ebuild_model})
+        self._srcpath, self._path_format % {'model': model})
     ebuild = [fname for fname in glob.glob(pathname) if '9999' not in fname]
     if not ebuild:
       self._RaiseModelError(model, 'Could not find ebuild at "%s"' % pathname)
@@ -211,7 +208,7 @@ class ModelConverter(object):
         [CROS_FIRMWARE + s for s in TRANSLATE_TO_PROPERTY.keys()],
         env=env)
 
-    self._AddLine('%s {' % ebuild_model)
+    self._AddLine('%s {' % model)
     self._AddLine('firmware {')
 
     # This is only used in zgb and is deprecated, so skip it.
