@@ -30,7 +30,7 @@ from chromite.lib import commandline
 from chromite.lib import cros_build_lib
 from chromite.lib import osutils
 
-from libcros_config_host import libcros_config_host
+from cros_config_host import libcros_config_host
 
 sys.path.append('utils')
 import merge_file
