@@ -313,46 +313,76 @@ load_keyset() {
     debug_msg "No keysets folder."
     return
   fi
-  local keyid
+  local keyid="" whitelabel_tag=""
 
-  if [ -n "${UNIBUILD}" ]; then
-    if [ -z "${SIGNATURE_ID}" ]; then
-      SIGNATURE_ID="$FLAGS_signature_id"
-    fi
-    # Support zero-touch whitelabel where the signature ID is in VPD.
-    # TODO(sjg): Update this to use mosys (or perhaps cros_config).
-    if [ "${SIGNATURE_ID}" = "sig-id-in-customization-id" ]; then
-      debug_msg "Zero-touch whitelabel detected, looking up key in VPD"
-      SIGNATURE_ID="$(mosys platform signature)"
-      if [ -z "${SIGNATURE_ID}" ]; then
-        die "Unibuild: No customization_id in VPD/cmdline. Cannot continue."
+  # Allow overriding keys from command line.
+  # TODO(hungte) In future if cros_config is available on ALL (including legacy)
+  # systems, we can consider again moving all these logic to cros_config.
+  if [ -n "${FLAGS_signature_id}" ]; then
+    keyid="${FLAGS_signature_id}"
+  elif [ -n "${FLAGS_customization_id}" ]; then
+    # TODO(hungte) Remove FLAGS_customization_id in future.
+    # Match how VPD customization_id is processed below.
+    keyid="${FLAGS_customization_id%%-*}"
+  else
+    # For Unified build, the keyset is use by each model and white-label.
+    # For Non-Unified build, keyset is used only for white-label devices.
+    # Legacy devices use 'customization_id' (upper cased) while newer devices
+    # use 'whitelabel_tag' (lower cased).
+    if [ -n "${UNIBUILD}" ]; then
+      local model="$(mosys platform model)"
+      debug_msg "Unified Build: Default signature=${SIGNATURE_ID}"
+      # TODO(hungte) Search some white-label-specific property in cros_config
+      # to make sure this is a white label device.
+      keyid="${SIGNATURE_ID##sig-id-in-*}"
+      if [ -n "${SIGNATURE_ID}" ] && [ -z "${keyid}" ]; then
+        debug_msg "Trying to find signature from VPD 'whitelabel_tag'"
+        whitelabel_tag="$(vpd -g whitelabel_tag)"
+        if [ -n "${whitelabel_tag}" ]; then
+          keyid="${model}-${whitelabel_tag}"
+        else
+          # This is for RMA, early builds or factory first time installation.
+          # TODO(hungte) Only allow this in special condition, for example if
+          # write protection is disabled.
+          debug_msg "Fallback to model of Unified Build."
+          keyid="${model}"
+        fi
+      fi
+    else
+      # Non-Unified Build. Find 'whitelabel_tag' or 'customization_id'.
+      debug_msg "Trying to find signature from VPD 'customization_id'"
+      whitelabel_tag="$(vpd -g whitelabel_tag)"
+      if [ -n "${whitelabel_tag}" ]; then
+        # The signerbot is simply using keyset names (UPPERCASED) in non-unified
+        # build so we have to convert whitelabel_tag.
+        # In some environments like netboot initramfs, the `tr` is provided by
+        # busybox and do not support POSIX names like :lower: and :upper:, so we
+        # have to use [a-z] explicitly.
+        keyid="$(echo "${whitelabel_tag}"| tr '[a-z]' '[A-Z]')"
+      else
+        # `customization_id` comes in format LOEM-SERIES and we have to drop
+        # [-SERIES] for finding right signed files.
+        local customization_id="$(vpd -g customization_id)"
+        keyid="${customization_id%%-*}"
       fi
     fi
-    keyid="${SIGNATURE_ID}"
-
-  # For non-unibuild we don't have access to KEY_ID so must use vpd to read the
-  # customization ID.
-  else
-    if [ -z "$keyid" ]; then
-        keyid="$FLAGS_customization_id"
-    fi
-    if [ -z "$keyid" ]; then
-        debug_msg "No customization ID from command line. Try to read from VPD."
-        keyid="$(vpd -g "customization_id" || echo "")"
-    fi
-    if [ -z "$keyid" ]; then
-        verbose_msg "No customization_id in VPD/cmdline. Using default keys."
-        return
-    fi
-    # "customization_id" in format LOEMID[-SERIES]. We only want LOEMID for now.
-    keyid="${keyid%%-*}"
   fi
+
+  if [ -z "${keyid}" ]; then
+    if [ -n "${UNIBUILD}" ]; then
+      die "Unibuild: No signature ID in VPD/cmdline. Cannot continue."
+    else
+      verbose_msg "No customization_id. Use default keys."
+    fi
+    return
+  fi
+
   debug_msg "Keysets detected, using [$keyid]"
   local rootkey="$KEYSET_DIR/rootkey.$keyid"
   local vblock_a="$KEYSET_DIR/vblock_A.$keyid"
   local vblock_b="$KEYSET_DIR/vblock_B.$keyid"
   if ! [ -s "$rootkey" ]; then
-    die "Failed to load keysets for customization ID [$keyid]."
+    die "Failed to load keysets for signature [$keyid]."
   fi
   # Override keys
   futility gbb -s --rootkey="$rootkey" "$IMAGE_MAIN" ||

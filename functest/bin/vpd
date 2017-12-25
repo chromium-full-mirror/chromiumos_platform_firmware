@@ -6,7 +6,29 @@
 # Purpose: Fake implementation of 'vpd' tool. This is not currently used except
 # that is is packed into the firmware update.
 
+get_value() {
+  local name="$1"
+  local value=""
+  case "${name}" in
+    whitelabel_tag)
+      value="${FAKE_WHITELABEL_TAG}"
+      ;;
+    customization_id)
+      value="${FAKE_CUSTOMIZATION_ID}"
+      ;;
+  esac
+  if [ -z "${value}" ]; then
+    echo "findString(): Vpd data '${name}' was not found." >&2
+    exit 3
+  fi
+  echo "${value}"
+}
+
 case "$1" in
+  -g)
+    shift
+    get_value "$@"
+    ;;
   *)
     echo "Cannot handle command $1" >&2;;
 esac

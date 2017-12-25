@@ -110,7 +110,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     return sorted(expected_files)
 
   def _RunScript(self, outfile, hwid, model, ro_main_version,
-                 mode='autoupdate', signature_id=''):
+                 mode='autoupdate', whitelabel_tag=''):
     """Run an autoupdate with the shellball and check that it works.
 
     This relies on fake tools, principally crossystem which is controlled by
@@ -122,7 +122,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
       model: Model name to provide when the script asks for it.
       ro_main_version: Value to return when RO_FWID is requested.
       mode: Execution mode (can be 'autoupdate' or 'output')
-      signature_id: Value to return for signature_id from the fake mosys
+      whitelabel_tag: Value to return for whitelabel_tag from the fake vpd
 
     Returns:
       List of lines output from the script
@@ -141,7 +141,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     os.environ['FAKE_TPM_FWVER'] = '1'
     os.environ['FAKE_WPSW_CUR'] = '1'    # RO firmware is write-protected.
     os.environ['FAKE_VDAT_FLAGS'] = '0'  # Not using RO normal.
-    os.environ['FAKE_SIGNATURE_ID'] = signature_id
+    os.environ['FAKE_WHITELABEL_TAG'] = whitelabel_tag
 
     cmd = [SHELL, outfile]
     cmd += ['--mode', mode]
@@ -657,7 +657,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     #   Key sha1sum:         ac7c01b1bea84da486f30a52bba5eb67ff45f50f
     return result.output.splitlines()[-1].split()[2]
 
-  def _CheckOutput(self, outfile, model, rootkey_sum, signature_id=''):
+  def _CheckOutput(self, outfile, model, rootkey_sum, signature_id='',
+                   whitelabel_tag=''):
     """Check that the firmware updater can generate the correct output.
 
     This runs the firmware in 'output' mode with the given model and checks
@@ -670,8 +671,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
       signature_id: Value to return for signature_id from the fake mosys
     """
     lines = self._RunScript(outfile, REEF_HWID, model, REEF_RO_MAIN_VERSION,
-                            'output', signature_id)
-    expected_sig_id = signature_id if signature_id else model
+                            'output', whitelabel_tag)
+    expected_sig_id = signature_id or model
     self.assertIn('Firmware keys changed to set [%s].' % expected_sig_id, lines)
     bios_file = '%s/bios.bin' % self.outdir
     regions = self._GetUnequalRegions('%s/image.bin' % self.indir, bios_file,
@@ -779,11 +780,11 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
       wl_models: List of whitelabel models to generate firmware for
       wl_tags: List of whitelabel tags to generate firmware for
     """
-    extra_args, _ = self._SetupArgs([model] + wl_models + wl_tags)
+    if wl_tags:
+        assert not wl_models, 'WL tags cannot be tested with multiple models'
+        wl_models = ['%s-%s' % (model, wl_tag) for wl_tag in wl_tags]
+    extra_args, _ = self._SetupArgs([model] + wl_models)
 
-    # For our purposes we can treat the tags like models from here on.
-    if not wl_models:
-      wl_models = wl_tags
     outfile, _, _ = self._RunPackFirmware(extra_args)
     version_lines = osutils.ReadFile(
         os.path.join(self.unpackdir, 'VERSION')).splitlines()
@@ -836,23 +837,17 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
 
     sums = self.AddFakeKeys(outfile, wl_models)
 
-    for i, wl_model in enumerate(wl_models):
-      self._CheckOutput(outfile, model, sums[i], wl_model)
+    for i, wl_tag in enumerate(wl_tags):
+      self._CheckOutput(outfile, model, sums[i], '%s-%s' % (model, wl_tag),
+                        wl_tag)
 
   def testZeroTouchWhitelabel(self):
     """Test generation of firmware for a 'zero-touch' whitelabel model
 
-    This uses the original schema, where each whitelabel is a model.
+    Whitelabels use a single model with multiple 'whitelabel' tags associated
+    with it.
     """
-    self._CheckZeroTouchWhitelabel('zero-touch-whitelabel', ['zt1', 'zt2'], [])
-
-  def testZeroTouchWhitelabelAlternate(self):
-    """Test generation of firmware for a 'zero-touch' whitelabel model
-
-    This uses the alternate schema, where whitelabels use a single model with
-    multiple 'whitelabel' tags associated with it.
-    """
-    self._CheckZeroTouchWhitelabel('whitelabel-alt', [], ['wltag1', 'wltag2'])
+    self._CheckZeroTouchWhitelabel('wlref', [], ['wltag1', 'wltag2'])
 
 
 if __name__ == '__main__':
