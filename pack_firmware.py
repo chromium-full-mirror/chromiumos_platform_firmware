@@ -288,13 +288,14 @@ class FirmwarePacker(object):
 
       # Modify the filename to replace any use of our base directory with a
       # constant string, so we produce the same output on each run. Also drop
-      # the build directory since it is not useful to the user.
+      # any build and temp directies since they are not useful to the user.
       short_fname = fname
       if self._basedir:
         short_fname = short_fname.replace(
             self._basedir,
             os.path.join(os.path.dirname(self._basedir), 'tmp'))
-      short_fname = re.sub(r'/build/.*/work/', '', short_fname)
+      if self._tmpdir and short_fname.startswith(self._tmpdir):
+        short_fname = short_fname[len(self._tmpdir):]
       print('%s image:%s%s *%s' % (name, ' ' * max(3, 7 - len(name)),
                                    digest.hexdigest(), short_fname),
             file=self._versions)
