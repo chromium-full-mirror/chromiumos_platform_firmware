@@ -113,10 +113,10 @@
                     shares = <&reef_firmware>;
                 };
                 whitelabels {
-                    wlref-wltag1 {
+                    wltag1 {
                         key-id = "WLREF-WLTAG1";
                     };
-                    wlref-wltag2 {
+                    wltag2 {
                         key-id = "WLREF-WLTAG2";
                     };
                 };
