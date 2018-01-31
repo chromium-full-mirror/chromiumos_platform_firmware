@@ -337,7 +337,7 @@ load_keyset() {
       keyid="${SIGNATURE_ID##sig-id-in-*}"
       if [ -n "${SIGNATURE_ID}" ] && [ -z "${keyid}" ]; then
         debug_msg "Trying to find signature from VPD 'whitelabel_tag'"
-        whitelabel_tag="$(vpd -g whitelabel_tag)"
+        whitelabel_tag="$(vpd -g whitelabel_tag 2>/dev/null || true)"
         if [ -n "${whitelabel_tag}" ]; then
           keyid="${model}-${whitelabel_tag}"
         else
@@ -350,8 +350,8 @@ load_keyset() {
       fi
     else
       # Non-Unified Build. Find 'whitelabel_tag' or 'customization_id'.
-      debug_msg "Trying to find signature from VPD 'customization_id'"
-      whitelabel_tag="$(vpd -g whitelabel_tag)"
+      debug_msg "Trying to find signature from VPD 'whitelabel_tag'"
+      whitelabel_tag="$(vpd -g whitelabel_tag 2>/dev/null || true)"
       if [ -n "${whitelabel_tag}" ]; then
         # The signerbot is simply using keyset names (UPPERCASED) in non-unified
         # build so we have to convert whitelabel_tag.
@@ -362,6 +362,7 @@ load_keyset() {
       else
         # `customization_id` comes in format LOEM-SERIES and we have to drop
         # [-SERIES] for finding right signed files.
+        debug_msg "Trying to find signature from VPD 'customization_id'"
         local customization_id="$(vpd -g customization_id)"
         keyid="${customization_id%%-*}"
       fi
