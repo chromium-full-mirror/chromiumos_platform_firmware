@@ -30,7 +30,7 @@ from chromite.lib import partial_mock
 import pack_firmware
 import pack_firmware_utils
 
-from libcros_config_host import libcros_config_host
+from cros_config_host import libcros_config_host
 
 # We need to poke around in internal members of PackFirmware.
 # pylint: disable=W0212
