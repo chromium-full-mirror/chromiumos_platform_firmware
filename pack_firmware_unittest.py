@@ -431,8 +431,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     Returns:
       Integer offset of the firmware node.
     """
-    with open('test/config.dtb') as fd:
-      config = libcros_config_host.CrosConfig(fd)
+    config = libcros_config_host.CrosConfig('test/config.dtb')
     return config.GetFamilyNode('/firmware/reef')
 
   def testExtractFileLocal(self):

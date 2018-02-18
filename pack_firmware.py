@@ -1083,8 +1083,7 @@ class FirmwarePacker(object):
         if not args.config:
           raise PackError('Missing master configuration file (use -c)')
 
-        with open(args.config) as fd:
-          conf = libcros_config_host.CrosConfig(fd)
+        conf = libcros_config_host.CrosConfig(args.config)
 
         script = conf.GetFirmwareScript()
 
