@@ -1094,7 +1094,11 @@ class FirmwarePacker(object):
         # TODO: Ignore the passed-in model list and use the list from
         # libcros_config_host always. For now the passed-in list is used for
         # testing.
-        models = args.models if args.models else firmware_info.keys()
+        models = args.models
+        if not args.models:
+          models = []
+          if firmware_info:
+            models = firmware_info.keys()
         for model in models:
           model_details[model] = self._GenerateOneModel(
               firmware_info[model], args, tool_base, model_details)
