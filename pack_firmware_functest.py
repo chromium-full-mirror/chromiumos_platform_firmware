@@ -669,6 +669,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
       model: Name of model to generate firmware for
       rootkey_sum: SHA1 sum of the root key (as a string)
       signature_id: Value to return for signature_id from the fake mosys
+      whitelabel_tag: Value to return for whitelabel_tag from the fake vpd
     """
     lines = self._RunScript(outfile, REEF_HWID, model, REEF_RO_MAIN_VERSION,
                             'output', whitelabel_tag)
@@ -781,8 +782,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
       wl_tags: List of whitelabel tags to generate firmware for
     """
     if wl_tags:
-        assert not wl_models, 'WL tags cannot be tested with multiple models'
-        wl_models = ['%s-%s' % (model, wl_tag) for wl_tag in wl_tags]
+      assert not wl_models, 'WL tags cannot be tested with multiple models'
+      wl_models = ['%s-%s' % (model, wl_tag) for wl_tag in wl_tags]
     extra_args, _ = self._SetupArgs([model] + wl_models)
 
     outfile, _, _ = self._RunPackFirmware(extra_args)
