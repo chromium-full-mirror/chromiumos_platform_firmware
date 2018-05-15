@@ -23,7 +23,6 @@ try:
 except ImportError:
   from io import StringIO
 
-from chromite.lib import cros_build_lib_unittest
 from chromite.lib import cros_test_lib
 from chromite.lib import osutils
 from chromite.lib import partial_mock
@@ -265,7 +264,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
   def testAddFlashromVersion(self):
     """Test we can add the flashrom version to the version information."""
     self.packer._args = self.packer.ParseArgs(['--tool_base', 'test'])
-    with cros_build_lib_unittest.RunCommandMock() as rc:
+    with cros_test_lib.RunCommandMock() as rc:
       rc.AddCmdResult(partial_mock.ListRegex('file'), returncode=0,
                       output='ELF 64-bit LSB executable, etc.\n')
       self.packer._AddFlashromVersion(self.packer._args.tool_base.split(':'))
@@ -283,7 +282,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     valid.
     """
     self.packer._args = self.packer.ParseArgs(['--tool_base', 'local_flashrom'])
-    with cros_build_lib_unittest.RunCommandMock() as rc:
+    with cros_test_lib.RunCommandMock() as rc:
       rc.AddCmdResult(partial_mock.ListRegex('file'), returncode=0,
                       output='ELF 64-bit LSB executable, etc.\n')
       self.packer._AddFlashromVersion(self.packer._args.tool_base.split(':'))
@@ -322,7 +321,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     self.packer._tmpdir = 'test'
     self.packer._testing = True
     self.packer._args = self.packer.ParseArgs(['--bios_image', 'image.bin'])
-    with cros_build_lib_unittest.RunCommandMock() as rc:
+    with cros_test_lib.RunCommandMock() as rc:
       rc.AddCmdResult(partial_mock.ListRegex('futility dump_fmap'),
                       returncode=0)
       self.assertEqual(RO_FRID, self.packer._ExtractFrid('image.bin'))
@@ -337,7 +336,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     self.packer._tmpdir = self.packer._CreateTmpDir()
     self.packer._testing = True
     self.packer._args = self.packer.ParseArgs(['--bios_image', 'image.bin'])
-    with cros_build_lib_unittest.RunCommandMock() as rc:
+    with cros_test_lib.RunCommandMock() as rc:
       rc.AddCmdResult(partial_mock.ListRegex('futility dump_fmap'),
                       returncode=0, side_effect=_SetupImage)
       self.assertEqual('TESTING', self.packer._ExtractFrid('image.bin'))
@@ -595,7 +594,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         mock.Mock(side_effect=self._MockGetPreambleFlags))
     args = ['.', '--create_bios_rw_image', '-L', '-e',
             'test/ec.bin'] + self.common_flags
-    with cros_build_lib_unittest.RunCommandMock() as rc:
+    with cros_test_lib.RunCommandMock() as rc:
       self._AddMocks(rc)
       rc.AddCmdResult(partial_mock.ListRegex('resign_firmwarefd.sh'),
                       side_effect=self._ResignFirmware, returncode=0)
@@ -608,7 +607,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     args = ['--bios_rw_image', 'test/image_rw.bin', '-L',
             '--merge_bios_rw_image', '-e', 'test/ec.bin', '-p', 'test/pd.bin',
             '--remove_inactive_updaters'] + self.common_flags
-    with cros_build_lib_unittest.RunCommandMock() as rc:
+    with cros_test_lib.RunCommandMock() as rc:
       self._AddMocks(rc)
       self._AddMergeMocks(rc, mocked_dump_fmap_output)
       self.packer.Start(args, remove_tmpdirs=False)
@@ -660,7 +659,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
   def testMockedRunWithUnibuild(self):
     """Start up with a valid updater script and BIOS."""
     args = self.SetupRunWithUnibuild('config.dtb')
-    with cros_build_lib_unittest.RunCommandMock() as rc:
+    with cros_test_lib.RunCommandMock() as rc:
       self._AddMocks(rc)
       pack_firmware.main(args)
       pack_firmware.packer._versions.getvalue().splitlines()
@@ -671,7 +670,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     pack_firmware.FirmwarePacker._GetPreambleFlags = (
         mock.Mock(side_effect=self._MockGetPreambleFlags))
     args = self.SetupRunWithUnibuild('config_rw.dtb')
-    with cros_build_lib_unittest.RunCommandMock() as rc:
+    with cros_test_lib.RunCommandMock() as rc:
       self._AddMocks(rc)
       self._AddMergeMocks(rc, FMAP_OUTPUT)
       pack_firmware.main(args)
@@ -698,7 +697,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         mock.Mock(side_effect=self._MockGetPreambleFlags))
     args = ['--create_bios_rw_image', '-L',
             '-e', 'test/ec.bin'] + self.common_flags
-    with cros_build_lib_unittest.RunCommandMock() as rc:
+    with cros_test_lib.RunCommandMock() as rc:
       self._AddMocks(rc)
       rc.AddCmdResult(partial_mock.ListRegex('resign_firmwarefd.sh'),
                       side_effect=self._ResignFirmware, returncode=0)
@@ -725,7 +724,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
   def testNoECFirmware(self):
     """Simple test of creating firmware without an EC image."""
     args = self.common_flags + ['-L']
-    with cros_build_lib_unittest.RunCommandMock() as rc:
+    with cros_test_lib.RunCommandMock() as rc:
       self._AddMocks(rc)
       self.packer.Start(args)
 
