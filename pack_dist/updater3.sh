@@ -421,6 +421,13 @@ main() {
     exit 1
   fi
 
+  # Since CL:798773, all additional files are in bin/.
+  # TODO(hungte) Remove this hack when we have separated extra programs and data.
+  if [ ! -r "${CUSTOMIZATION_SCRIPT}" ] && [ -r "bin/${CUSTOMIZATION_SCRIPT}" ]
+  then
+    CUSTOMIZATION_SCRIPT="bin/${CUSTOMIZATION_SCRIPT}"
+  fi
+
   # load customization
   if [ -r "$CUSTOMIZATION_SCRIPT" ]; then
     debug_msg "loading customization..."
