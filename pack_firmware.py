@@ -561,8 +561,9 @@ class FirmwarePacker(object):
     Args:
       bios_image: Input filename of main BIOS (main) image.
       bios_rw_image: Input filename of RW BIOS image, or None if none.
-      ec_image: Input filename of EC (Embedded Controller) image.
-      pd_image: Input filename of PD (Power Delivery) image.
+      ec_image: Input filename of EC (Embedded Controller) image, or None if
+          none.
+      pd_image: Input filename of PD (Power Delivery) image, or None if none.
       create_bios_rw_image: True to create a RW BIOS image from the main one
           if not provided.
       target_dir: Target directory for output images.
@@ -894,8 +895,9 @@ class FirmwarePacker(object):
           unified build then this should be ''.
       bios_image: Input filename of main BIOS (main) image.
       bios_rw_image: Input filename of RW BIOS image, or None if none.
-      ec_image: Input filename of EC (Embedded Controller) image.
-      pd_image: Input filename of PD (Power Delivery) image.
+      ec_image: Input filename of EC (Embedded Controller) image, or None if
+          none.
+      pd_image: Input filename of PD (Power Delivery) image, or None if none.
       create_bios_rw_image: True to create a RW BIOS image from the main one
           if not provided.
       tools: List of tools to include in the update (e.g. ['mosys', 'ectool'].
@@ -1119,8 +1121,8 @@ class FirmwarePacker(object):
         image_args = [args.bios_image, args.ec_image, args.pd_image]
         if any(image_args) and not args.local:
           raise PackError('Cannot use -b/-p/-e with -m')
-        elif args.local and not all(image_args):
-          raise PackError('Must provide -b, -e, -p with -l')
+        elif args.local and not any(image_args):
+          raise PackError('Must provide one of -b, -e, -p with -l')
         if args.create_bios_rw_image:
           raise PackError('Cannot use --create_bios_rw_image with -m')
         if not args.config:
