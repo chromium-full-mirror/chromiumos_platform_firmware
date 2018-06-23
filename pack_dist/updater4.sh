@@ -115,9 +115,6 @@ else
   PDID="$(eval "$PDINFO"; echo "$fw_version")"
 fi
 
-# This should be overriden via a custom_updater.sh script.
-LEGACY_UPGRADE_WHITELIST=""
-
 # ----------------------------------------------------------------------------
 # Helper functions
 
@@ -161,18 +158,39 @@ check_compatible_keys() {
 }
 
 need_update_legacy() {
-  local legacy_hash="$(crosfw_slot_hash "$TYPE_MAIN" "$SLOT_LEGACY")"
-  debug_msg "RW_LEGACY hash $legacy_hash, white list: $LEGACY_UPGRADE_WHITELIST"
+  if crosfw_is_equal_slot "${TYPE_MAIN}" "${SLOT_LEGACY}"; then
+    debug_msg "${SLOT_LEGACY} not changed."
+    return "${FLAGS_FALSE}"
+  fi
 
-  for hash in $LEGACY_UPGRADE_WHITELIST; do
-    if [ "$legacy_hash" = "$hash" ]; then
-      debug_msg "RW_LEGACY needs update."
-      return $FLAGS_TRUE
-    fi
-  done
+  local sentinel_name='cros_allow_auto_update'
+  local current_file=".legacy.current"
+  local target_file=".legacy.target"
+  rm -f "${current_file}" "${target_file}"
 
-  debug_msg "No updates for RW_LEGACY"
-  return $FLAGS_FALSE
+  # cbfstool may not exist on certain old systems. Try our best shot.
+  cbfstool "${DIR_CURRENT}/${TYPE_MAIN}/${SLOT_LEGACY}" extract \
+    -n "${sentinel_name}" -f "${current_file}" >/dev/null 2>&1 || true
+  cbfstool "${DIR_TARGET}/${TYPE_MAIN}/${SLOT_LEGACY}" extract \
+    -n "${sentinel_name}" -f "${target_file}" >/dev/null 2>&1 || true
+
+  # We should update only if both target and current CBFS allows update.
+  if ! [ -f "${target_file}" ]; then
+    debug_msg "cbfstool failure or target not for auto update. Ignore."
+    return "${FLAGS_FALSE}"
+  fi
+  if ! [ -f "${current_file}" ]; then
+    debug_msg "cbfstool failure or old/custom legacy firmware. Ignore update."
+    return "${FLAGS_FALSE}"
+  fi
+  return "${FLAGS_TRUE}"
+}
+
+check_and_update_legacy() {
+  if need_update_legacy; then
+    verbose_msg "${SLOT_LEGACY} is changed and will be updated."
+    crosfw_update_main "$SLOT_LEGACY"
+  fi
 }
 
 need_update_main_ro() {
@@ -243,9 +261,6 @@ need_update_main() {
       return $FLAGS_TRUE
     fi
   fi
-
-  # Compare legacy hash with whitelisted set of legacy hashes to update.
-  need_update_legacy
 }
 
 prepare_main_image() {
@@ -436,7 +451,8 @@ mode_autoupdate() {
   if [ "${FLAGS_force}" = ${FLAGS_TRUE} ] || need_update_main; then
     verbose_msg "Firmware update available: ${TARGET_FWID}. "
   else
-    verbose_msg "Latest firmware already installed. No need to update."
+    verbose_msg "Latest RW firmware already installed. No need to update."
+    check_and_update_legacy
     return
   fi
 
@@ -477,14 +493,10 @@ mode_autoupdate() {
   prepare_main_current_image
   check_compatible_keys
   crosfw_update_main "$update_slot"
+  check_and_update_legacy
 
   if [ -n "$try_next" ]; then
     cros_set_prop "fw_try_next=$try_next"
-  fi
-
-  # Update legacy if needed
-  if need_update_legacy; then
-    crosfw_update_main "$SLOT_LEGACY"
   fi
 
   # Try to determine EC software sync by checking $ECID. We can't rely on
@@ -527,13 +539,14 @@ mode_recovery() {
       crosfw_update_main
     else
       # TODO(hungte) check if FMAP is not changed
-      verbose_msg "$prefix: update main/RW:A,B,SHARED"
+      verbose_msg "$prefix: update main/RW:A,B,SHARED,LEGACY"
       prepare_main_image
       prepare_main_current_image
       check_compatible_keys
       crosfw_update_main "$SLOT_A"
       crosfw_update_main "$SLOT_B"
       crosfw_update_main "$SLOT_RW_SHARED"
+      crosfw_update_main "$SLOT_LEGACY"
     fi
   fi
 
