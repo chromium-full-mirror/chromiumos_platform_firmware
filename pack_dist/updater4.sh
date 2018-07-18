@@ -546,7 +546,10 @@ mode_recovery() {
       crosfw_update_main "$SLOT_A"
       crosfw_update_main "$SLOT_B"
       crosfw_update_main "$SLOT_RW_SHARED"
-      crosfw_update_main "$SLOT_LEGACY"
+      # Some old platforms like Daisy may not have SLOT_LEGACY.
+      if [ -f "${DIR_TARGET}/${TYPE_MAIN}/${SLOT_LEGACY}" ]; then
+        crosfw_update_main "$SLOT_LEGACY"
+      fi
     fi
   fi
 
