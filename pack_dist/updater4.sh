@@ -158,7 +158,9 @@ check_compatible_keys() {
 }
 
 need_update_legacy() {
-  if crosfw_is_equal_slot "${TYPE_MAIN}" "${SLOT_LEGACY}"; then
+  debug_msg "Checking whether legacy update is needed..."
+  if [ "${FLAGS_force}" = ${FLAGS_FALSE} ] && \
+     crosfw_is_equal_slot "${TYPE_MAIN}" "${SLOT_LEGACY}"; then
     debug_msg "${SLOT_LEGACY} not changed."
     return "${FLAGS_FALSE}"
   fi
@@ -189,7 +191,7 @@ need_update_legacy() {
 check_and_update_legacy() {
   if need_update_legacy; then
     verbose_msg "${SLOT_LEGACY} is changed and will be updated."
-    crosfw_update_main "$SLOT_LEGACY"
+    crosfw_update_main "${SLOT_LEGACY}"
   fi
 }
 
