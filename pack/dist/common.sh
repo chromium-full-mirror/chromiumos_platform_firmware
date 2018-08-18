@@ -18,7 +18,7 @@ fi
 # ----------------------------------------------------------------------------
 # Common Command Line Arguments
 
-modes="(startup | autoupdate | legacy | recovery | factory_install | output)"
+modes="(autoupdate | legacy | recovery | factory_install | output)"
 
 DEFINE_string mode "" "Updater mode ${modes}" "m"
 DEFINE_string wp "" "Override write protection state (0/1)." ""

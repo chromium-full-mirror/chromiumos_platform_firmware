@@ -1,7 +1,0 @@
-This folder contains additional firmware update helper scripts.
-
-Files must be named as ${FILE} or ${FILE}.${version}, and then installed to
-/usr/sbin/${FILE} by cros-firmware.eclass.
-
-If ${version} is specified, then it will be installed only if the ${version}
-matches the version code in CROS_FIRMWARE_SCRIPT variable.

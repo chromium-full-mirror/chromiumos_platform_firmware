@@ -301,7 +301,6 @@ clear_update_cookies() {
   # Always success because the system may not have crossystem ready yet if we're
   # trying to recover a broken firmware or after transition from legacy firmware
   ( cros_set_fwb_tries 0
-    cros_set_startup_update_tries 0
     cros_set_prop recovery_request=0 ) >/dev/null 2>&1 ||
       debug_msg "clear_update_cookies: there were some errors, ignored."
 }
@@ -430,12 +429,6 @@ mode_output() {
   cp "${IMAGE_MAIN}" "${FLAGS_output_dir}"
   cp "${IMAGE_EC}" "${FLAGS_output_dir}"
   verbose_msg "Firmware images generated to: ${FLAGS_output_dir}"
-}
-
-# Startup
-mode_startup() {
-  # ChromeOS-EC do not need to be updated at startup time.
-  cros_set_startup_update_tries 0
 }
 
 # Update Engine - Received Update
@@ -673,7 +666,7 @@ main() {
 
   result="completed"
   case "${FLAGS_mode}" in
-    autoupdate | recovery | startup | factory_install | output | legacy)
+    autoupdate | recovery | factory_install | output | legacy)
       mode_"${FLAGS_mode}" || result="failed"
       ;;
 

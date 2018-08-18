@@ -134,11 +134,6 @@ test_cros_prop() {
   assertTrue "cros_query_prop query_invalid"
 }
 
-test_cros_startup_update_tries() {
-  assertEquals "$(cros_get_startup_update_tries)" "1"
-  assertEquals "$(cros_set_startup_update_tries 2)" "tries=2"
-}
-
 test_cros_fwb() {
   assertEquals "$(cros_get_fwb_tries)" "1"
   assertEquals "$(cros_set_fwb_tries 2)" "tries=2"

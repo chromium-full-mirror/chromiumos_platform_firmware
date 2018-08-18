@@ -73,21 +73,6 @@ cros_query_prop() {
   crossystem "$@" || debug_msg "FAILURE: crossystem $@"
 }
 
-# Sets the "startup update tries" counter.
-cros_set_startup_update_tries() {
-  local startup_update_tries="$1"
-  local fwupdate_tries=$(crossystem fwupdate_tries)
-  if [ -n "$fwupdate_tries" ]; then
-    cros_set_prop fwupdate_tries=$startup_update_tries
-  fi
-}
-
-# Gets the "startup update tries" counter.
-cros_get_startup_update_tries() {
-  local fwupdate_tries=$(crossystem fwupdate_tries || echo 0)
-  echo $fwupdate_tries
-}
-
 # Sets the "firmare B tries" counter
 cros_set_fwb_tries() {
   cros_set_prop fwb_tries="$1"
@@ -389,7 +374,7 @@ cros_override_rw_firmware_by_version() {
 
   # RW update only happens in autoupdate and recovery (without WP) modes.
   case "$FLAGS_mode" in
-    startup | factory_install )
+    factory_install )
       return
       ;;
     recovery )
