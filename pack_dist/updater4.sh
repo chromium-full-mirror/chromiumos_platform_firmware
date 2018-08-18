@@ -515,17 +515,6 @@ mode_autoupdate() {
   fi
 }
 
-# Transition to Developer Mode
-mode_todev() {
-  enable_dev_boot
-  echo "
-  Booting any self-signed kernel from SSD/USB/SDCard slot is enabled.
-  Insert bootable media into USB / SDCard slot and press Ctrl-U in developer
-  screen to boot your own image.
-  "
-  clear_update_cookies
-}
-
 # Recovery Installer
 mode_recovery() {
   local prefix="recovery"
@@ -677,7 +666,7 @@ main() {
 
   result="completed"
   case "${FLAGS_mode}" in
-    autoupdate | recovery | startup | todev | factory_install | output )
+    autoupdate | recovery | startup | factory_install | output )
       mode_"${FLAGS_mode}" || result="failed"
       ;;
 

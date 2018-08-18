@@ -173,7 +173,7 @@ cros_report_wp_status() {
   # (--wp-status) may hang device for up to 2~3 seconds, so we want to prevent
   # querying WP status in modes that does not touch EC.
   case "$FLAGS_mode" in
-    autoupdate | todev )
+    autoupdate )
       test_ec=$FLAGS_FALSE
       test_pd=$FLAGS_FALSE
       ;;
@@ -389,7 +389,7 @@ cros_override_rw_firmware_by_version() {
 
   # RW update only happens in autoupdate and recovery (without WP) modes.
   case "$FLAGS_mode" in
-    startup | todev | factory_install )
+    startup | factory_install )
       return
       ;;
     recovery )
