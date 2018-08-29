@@ -448,16 +448,25 @@ class FirmwarePacker(object):
       sections[name] = Section(int(offset), int(size))
     return sections
 
-  def _CloneFirmwareSection(self, dst, src, section):
+  def _CloneFirmwareSection(self, dst, src, section, optional=False):
     """Clone a section in one file from another.
 
     Args:
       dst: Destination file (relative or absolute path).
       src: Source file (relative or absolute path).
       section: Section to clone.
+      optional: Ignore if the section does not exist.
     """
-    src_section = self._GetFMAP(src)[section]
-    dst_section = self._GetFMAP(dst)[section]
+    src_section = self._GetFMAP(src).get(section, None)
+    dst_section = self._GetFMAP(dst).get(section, None)
+
+    if src_section is None and dst_section is None and optional:
+      if not self._args.quiet:
+        print("Ignored nonexistent optional section '%s' in RW firmware image" %
+              section)
+      return
+    if src_section is None or dst_section is None:
+      raise PackError("Firmware section '%s' does not exist" % section)
     if not src_section.size:
       raise PackError("Firmware section '%s' is invalid" % section)
     if src_section.size != dst_section.size:
@@ -478,6 +487,8 @@ class FirmwarePacker(object):
     """
     self._CloneFirmwareSection(ro_fname, rw_fname, 'RW_SECTION_A')
     self._CloneFirmwareSection(ro_fname, rw_fname, 'RW_SECTION_B')
+    self._CloneFirmwareSection(ro_fname, rw_fname, 'RW_LEGACY', optional=True)
+    self._CloneFirmwareSection(ro_fname, rw_fname, 'RW_MISC', optional=True)
     self._CopyTimestamp(rw_fname, ro_fname)
 
   def _ExtractEcRwUsingFMAP(self, fname, fmap_area_name, ecrw_fname):
