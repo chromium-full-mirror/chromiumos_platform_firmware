@@ -591,6 +591,12 @@ mode_factory_install() {
   clear_update_cookies
 }
 
+# Force update RW_LEGACY
+mode_legacy() {
+  echo "Updating ${SLOT_LEGACY} firmware..."
+  crosfw_update_main "${SLOT_LEGACY}"
+}
+
 # ----------------------------------------------------------------------------
 # Main Entry
 
@@ -666,7 +672,7 @@ main() {
 
   result="completed"
   case "${FLAGS_mode}" in
-    autoupdate | recovery | startup | factory_install | output )
+    autoupdate | recovery | startup | factory_install | output | legacy)
       mode_"${FLAGS_mode}" || result="failed"
       ;;
 
