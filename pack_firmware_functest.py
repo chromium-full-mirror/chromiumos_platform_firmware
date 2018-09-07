@@ -97,11 +97,6 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         'shflags',
         'VERSION',
         'VERSION.md5',
-        'bin/crossystem',
-        'bin/flashrom',
-        'bin/futility',
-        'bin/mosys',
-        'bin/vpd',
         UPDATER,
     ] + extra_files
     if models:
@@ -145,12 +140,16 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     os.environ['FAKE_VDAT_FLAGS'] = '0'  # Not using RO normal.
     os.environ['FAKE_WHITELABEL_TAG'] = whitelabel_tag
 
+    new_path = ':'.join((os.path.join(self.basedir, 'functest/bin'),
+                         os.environ.get('PATH')))
+
     cmd = [SHELL, outfile]
     cmd += ['--mode', mode]
     if mode == 'output':
       cmd += ['--model', model, '--output_dir', self.outdir]
     cmd += ['--verbose', '--debug']
     result = cros_build_lib.RunCommand(cmd, capture_output=True,
+                                       extra_env={'PATH': new_path},
                                        print_cmd=False)
 
     # We expect debugging output but should not get anything else.
@@ -173,17 +172,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
           key: shell variable (e.g. TARGET_FWID).
           value: value of that variable.
     """
-    tool_path = [
-        os.path.join(self.basedir, 'functest/bin'),
-        os.path.join(self.chroot, 'usr/sbin'),
-        os.path.join(self.chroot, 'usr/bin'),
-    ]
     outfile = os.path.join(self.outdir, 'output.sh')
-    argv = extra_args + [
-        '-o', outfile, '-q',
-        '--script', UPDATER,
-        '--tool_base', ':'.join(tool_path),
-    ]
+    argv = extra_args + ['-o', outfile, '-q', '--script', UPDATER]
 
     # Create the shellball, extract it, and get a list of files it contains.
     os.environ['SYSROOT'] = 'test'
@@ -207,24 +197,17 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     outfile, files, versions = self._RunPackFirmware(extra_args)
 
     # Check that we got the right files.
-    self.assertEqual(14, len(files))
+    self.assertEqual(9, len(files))
     self.assertEqual(self._ExpectedFiles(['bios.bin']), files)
 
     # Comb through the VERSION file and check that everything is as expected.
     lines = osutils.ReadFile(
         os.path.join(self.unpackdir, 'VERSION')).splitlines()
-    self.assertEqual(8, len(lines))
-    self.assertEqual(
-        'flashrom(8): 7404a736f0c1a92b75cddc7722f21b4d '
-        '*%s/functest/bin/flashrom' % self.basedir, lines[1])
-    self.assertEqual('             data', lines[2])
-    self.assertEqual('             0.9.4  : 1bb61e1 : Feb 07 2017 18:29:17 UTC',
-                     lines[3])
-    self.assertEqual('', lines[4])
+    self.assertEqual(4, len(lines))
     self.assertEqual(
         'BIOS image:   99a6fc64e45596aa2c1a9911cddce952 *%s/image.bin' %
-        self.indir, lines[5])
-    self.assertEqual('BIOS version: Google_Reef.9042.50.0', lines[6])
+        self.indir, lines[1])
+    self.assertEqual('BIOS version: Google_Reef.9042.50.0', lines[2])
 
     self.assertEqual('Google_Reef.9042.50.0', versions['TARGET_RO_FWID'])
     self.assertEqual('Google_Reef.9042.50.0', versions['TARGET_FWID'])
@@ -233,44 +216,9 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     self.assertEqual('Google_Reef', versions['TARGET_PLATFORM'])
     self.assertEqual(UPDATER, versions['TARGET_SCRIPT'])
     self.assertEqual('', versions['UNIBUILD'])
-    self.assertEqual(8, len(lines))
 
     # Run the shellball to make sure we can do a fake autoupdate.
     self._RunScript(outfile, REEF_HWID, REEF_MODEL, REEF_RO_MAIN_VERSION)
-
-  def testToolsRootFlag(self):
-    """Run the firmware packer to pull tools from a root."""
-    # We pull these from the SDK (for ease of testing), so we can only depend
-    # on programs guaranteed to be installed there.
-    tools = ('bash', 'gzip', 'bzip2')
-
-    outfile = os.path.join(self.outdir, 'output.sh')
-    argv = [
-        '-o', outfile, '-q', '-L',
-        '--script', UPDATER,
-        '-b', os.path.join(self.indir, 'image.bin'),
-        '--tools', ' '.join(tools), '--root', '/',
-    ]
-
-    # Create the shellball, extract it, and check the results.
-    self.packer.Start(argv)
-    cros_build_lib.RunCommand([outfile, '--sb_extract', self.unpackdir],
-                              quiet=True, mute_output=True)
-
-    # Check each of these ELF programs were copied over.
-    bindir = os.path.join(self.unpackdir, 'bin')
-    self.assertExists(bindir)
-    for tool in tools:
-      self.assertExists(os.path.join(bindir, tool))
-      self.assertExists(os.path.join(bindir, '%s.elf' % (tool,)))
-
-    # Check some libraries were copied over.  Don't want to hardcode specific
-    # lib names as they might change over time.
-    libdir = os.path.join(self.unpackdir, 'lib')
-    self.assertExists(libdir)
-    # We assume libc.so and at least one other library.
-    self.assertGreaterEqual(len(glob.glob(os.path.join(libdir, 'lib*.so*'))), 2)
-    self.assertEqual(1, len(glob.glob(os.path.join(libdir, 'ld*.so*'))))
 
   def _CheckVersionsReef(self, versions):
     """Check the versions match expectations for reef.
@@ -340,7 +288,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     extra_args, expected_files = self._SetupArgs()
     outfile, files, versions = self._RunPackFirmware(extra_args)
 
-    self.assertEqual(28, len(files))
+    self.assertEqual(23, len(files))
     self.assertEqual(expected_files, files)
     version_lines = osutils.ReadFile(
         os.path.join(self.unpackdir, 'VERSION')).splitlines()
@@ -348,13 +296,6 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     # Each assertion matches to a line:
     assertions = [
         None,  # Skip testing first line.
-        lambda(x): self.assertEqual(
-            'flashrom(8): 7404a736f0c1a92b75cddc7722f21b4d '
-            '*%s/functest/bin/flashrom' % self.basedir, x),
-        lambda(x): self.assertEqual('             data', x),
-        lambda(x): self.assertEqual(
-            '             0.9.4  : 1bb61e1 : Feb 07 2017 18:29:17 UTC', x),
-        lambda(x): self.assertEqual('', x),
         lambda(x): self.assertIn('reef', x),
         lambda(x): self.assertIn('reef/image.bin', x),
         lambda(x): self.assertEqual('BIOS version: Google_Reef.9042.50.0', x),

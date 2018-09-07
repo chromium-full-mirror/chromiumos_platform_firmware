@@ -165,34 +165,15 @@ class FirmwarePacker(object):
         action='store_false', dest='remove_inactive_updaters',
         help="Don't remove inactive updater scripts")
 
-    # embedded tools
-    parser.add_argument(
-        '--tools', action='split_extend',
-        help='List of tool programs to be bundled into updater')
-
     parser.add_argument('--root', type='path',
-                        help='The board sysroot to find all tools under')
+                        help='The board sysroot to find ELF dependencies under')
+    parser.add_argument('--tool_base', type=str, default='',
+                        help='Deprecated (do not use this)')
 
-    # TODO(sjg@chromium.org: Consider making this accumulate rather than using
-    # the ':' separator.
-    parser.add_argument(
-        '--tool_base', type=str, default='',
-        help='Default source locations for tools programs (delimited by colon)')
     parser.add_argument('-q', '--quiet', action='store_true',
                         help='Avoid output except for warnings/errors')
 
     opts = parser.parse_args(argv)
-
-    if opts.tools is None:
-      # TODO(hungte): This is an intermediate workaround until we've finished
-      # the experiment of 'not bundling tools inside firmware updater' with
-      # new devices (for example using updater5).
-      if opts.script in ['updater5.sh']:
-        opts.tools = []
-      else:
-        opts.tools = ['flashrom', 'mosys', 'crossystem', 'futility', 'vpd']
-    if not opts.tool_base:
-      opts.tool_base = '/usr/sbin:/usr/bin:/sbin:/bin'
 
     opts.Freeze()
     return opts
@@ -207,21 +188,6 @@ class FirmwarePacker(object):
     """
     if not osutils.Which(cmd):
       raise PackError("You need '%s' (package '%s')" % (cmd, package))
-
-  @staticmethod
-  def _FindTool(root, tool_base, tool):
-    """Find a tool in the tool_base path list, raising an exception if missing.
-
-    Args:
-      root: The board sysroot to check (e.g. /build/$BOARD).
-      tool_base: List of directories to check.
-      tool: Name of tool to find (just the name, not the full path).
-    """
-    path = ':'.join(tool_base)
-    fname = osutils.Which(tool, path=path, root=root)
-    if fname is None:
-      raise PackError("Cannot find tool program '%s' to bundle" % tool)
-    return fname
 
   def _CreateTmpDir(self):
     """Create a temporary directory, and remember it for later removal.
@@ -238,38 +204,6 @@ class FirmwarePacker(object):
     for fname in self._tmp_dirs:
       shutil.rmtree(fname)
     self._tmp_dirs = []
-
-  def _AddFlashromVersion(self, root, tool_base):
-    """Add flashrom version info to the collection of version information.
-
-    Args:
-      root: The board sysroot to check (e.g. /build/$BOARD).
-      tool_base: List of directories to check.
-    """
-    flashrom = self._FindTool(root, tool_base, 'flashrom')
-
-    # Look for a string ending in UTC.
-    data = osutils.ReadFile(flashrom, mode='rb')
-    m = re.search(r'([0-9.]+ +: +[a-z0-9]+ +: +.+UTC)', data)
-    if m:
-      version = m.group(1)
-    else:
-      # As a fallback, look for a version without git hash / date.
-      m = re.search(r'([0-9.]+ +:  +: +)', data)
-      if not m:
-        raise PackError('Could not find flashrom version number')
-
-      # Don't show a partial version, it is not very useful and the
-      # pack_firmware.sh script (which predates this script) did not show it.
-      version = ''
-
-    # crbug.com/695904: Can we use a SHA2-based algorithm?
-    digest = md5.new()
-    digest.update(data)
-    result = cros_build_lib.RunCommand(['file', '-b', flashrom], quiet=True)
-    print('\nflashrom(8): %s *%s\n             %s\n             %s' %
-          (digest.hexdigest(), flashrom, result.output.strip(), version),
-          file=self._versions)
 
   def _AddVersionInfo(self, name, fname, version):
     """Add version info for a single file.
@@ -658,36 +592,10 @@ class FirmwarePacker(object):
       raise PackError("Cannot find required file '%s'" %
                       os.path.join(self._pack_dist, script))
 
-  def _CopyBaseFiles(self, root, tool_base, tools):
+  def _CopyBaseFiles(self):
     """Copy base files that every firmware update needs.
-
-    Args:
-      root: The board sysroot to check (e.g. /build/$BOARD).
-      tool_base: List of directories to check.
-      tools: List of tools to copy.
     """
     self._CopyFile(self._shflags_file, self._basedir)
-
-    if root is None:
-      bindir = self._BaseDirPath('bin')
-      osutils.SafeMakedirs(bindir)
-      for tool in tools:
-        tool_fname = self._FindTool(root, tool_base, tool)
-        # Most tools are dynamically linked, but if there is a statically
-        # linked version (denoted by a '_s' suffix) use that in preference.
-        # This helps to reduce run-time dependencies for firmware update,
-        # which is a critical process.
-        if os.path.exists(tool_fname + '_s'):
-          tool_fname += '_s'
-        if not self._args.quiet:
-          print('Bundling ELF %s' % (tool_fname,))
-        self._CopyFile(tool_fname, os.path.join(bindir, tool), CHMOD_ALL_EXEC)
-    else:
-      elfs = [self._FindTool(root, tool_base, x) for x in tools]
-      if elfs:
-        if not self._args.quiet:
-          print('Bundling ELFs:\n  %s' % ('\n  '.join(elfs),))
-        self._CopyElfs(root, elfs, self._basedir)
 
   def _CopyExtraFiles(self, extras):
     """Copy extra files into the base directory.
@@ -819,8 +727,7 @@ class FirmwarePacker(object):
         print(osutils.ReadFile(fname))
 
   def _ProcessModel(self, model, bios_image, bios_rw_image, ec_image, pd_image,
-                    tools, root, tool_base, extras,
-                    shared_image_files, target_dir):
+                    extras, shared_image_files, target_dir):
     """Set up the firmware update for one model.
 
     Args:
@@ -831,9 +738,6 @@ class FirmwarePacker(object):
       ec_image: Input filename of EC (Embedded Controller) image, or None if
           none.
       pd_image: Input filename of PD (Power Delivery) image, or None if none.
-      tools: List of tools to include in the update (e.g. ['mosys', 'ectool'].
-      root: Root directory to find board files.
-      tool_base: List of directories to look in for tools.
       extras: List of extra files/directories to include.
       shared_image_files: Dict of image file information for the model whose
           images we want to share (or None if none):
@@ -846,8 +750,6 @@ class FirmwarePacker(object):
         key: Name, one of "BIOS", "BIOS (RW)", "EC", "EC (RW)", "PD", "PD (RW)".
         value: ImageFile, containing filename and version.
     """
-    for tool in tools:
-      self._FindTool(root, tool_base, tool)
     if shared_image_files:
       image_files = shared_image_files
     else:
@@ -861,7 +763,7 @@ class FirmwarePacker(object):
           pd_image=pd_image,
           target_dir=target_dir)
     self._WriteVersions(model, image_files)
-    self._CopyBaseFiles(root, tool_base, tools)
+    self._CopyBaseFiles()
     if extras:
       self._CopyExtraFiles(extras)
     return image_files
@@ -903,7 +805,7 @@ class FirmwarePacker(object):
     return self._UntarFile(
         os.path.join(self._args.imagedir, fname), dirname, suffix)
 
-  def _GenerateOneModel(self, firmware, args, tool_base, model_details):
+  def _GenerateOneModel(self, firmware, args, model_details):
     """Generate the output files for a single model.
 
     Create the firmware files and set up the 'setvars.sh' script for a single
@@ -913,7 +815,6 @@ class FirmwarePacker(object):
     Args:
       firmware: Firmware information to process (FirmwareInfo object)
       args: Command-line arguments (argparse.Namespace object).
-      tool_base: List of directories to check.
       model_details: Dict:
           key: Model name.
           value: ModelDetails object for that model.
@@ -958,16 +859,12 @@ class FirmwarePacker(object):
           dirname)
 
     extras = [os.path.expandvars(extra) for extra in firmware.extra]
-    tools = firmware.tools + args.tools
 
     image_files = self._ProcessModel(
         bios_image=bios_image,
         bios_rw_image=bios_rw_image,
         ec_image=ec_image,
         pd_image=pd_image,
-        tools=tools,
-        root=args.root,
-        tool_base=tool_base,
         extras=extras,
         model=firmware.model,
         shared_image_files=shared_image_files,
@@ -1031,14 +928,11 @@ class FirmwarePacker(object):
     self._EnsureCommand('shar', 'sharutils')
     if not os.path.exists(self._sfx_file):
       raise PackError("Cannot find required file '%s'" % self._sfx_file)
-    tool_base = args.tool_base.split(':')
     try:
       if not args.output:
         raise PackError('Missing output file')
       self._basedir = self._CreateTmpDir()
       self._tmpdir = self._CreateTmpDir()
-      if 'flashrom' in args.tools:
-        self._AddFlashromVersion(args.root, tool_base)
       model_details = OrderedDict()
       if not args.legacy:
         # Most of the arguments are meaningless with unified builds since we
@@ -1068,7 +962,7 @@ class FirmwarePacker(object):
             models = firmware_info.keys()
         for model in models:
           model_details[model] = self._GenerateOneModel(
-              firmware_info[model], args, tool_base, model_details)
+              firmware_info[model], args, model_details)
         replace_dict = {}
       else:
         image_files = self._ProcessModel(
@@ -1077,9 +971,6 @@ class FirmwarePacker(object):
             bios_rw_image=args.bios_rw_image,
             ec_image=args.ec_image,
             pd_image=args.pd_image,
-            tools=args.tools,
-            root=args.root,
-            tool_base=tool_base,
             extras=args.extra.split(':') if args.extra else [],
             shared_image_files=None,
             target_dir=self._basedir)

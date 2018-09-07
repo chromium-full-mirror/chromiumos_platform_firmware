@@ -154,8 +154,7 @@ RW_FWID 262468 32
 
 # Common flags that we use in several tests.
 _COMMON_FLAGS = [
-    '--script=updater4.sh', '--tools', 'flashrom futility',
-    '--tool_base', 'test', '-b', 'test/image.bin', '-q', '-o',
+    '--script=updater4.sh', '-b', 'test/image.bin', '-q', '-o',
 ]
 
 
@@ -197,8 +196,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
 
     # Should complain if the selected updater is not available.
     with self.assertRaises(pack_firmware.PackError) as e:
-      pack_firmware.main(['test', '-o', 'out', '--tool_base', 'test', '-L',
-                          '--tools', 'flashrom', '-b', 'test/image.bin',
+      pack_firmware.main(['test', '-o', 'out', '-L', '-b', 'test/image.bin',
                           '--script', 'updater_nonexist.sh'])
     self.assertIn("'pack/dist/updater_nonexist.sh'", str(e.exception))
 
@@ -208,16 +206,9 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         pack_firmware.main(['.'])
       self.assertIn("'shar'", str(e.exception))
 
-    # Should complain about missing tools.
-    with self.assertRaises(pack_firmware.PackError) as e:
-      pack_firmware.main(['.', '--script=updater4.sh', '--tool_base', 'test',
-                          '--tools', 'missing-tool', '-o', 'out', '-L'])
-    self.assertIn("'missing-tool'", str(e.exception))
-
     # Should complain if we don't provide at least one image.
     with self.assertRaises(pack_firmware.PackError) as e:
-      args = ['.', '--script=updater4.sh', '--tools', 'ls', '-L',
-              '--tool_base', '/bin:test', '-o', 'out']
+      args = ['.', '--script=updater4.sh', '-L', '-o', 'out']
       pack_firmware.main(args)
     self.assertIn('Must assign at least one', str(e.exception))
 
@@ -242,23 +233,6 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
       self.packer._EnsureCommand('does-not-exist', 'sample-package')
     self.assertIn("You need 'does-not-exist'", str(e.exception))
 
-  def testFindTool(self):
-    """Check finding of required tools."""
-    self.packer._args = self.packer.ParseArgs(['--tool_base', 'test'])
-    with self.assertRaises(pack_firmware.PackError) as e:
-      self.packer._FindTool(None, ['test'], 'does-not-exist')
-    self.assertIn("'does-not-exist'", str(e.exception))
-    self.assertEqual('test/flashrom',
-                     self.packer._FindTool(None, ['test'], 'flashrom'))
-
-  def testFindToolRoot(self):
-    """Check finding of required tools with a root."""
-    self.packer._args = self.packer.ParseArgs(['--tool_base', 'test'])
-    with self.assertRaises(pack_firmware.PackError) as e:
-      self.packer._FindTool('/', ['/foo'], 'sh')
-    self.assertIn("'sh'", str(e.exception))
-    self.assertEqual('/bin/sh', self.packer._FindTool('/', ['/bin'], 'sh'))
-
   def testTmpdirs(self):
     """Check creation and removal of temporary directories."""
     dir1 = self.packer._CreateTmpDir()
@@ -268,38 +242,6 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     self.packer._RemoveTmpdirs()
     self.assertNotExists(dir1)
     self.assertNotExists(dir2)
-
-  def testAddFlashromVersion(self):
-    """Test we can add the flashrom version to the version information."""
-    self.packer._args = self.packer.ParseArgs(['--tool_base', 'test'])
-    with cros_test_lib.RunCommandMock() as rc:
-      rc.AddCmdResult(partial_mock.ListRegex('file'), returncode=0,
-                      output='ELF 64-bit LSB executable, etc.\n')
-      self.packer._AddFlashromVersion(
-          None, self.packer._args.tool_base.split(':'))
-    result = self.packer._versions.getvalue().splitlines()
-    self.assertIn('flashrom(8)', result[1])
-    self.assertIn('ELF 64-bit LSB executable', result[2])
-    self.assertEqual('%s0.9.4  : 1bb61e1 : Feb 07 2017 18:29:17 UTC' %
-                     (' ' * 13), result[3])
-
-  def testAddFlashromMissingVersion(self):
-    """Test we can add the local flashrom version to the version information.
-
-    A local flashrom is built with cros_workon enabled for the flashrom ebuild.
-    It does not include the git hash or date, but is still considered to be
-    valid.
-    """
-    self.packer._args = self.packer.ParseArgs(['--tool_base', 'local_flashrom'])
-    with cros_test_lib.RunCommandMock() as rc:
-      rc.AddCmdResult(partial_mock.ListRegex('file'), returncode=0,
-                      output='ELF 64-bit LSB executable, etc.\n')
-      self.packer._AddFlashromVersion(
-          None, self.packer._args.tool_base.split(':'))
-    result = self.packer._versions.getvalue().splitlines()
-    self.assertIn('flashrom(8)', result[1])
-    self.assertIn('ELF 64-bit LSB executable', result[2])
-    self.assertEqual(' ' * 13, result[3])
 
   def testAddVersionInfoMissingFile(self):
     """Trying to add version info for a missing file should be detected."""
@@ -585,7 +527,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
       self._AddMergeMocks(rc, mocked_dump_fmap_output)
       self.packer.Start(args, remove_tmpdirs=False)
     result = self.packer._versions.getvalue().splitlines()
-    self.assertEqual(15, len(result))
+    self.assertEqual(11, len(result))
     self.assertIn(RO_FRID, self._FindLineInList(result, 'EC version'))
     self.assertIn(RW_FWID, self._FindLineInList(result, 'EC (RW) version'))
     rw_fname = self.packer._BaseDirPath(pack_firmware.IMAGE_EC)
@@ -607,7 +549,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
   def testMockedRunUnibuildBad(self):
     """Try unified build options with invalid arguments."""
 
-    args = ['.', '-m', 'reef', '-o', 'output', '--tool_base', 'test']
+    args = ['.', '-m', 'reef', '-o', 'output']
     with self.assertRaises(pack_firmware.PackError) as e:
       pack_firmware.main(args)
     self.assertIn("Missing master configuration file", str(e.exception))
@@ -623,8 +565,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     """
 
     args = ['.', '-m', 'reef', '-m', 'pyro', '-q', '-o', self.output,
-            '-c', 'test/%s' % config_fname, '--tool_base', 'test',
-            '--tools', 'flashrom futility', '-i', 'functest']
+            '-c', 'test/%s' % config_fname, '-i', 'functest']
     os.environ['SYSROOT'] = 'test'
     os.environ['FILESDIR'] = 'test'
     return args
@@ -672,7 +613,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     # There should be no EC version in the VERSION file.
     result = self.packer._versions.getvalue()
     self.assertNotIn('EC version', result)
-    self.assertEqual(8, len(result.splitlines()))
+    self.assertEqual(4, len(result.splitlines()))
 
     # In the script, the EC version should be ''.
     lines = osutils.ReadFile(self.output).splitlines()
