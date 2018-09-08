@@ -150,7 +150,7 @@ RW_FWID 262468 32
 
 # Common flags that we use in several tests.
 _COMMON_FLAGS = [
-    '--script=updater5.sh', '--tools', 'flashrom futility',
+    '--script=updater4.sh', '--tools', 'flashrom futility',
     '--tool_base', 'test', '-b', 'test/image.bin', '-q', '-o',
 ]
 
@@ -205,13 +205,13 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
 
     # Should complain about missing tools.
     with self.assertRaises(pack_firmware.PackError) as e:
-      pack_firmware.main(['.', '--script=updater5.sh', '--tool_base', 'test',
+      pack_firmware.main(['.', '--script=updater4.sh', '--tool_base', 'test',
                           '--tools', 'missing-tool', '-o', 'out', '-L'])
     self.assertIn("'missing-tool'", str(e.exception))
 
     # Should complain if we don't provide at least one image.
     with self.assertRaises(pack_firmware.PackError) as e:
-      args = ['.', '--script=updater5.sh', '--tools', 'ls', '-L',
+      args = ['.', '--script=updater4.sh', '--tools', 'ls', '-L',
               '--tool_base', '/bin:test', '-o', 'out']
       pack_firmware.main(args)
     self.assertIn('Must assign at least one', str(e.exception))

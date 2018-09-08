@@ -197,7 +197,13 @@ class FirmwarePacker(object):
     opts = parser.parse_args(argv)
 
     if opts.tools is None:
-      opts.tools = ['flashrom', 'mosys', 'crossystem', 'futility', 'vpd']
+      # TODO(hungte): This is an intermediate workaround until we've finished
+      # the experiment of 'not bundling tools inside firmware updater' with
+      # new devices (for example using updater5).
+      if opts.script in ['updater5.sh']:
+        opts.tools = []
+      else:
+        opts.tools = ['flashrom', 'mosys', 'crossystem', 'futility', 'vpd']
     if not opts.tool_base:
       opts.tool_base = '/usr/sbin:/usr/bin:/sbin:/bin'
 
@@ -1122,7 +1128,8 @@ class FirmwarePacker(object):
         raise PackError('Missing output file')
       self._basedir = self._CreateTmpDir()
       self._tmpdir = self._CreateTmpDir()
-      self._AddFlashromVersion(args.root, tool_base)
+      if 'flashrom' in args.tools:
+        self._AddFlashromVersion(args.root, tool_base)
       model_details = OrderedDict()
       if not args.legacy:
         # Most of the arguments are meaningless with unified builds since we
