@@ -194,8 +194,9 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     # Should complain if the selected updater is not available.
     with self.assertRaises(pack_firmware.PackError) as e:
       pack_firmware.main(['test', '-o', 'out', '--tool_base', 'test', '-L',
-                          '--tools', 'flashrom', '-b', 'test/image.bin'])
-    self.assertIn("'pack_dist/updater.sh'", str(e.exception))
+                          '--tools', 'flashrom', '-b', 'test/image.bin',
+                          '--script', 'updater_nonexist.sh'])
+    self.assertIn("'pack_dist/updater_nonexist.sh'", str(e.exception))
 
     # Should check for 'shar' tool.
     with mock.patch.object(osutils, 'Which', return_value=None):

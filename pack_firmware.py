@@ -7,9 +7,9 @@
 
 It requires:
  - at least one firmware image (*.bin, should be AP or EC or ...)
- - pack_dist/updater.sh main script
+ - pack_dist/updater?.sh main script
  - pack_stub as the template/stub script for output
- - any other additional files used by updater.sh in pack_dist folder
+ - any other additional files used by updater?.sh in pack_dist folder
 """
 
 from __future__ import print_function
@@ -150,7 +150,7 @@ class FirmwarePacker(object):
                         help='Path of input Embedded Controller firmware image')
     parser.add_argument('-p', '--pd_image', type='path',
                         help='Path of input Power Delivery firmware image')
-    parser.add_argument('--script', type=str, default='updater.sh',
+    parser.add_argument('--script', type=str, default='updater4.sh',
                         help='File name of main script file')
     parser.add_argument('-o', '--output', type='path',
                         help='Path of output filename')
@@ -1147,9 +1147,6 @@ class FirmwarePacker(object):
           raise PackError('Missing master configuration file (use -c)')
 
         conf = libcros_config_host.CrosConfig(args.config)
-
-        script = conf.GetFirmwareScript()
-
         osutils.SafeMakedirs(self._BaseDirPath(MODELS_DIR))
         osutils.SafeMakedirs(os.path.join(self._tmpdir, MODELS_DIR))
 
@@ -1167,7 +1164,6 @@ class FirmwarePacker(object):
               firmware_info[model], args, tool_base, model_details)
         replace_dict = {}
       else:
-        script = args.script
         image_files = self._ProcessModel(
             model='',
             bios_image=args.bios_image,
@@ -1182,6 +1178,7 @@ class FirmwarePacker(object):
             shared_image_files=None,
             target_dir=self._basedir)
         replace_dict = self._GetReplaceDict(image_files)
+      script = args.script
       self._CopyUpdateScript(script)
       self._WriteUpdateScript(script, replace_dict)
       self._WriteVersionFile()
