@@ -4,10 +4,20 @@ This folder contains resources for packaging new Chrome OS firmware updater.
 
 ## Format
 
-The package is using [shar](https://www.gnu.org/software/sharutils/) format file
-with UNIX shell stub as SFX (self-extracting archive) program.
+### Version 1
+
+Package version 1 is using
+[shar](https://www.gnu.org/software/sharutils/) format file with UNIX
+shell stub as SFX (self-extracting archive) program.
 
 The SFX stub program is [sfx.sh](./sfx.sh).
+
+### Version 2
+
+Package version 2 is a ZIP format file with simple UNIX shell stub as SFX
+(self-extracting archive) program.
+
+The SFX stub program is [sfx2.sh](./sfx2.sh).
 
 ## Contents
 
@@ -49,21 +59,36 @@ Run command:
 chromeos-firmwareupdate --repack $PATH_TO_DIR
 ```
 
-## Extract package contents
-
-Run command:
+Version 2 packages also supports updating via zip directly:
 ```sh
-chromeos-firmwareupdate --unpack # extracts to a new temp folder
+(cd $PATH_TO_DIR; zip PATH_TO/chromeos-firmwareupdate .)
 ```
 
-Or add a destination path:
+## Extract package contents
+
+Extract to a destination folder:
 ```sh
 chromeos-firmwareupdate --unpack $PATH_TO_DIR
 ```
 
+Version 1 packages also allows extracting to a newly created temp folder:
+```sh
+chromeos-firmwareupdate --unpack
+```
+
+Version 2 packages are simply ZIP and can also be extracted using other tools:
+```sh
+unzip chromeos-firmwareupdate
+```
+
 ## Check contents info
 
-Run command:
+For debugging, run command:
 ```sh
 cromeos-firmwareupdate -V
+```
+
+For machine friendly parsing, run following command to get JSON output:
+```sh
+cromeos-firmwareupdate --manifest
 ```
