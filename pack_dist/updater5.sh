@@ -216,7 +216,12 @@ main() {
       die "Unknown mode: ${FLAGS_mode}"
       ;;
   esac
-  echo "Firmware update (${FLAGS_mode}) ${result}."
+
+  local msg="Firmware update (${FLAGS_mode}) ${result}."
+  if [ "${result}" = "failed" ]; then
+    die "${msg}"
+  fi
+  echo "${msg}"
 }
 
 # Exit on error
