@@ -27,6 +27,7 @@ except ImportError:
 from chromite.lib import cros_test_lib
 from chromite.lib import osutils
 from chromite.lib import partial_mock
+from chromite.signing.lib import firmware_unittest
 import pack_firmware
 import pack_firmware_utils
 
@@ -572,25 +573,6 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         'futility dump_fmap -x .*/bios.bin .*_MAIN_A'),
                     returncode=0, side_effect=cls._CreateDumpfmapFile)
 
-  # If we use _ to indicate an unused parameter, cros lint wants us to call it
-  # 'kwargs'. If we call it 'kwargs' it complains about an unused parameter.
-  # We need the kwargs paramter since the caller provides it and the real
-  # implementation of this function (that we are mocking) needs it.
-  # pylint: disable=C9011
-  @classmethod
-  def _ResignFirmware(cls, cmd, **_):
-    """Called as a side effect to emulate the effect of resign_firmwarefd.sh.
-
-    This copies the input file to the output file.
-
-    Args:
-      cmd: Arguments, of the form:
-          ['resign_firmwarefd.sh', <infile>, <outfile>, ...]
-          See _SetPreambleFlags() for where this command is generated.
-    """
-    infile, outfile = cmd[1], cmd[2]
-    shutil.copy(infile, outfile)
-
   @staticmethod
   def _MockGetPreambleFlags(fname, *_args, **_kwargs):
     """Mock of _GetPreambleFlags(). Uses the filename to determine value.
@@ -611,8 +593,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             'test/ec.bin'] + self.common_flags
     with cros_test_lib.RunCommandMock() as rc:
       self._AddMocks(rc)
-      rc.AddCmdResult(partial_mock.ListRegex('resign_firmwarefd.sh'),
-                      side_effect=self._ResignFirmware, returncode=0)
+      firmware_unittest.MockFirmwareSigner(rc)
       pack_firmware.main(args)
       pack_firmware.packer._versions.getvalue().splitlines()
 
@@ -708,14 +689,14 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
 
   def testRWFirmware(self):
     """Simple test of creating RW firmware."""
+
     pack_firmware.FirmwarePacker._GetPreambleFlags = (
         mock.Mock(side_effect=self._MockGetPreambleFlags))
     args = ['--create_bios_rw_image', '-L',
             '-e', 'test/ec.bin'] + self.common_flags
     with cros_test_lib.RunCommandMock() as rc:
       self._AddMocks(rc)
-      rc.AddCmdResult(partial_mock.ListRegex('resign_firmwarefd.sh'),
-                      side_effect=self._ResignFirmware, returncode=0)
+      firmware_unittest.MockFirmwareSigner(rc)
       self.packer.Start(args, remove_tmpdirs=False)
     rw_fname = self.packer._BaseDirPath(pack_firmware.IMAGE_MAIN_RW)
     self.assertEqual(os.stat('test/image.bin').st_mtime,

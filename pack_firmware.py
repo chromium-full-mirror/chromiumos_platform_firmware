@@ -30,6 +30,8 @@ import tempfile
 from chromite.lib import commandline
 from chromite.lib import cros_build_lib
 from chromite.lib import osutils
+from chromite.signing.lib import firmware as signing_firmware
+from chromite.signing.lib import keys as signing_keys
 
 from utils import merge_file
 
@@ -384,16 +386,11 @@ class FirmwarePacker(object):
       outfile: Output image file (relative or absolute path).
       preamble_flags: Preamble flags as an integer.
     """
-    keydir = '/usr/share/vboot/devkeys'
-    cros_build_lib.RunCommand(
-        ['resign_firmwarefd.sh', infile, outfile,
-         os.path.join(keydir, 'firmware_data_key.vbprivk'),
-         os.path.join(keydir, 'firmware.keyblock'),
-         os.path.join(keydir, 'dev_firmware_data_key.vbprivk'),
-         os.path.join(keydir, 'dev_firmware.keyblock'),
-         os.path.join(keydir, 'kernel_subkey.vbpubk'),
-         '0', str(preamble_flags)],
-        quiet=True, cwd=self._tmpdir)
+    keyset = signing_keys.KeysetFromDir('/usr/share/vboot/devkeys')
+
+    fw_signer = signing_firmware.BiosSigner(preamble_flags=preamble_flags)
+
+    fw_signer.Sign(keyset, infile, outfile)
 
   @staticmethod
   def _CopyTimestamp(reference_fname, fname):
