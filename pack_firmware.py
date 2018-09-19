@@ -1,4 +1,5 @@
 #!/usr/bin/env python2
+# -*- coding: utf-8 -*-
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -30,10 +31,11 @@ from chromite.lib import commandline
 from chromite.lib import cros_build_lib
 from chromite.lib import osutils
 
-from cros_config_host import libcros_config_host
+from utils import merge_file
 
-sys.path.append('utils')
-import merge_file
+# pylint: disable=import-error
+from cros_config_host import libcros_config_host
+# pylint: enable=import-error
 
 IMAGE_MAIN = 'bios.bin'
 IMAGE_MAIN_RW = 'bios_rw.bin'

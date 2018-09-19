@@ -1,4 +1,5 @@
 #!/usr/bin/env python2
+# -*- coding: utf-8 -*-
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -29,7 +30,9 @@ from chromite.lib import partial_mock
 import pack_firmware
 import pack_firmware_utils
 
+# pylint: disable=import-error
 from cros_config_host import libcros_config_host
+# pylint: enable=import-error
 
 # We need to poke around in internal members of PackFirmware.
 # pylint: disable=W0212
@@ -589,7 +592,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     shutil.copy(infile, outfile)
 
   @staticmethod
-  def _MockGetPreambleFlags(fname, **_):
+  def _MockGetPreambleFlags(fname, *_args, **_kwargs):
     """Mock of _GetPreambleFlags(). Uses the filename to determine value.
 
     Args:

@@ -1,9 +1,12 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
+# -*- coding: utf-8 -*-
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Merges one file to specified location of another file."""
+
+from __future__ import print_function
 
 import sys
 
@@ -29,8 +32,8 @@ def merge_file(large_path, small_path, large_offset, small_offset=0,
 def main(argv):
   """Main function for command line invocation."""
   if len(argv) < 4 or len(argv) > 6:
-    exit('Usage: %s large_path small_path large_offset [small_offset [size]]' %
-         argv[0])
+    sys.exit('Usage: %s large_path small_path large_offset [small_offset '
+             '[size]]' % argv[0])
 
   large_path = argv[1]
   small_path = argv[2]

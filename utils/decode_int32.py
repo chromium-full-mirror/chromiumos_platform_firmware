@@ -1,9 +1,12 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
+# -*- coding: utf-8 -*-
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Decodes a file from given offset as INT32 in native endianess."""
+
+from __future__ import print_function
 
 import struct
 import sys
@@ -27,7 +30,7 @@ def decode_int32(file_path, offset=0):
 def main(argv):
   """Main function for command line invocation."""
   if len(argv) < 2 or len(argv) > 3:
-    exit('Usage: %s file_path [offset]' % argv[0])
+    sys.exit('Usage: %s file_path [offset]' % argv[0])
 
   file_path = argv[1]
   offset = int(argv[2], 0) if len(argv) > 2 else 0
