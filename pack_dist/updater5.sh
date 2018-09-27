@@ -180,6 +180,10 @@ main() {
   if [ -n "${FLAGS_wp}" ]; then
     args="${args} --wp=${FLAGS_wp}"
   fi
+  if [ "${FLAGS_force}" = "${FLAGS_TRUE}" ] ||
+     [ "${FLAGS_check_keys}" = "${FLAGS_FALSE}" ]; then
+    args="${args} --force"
+  fi
   if [ "${FLAGS_debug}" = "${FLAGS_TRUE}" ]; then
     args="${args} --debug"
   fi
