@@ -185,21 +185,20 @@ main() {
   fi
   if [ -n "${UPDATER_QUIRKS}" ]; then
     echo "*** Quirks for platform ${PLATFORM}: ${UPDATER_QUIRKS}"
-    args="${args} --quirks '${UPDATER_QUIRKS}'"
+    args="${args} --quirks ${UPDATER_QUIRKS}"
   fi
   debug_msg "args: ${args}"
 
   result="completed"
   case "${FLAGS_mode}" in
     autoupdate )
-      futility update -t -i "${IMAGE_MAIN}" ${args} || result="failed"
+      futility update -t ${args} || result="failed"
       ;;
     recovery )
-      futility update -i "${IMAGE_MAIN}" ${args} || result="failed"
+      futility update ${args} || result="failed"
       ;;
     factory_install )
-      futility update --mode=factory -i "${IMAGE_MAIN}" ${args} ||
-        result="failed"
+      futility update --mode=factory ${args} || result="failed"
       ;;
     legacy )
       futility update --mode=legacy -i "${IMAGE_MAIN}" || result="failed"
