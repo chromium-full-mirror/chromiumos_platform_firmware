@@ -30,8 +30,6 @@ import tempfile
 from chromite.lib import commandline
 from chromite.lib import cros_build_lib
 from chromite.lib import osutils
-from chromite.signing.lib import firmware as signing_firmware
-from chromite.signing.lib import keys as signing_keys
 
 from utils import merge_file
 
@@ -172,7 +170,7 @@ class FirmwarePacker(object):
         help="Don't remove inactive updater scripts")
 
     parser.add_argument('--create_bios_rw_image', action='store_true',
-                        help='Resign and generate a BIOS RW image')
+                        help='Deprecated option - do not use')
     group = parser.add_mutually_exclusive_group(required=False)
     group.add_argument(
         '--merge_bios_rw_image', default=True, action='store_true',
@@ -378,20 +376,6 @@ class FirmwarePacker(object):
                       len(lines))
     return int(lines[0].split()[-1])
 
-  def _SetPreambleFlags(self, infile, outfile, preamble_flags):
-    """Set the preamble flags for an image.
-
-    Args:
-      infile: Input image file (relative or absolute path).
-      outfile: Output image file (relative or absolute path).
-      preamble_flags: Preamble flags as an integer.
-    """
-    keyset = signing_keys.KeysetFromDir('/usr/share/vboot/devkeys')
-
-    fw_signer = signing_firmware.BiosSigner(preamble_flags=preamble_flags)
-
-    fw_signer.Sign(keyset, infile, outfile)
-
   @staticmethod
   def _CopyTimestamp(reference_fname, fname):
     """Copy the timestamp from a reference file to another file.
@@ -401,38 +385,6 @@ class FirmwarePacker(object):
     """
     mtime = os.stat(reference_fname).st_mtime
     os.utime(fname, (mtime, mtime))
-
-  def _CreateRwFirmware(self, ro_fname, rw_fname):
-    """Build a RW firmware file from an input RO file.
-
-    This works by clearing bit 0 of the preamble flags, this indicating this is
-    RW firmware.
-
-    Args:
-      ro_fname: Filename of RO firmware (relative or absolute path).
-      rw_fname: Filename of RW firmware (relative or absolute path).
-    """
-    preamble_flags = self._GetPreambleFlags(ro_fname)
-    if not preamble_flags & 1:
-      raise PackError("Firmware image '%s' is NOT RO_NORMAL firmware" %
-                      ro_fname)
-    self._SetPreambleFlags(ro_fname, rw_fname, preamble_flags ^ 1)
-    self._CopyTimestamp(ro_fname, rw_fname)
-    if not self._args.quiet:
-      print("RW firmware image '%s' created" % rw_fname)
-
-  def _CheckRwFirmware(self, fname):
-    """Check that the firmware file is RW firmware.
-
-    Args:
-      fname: Filename of firmware image to check.
-
-    Raises:
-      PackError or RunCommandError if the flags could not be read or indicate
-        that the firmware file is not RW firmware.
-    """
-    if self._GetPreambleFlags(fname) & 1:
-      raise PackError("Firmware image '%s' is NOT RW-firmware" % fname)
 
   def _GetFMAP(self, fname):
     """Get the FMAP (flash map) from a firmware image.
@@ -571,7 +523,7 @@ class FirmwarePacker(object):
     self._CopyTimestamp(rw_fname, ec_fname)
 
   def _CopyFirmwareFiles(self, bios_image, bios_rw_image, ec_image, pd_image,
-                         create_bios_rw_image, target_dir):
+                         target_dir):
     """Process firmware files and copy them into the working directory.
 
     Args:
@@ -580,8 +532,6 @@ class FirmwarePacker(object):
       ec_image: Input filename of EC (Embedded Controller) image, or None if
           none.
       pd_image: Input filename of PD (Power Delivery) image, or None if none.
-      create_bios_rw_image: True to create a RW BIOS image from the main one
-          if not provided.
       target_dir: Target directory for output images.
 
     Returns:
@@ -603,13 +553,7 @@ class FirmwarePacker(object):
     else:
       merge_bios_rw_image = False
 
-    if not bios_rw_image and create_bios_rw_image:
-      bios_rw_image = image_main_rw
-      self._CreateRwFirmware(bios_image, bios_rw_image)
-      merge_bios_rw_image = False
-
     if bios_rw_image:
-      self._CheckRwFirmware(bios_rw_image)
       bios_rw_version = self._ExtractFrid(bios_rw_image)
       if merge_bios_rw_image:
         self._MergeRwFirmware(image_main, bios_rw_image)
@@ -902,7 +846,7 @@ class FirmwarePacker(object):
         print(osutils.ReadFile(fname))
 
   def _ProcessModel(self, model, bios_image, bios_rw_image, ec_image, pd_image,
-                    create_bios_rw_image, tools, root, tool_base, extras,
+                    tools, root, tool_base, extras,
                     shared_image_files, target_dir):
     """Set up the firmware update for one model.
 
@@ -914,8 +858,6 @@ class FirmwarePacker(object):
       ec_image: Input filename of EC (Embedded Controller) image, or None if
           none.
       pd_image: Input filename of PD (Power Delivery) image, or None if none.
-      create_bios_rw_image: True to create a RW BIOS image from the main one
-          if not provided.
       tools: List of tools to include in the update (e.g. ['mosys', 'ectool'].
       root: Root directory to find board files.
       tool_base: List of directories to look in for tools.
@@ -944,7 +886,6 @@ class FirmwarePacker(object):
           bios_rw_image=bios_rw_image,
           ec_image=ec_image,
           pd_image=pd_image,
-          create_bios_rw_image=create_bios_rw_image,
           target_dir=target_dir)
     self._WriteVersions(model, image_files)
     self._CopyBaseFiles(root, tool_base, tools)
@@ -1054,7 +995,6 @@ class FirmwarePacker(object):
         bios_rw_image=bios_rw_image,
         ec_image=ec_image,
         pd_image=pd_image,
-        create_bios_rw_image=firmware.create_bios_rw_image,
         tools=tools,
         root=args.root,
         tool_base=tool_base,
@@ -1140,8 +1080,6 @@ class FirmwarePacker(object):
           raise PackError('Cannot use -b/-p/-e with -m')
         elif args.local and not any(image_args):
           raise PackError('Must provide one of -b, -e, -p with -l')
-        if args.create_bios_rw_image:
-          raise PackError('Cannot use --create_bios_rw_image with -m')
         if not args.config:
           raise PackError('Missing master configuration file (use -c)')
 
@@ -1169,7 +1107,6 @@ class FirmwarePacker(object):
             bios_rw_image=args.bios_rw_image,
             ec_image=args.ec_image,
             pd_image=args.pd_image,
-            create_bios_rw_image=args.create_bios_rw_image,
             tools=args.tools,
             root=args.root,
             tool_base=tool_base,

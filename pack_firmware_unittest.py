@@ -687,36 +687,6 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     self.assertEqual(len(found), 1)
     return found[0]
 
-  def testRWFirmware(self):
-    """Simple test of creating RW firmware."""
-
-    pack_firmware.FirmwarePacker._GetPreambleFlags = (
-        mock.Mock(side_effect=self._MockGetPreambleFlags))
-    args = ['--create_bios_rw_image', '-L',
-            '-e', 'test/ec.bin'] + self.common_flags
-    with cros_test_lib.RunCommandMock() as rc:
-      self._AddMocks(rc)
-      firmware_unittest.MockFirmwareSigner(rc)
-      self.packer.Start(args, remove_tmpdirs=False)
-    rw_fname = self.packer._BaseDirPath(pack_firmware.IMAGE_MAIN_RW)
-    self.assertEqual(os.stat('test/image.bin').st_mtime,
-                     os.stat(rw_fname).st_mtime)
-    self.packer._RemoveTmpdirs()
-
-    # This VERSION file should contain 12 lines of output:
-    # 1 blank line
-    # 3 for flashrom
-    # 1 blank line
-    # 2 for RO BIOS filename and version
-    # 2 for RW BIOS filename and version
-    # 2 for EC filename and version
-    # 1 blank line
-    result = self.packer._versions.getvalue().splitlines()
-    self.assertEqual(12, len(result))
-    rw_line = self._FindLineInList(result, 'BIOS (RW) image')
-    self.assertIn(pack_firmware.IMAGE_MAIN_RW, rw_line)
-    self.assertNotIn(self.packer._basedir, rw_line)
-
   def testNoECFirmware(self):
     """Simple test of creating firmware without an EC image."""
     args = self.common_flags + ['-L']
