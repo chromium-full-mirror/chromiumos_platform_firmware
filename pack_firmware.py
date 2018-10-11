@@ -748,7 +748,8 @@ class FirmwarePacker(object):
         print('Extra files from folder: %s' % extra,
               file=self._versions)
       else:
-        if root is None:
+        # *.bin are extra firmware images that must live in top level folder.
+        if root is None or extra.endswith('.bin'):
           self._CopyFile(extra, self._basedir)
         else:
           self._CopyElfs(root, [extra], self._basedir)
