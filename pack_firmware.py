@@ -30,8 +30,6 @@ from chromite.lib import commandline
 from chromite.lib import cros_build_lib
 from chromite.lib import osutils
 
-from utils import merge_file
-
 # pylint: disable=import-error
 from cros_config_host import libcros_config_host
 # pylint: enable=import-error
@@ -367,6 +365,24 @@ class FirmwarePacker(object):
       sections[name] = Section(int(offset), int(size))
     return sections
 
+  @staticmethod
+  def _MergeFile(large_path, small_path, large_offset, small_offset=0,
+                 size=None):
+    """Merges file in small_path to large_path in given offset.
+
+    Args:
+      large_path: A string for path of the file to merged to.
+      small_path: A string for path of the file to merge from.
+      large_offset: The offset to write in large_path.
+      small_offset: The offset to read in small_path.
+      size: Count of bytes to read/write. None to read whole small_path.
+    """
+    with open(large_path, 'r+') as output:
+      output.seek(large_offset)
+      with open(small_path) as source:
+        source.seek(small_offset)
+        output.write(source.read() if size is None else source.read(size))
+
   def _CloneFirmwareSection(self, dst, src, section, optional=False):
     """Clone a section in one file from another.
 
@@ -394,8 +410,8 @@ class FirmwarePacker(object):
     if src_section.offset != dst_section.offset:
       raise PackError("Firmware section '%s' is not in same location, cannot "
                       "clone" % section)
-    merge_file.merge_file(dst, src, dst_section.offset, src_section.offset,
-                          src_section.size)
+    self._MergeFile(dst, src, dst_section.offset, src_section.offset,
+                    src_section.size)
 
   def _MergeRwFirmware(self, ro_fname, rw_fname):
     """Merge RW sections from RW firmware to RO firmware.
@@ -427,10 +443,10 @@ class FirmwarePacker(object):
     if count != 1 or offset != 12:
       raise PackError('Unexpected %s (%d, %d). Cannot merge EC RW' %
                       (fmap_area_name, count, offset))
-    # To make sure files to be merged are both prepared, merge_file.py will
+    # To make sure files to be merged are both prepared, _MergeFile will
     # only accept existing files, so we have to create ecrw now.
     osutils.Touch(ecrw_fname)
-    merge_file.merge_file(ecrw_fname, ec_main_a, 0, offset, size)
+    self._MergeFile(ecrw_fname, ec_main_a, 0, offset, size)
 
   def _ExtractEcRwUsingCBFS(self, fname, cbfs_name, ecrw_fname):
     """Extract an EC binary from a CBFS image.
@@ -481,7 +497,7 @@ class FirmwarePacker(object):
     if section.size < ecrw_size:
       raise PackError('New RW payload size %#x is larger than preserved FMAP '
                       'section %#x, cannot merge' % (ecrw_size, section.size))
-    merge_file.merge_file(ec_fname, ecrw_fname, section.offset)
+    self._MergeFile(ec_fname, ecrw_fname, section.offset)
     self._CopyTimestamp(rw_fname, ec_fname)
 
   def _CopyFirmwareFiles(self, bios_image, bios_rw_image, ec_image, pd_image,
