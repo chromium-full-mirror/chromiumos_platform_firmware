@@ -151,15 +151,6 @@ class FirmwarePacker(object):
                         help='File name of main script file')
     parser.add_argument('-o', '--output', type='path',
                         help='Path of output filename')
-    parser.add_argument(
-        '--extra', type=str,
-        help='Directory list (separated by :) of files to be merged')
-
-    parser.add_argument('--root', type='path',
-                        help='The board sysroot to find ELF dependencies under')
-    parser.add_argument('--tool_base', type=str, default='',
-                        help='Deprecated (do not use this)')
-
     parser.add_argument('-q', '--quiet', action='store_true',
                         help='Avoid output except for warnings/errors')
 
@@ -667,21 +658,6 @@ class FirmwarePacker(object):
     os.chmod(dst, os.stat(dst).st_mode | mode)
     return dst
 
-  @staticmethod
-  def _CopyElfs(root, elfs, dst):
-    """Copy an ELF (and its dependencies) to the destination directory.
-
-    Args:
-      root: The board sysroot to copy additional files from.
-      elfs: A list of source ELFs to copy.
-      dst: Destination directory to copy all files.
-    """
-    cros_build_lib.RunCommand(
-        ['lddtree', '--copy-to-tree', dst, '--bindir=/bin', '--libdir=/lib',
-         '--generate-wrappers', '--copy-non-elfs', '--no-auto-root',
-         '--root', root] + elfs,
-        quiet=True)
-
   def _CopyUpdateScript(self, script):
     """Copy the update script into the base directory.
 
@@ -700,44 +676,6 @@ class FirmwarePacker(object):
         fd.readline()
         rest = fd.read()
       osutils.WriteFile(newfile, '#!/bin/dash\n' + rest)
-
-  def _CopyExtraFiles(self, extras):
-    """Copy extra files into the base directory.
-
-    extras: List of extra files / directories to copy. If the item is a
-        directory, then the files in that directory are copied into the
-        base directory. If the item starts with "bcs://" then this indicates a
-        tar file: the prefix is stripped, the file is picked up from the
-        image directory (--imagedir) and unpacked to obtain the (single-file)
-        contents.
-    """
-    root = self._args.root if self._args else None
-    for extra in extras:
-      if extra.startswith('bcs://'):
-        src = os.path.join(self._args.imagedir, extra.replace('bcs://', ''))
-        fname = self._UntarFile(src, self._basedir)
-        print("Extra BCS file: %s: %s" % (extra, fname), file=self._versions)
-      elif os.path.isdir(extra):
-        fnames = glob.glob(os.path.join(extra, '*'))
-        if not fnames:
-          raise PackError("cannot copy extra files from folder '%s'" %
-                          extra)
-        if root is None:
-          for fname in fnames:
-            if not os.path.isdir(fname):
-              self._CopyFile(fname, self._basedir)
-        else:
-          self._CopyElfs(root, [x for x in fnames if not os.path.isdir(x)],
-                         self._basedir)
-        print('Extra files from folder: %s' % extra,
-              file=self._versions)
-      else:
-        # *.bin are extra firmware images that must live in top level folder.
-        if root is None or extra.endswith('.bin'):
-          self._CopyFile(extra, self._basedir)
-        else:
-          self._CopyElfs(root, [extra], self._basedir)
-        print('Extra file: %s' % extra, file=self._versions)
 
   def _GetReplaceDict(self, image_files, shared_model=None):
     """Build a dictionary of string replacements for use with the update script.
@@ -835,7 +773,7 @@ class FirmwarePacker(object):
         print(osutils.ReadFile(fname))
 
   def _ProcessModel(self, model, bios_image, bios_rw_image, ec_image, pd_image,
-                    extras, shared_image_files, target_dir):
+                    shared_image_files, target_dir):
     """Set up the firmware update for one model.
 
     Args:
@@ -846,7 +784,6 @@ class FirmwarePacker(object):
       ec_image: Input filename of EC (Embedded Controller) image, or None if
           none.
       pd_image: Input filename of PD (Power Delivery) image, or None if none.
-      extras: List of extra files/directories to include.
       shared_image_files: Dict of image file information for the model whose
           images we want to share (or None if none):
         key: Image name (e.g. 'BIOS (RW)' or 'EC').
@@ -871,8 +808,6 @@ class FirmwarePacker(object):
           pd_image=pd_image,
           target_dir=target_dir)
     self._WriteVersions(model, image_files)
-    if extras:
-      self._CopyExtraFiles(extras)
     return image_files
 
   def _ExtractFile(
@@ -965,14 +900,11 @@ class FirmwarePacker(object):
           firmware.ec_build_target, args.pd_image, firmware.pd_image_uri,
           dirname)
 
-    extras = [os.path.expandvars(extra) for extra in firmware.extra]
-
     image_files = self._ProcessModel(
         bios_image=bios_image,
         bios_rw_image=bios_rw_image,
         ec_image=ec_image,
         pd_image=pd_image,
-        extras=extras,
         model=firmware.model,
         shared_image_files=shared_image_files,
         target_dir=image_dirname)
@@ -1092,7 +1024,6 @@ class FirmwarePacker(object):
             bios_rw_image=args.bios_rw_image,
             ec_image=args.ec_image,
             pd_image=args.pd_image,
-            extras=args.extra.split(':') if args.extra else [],
             shared_image_files=None,
             target_dir=self._basedir)
         replace_dict = self._GetReplaceDict(image_files)

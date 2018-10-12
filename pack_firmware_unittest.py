@@ -358,32 +358,6 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
                    for fname in glob.glob(os.path.join(dirname, '*'))
                    if not os.path.isdir(fname)])
 
-  def testCopyExtraFiles(self):
-    """Test that we can copy 'extra' files."""
-    self.packer._basedir = dirname = self.packer._CreateTmpDir()
-    self.packer._CopyExtraFiles(['test/RO_FRID', 'test/RW_FWID'])
-    self.assertEqual(self._FilesInDir(dirname), ['RO_FRID', 'RW_FWID'])
-    self.packer._RemoveTmpdirs()
-
-  def testCopyExtraDir(self):
-    """Test that we can copy 'extra' directories."""
-    self.packer._basedir = dirname = self.packer._CreateTmpDir()
-    self.packer._CopyExtraFiles(['test'])
-    self.assertEqual(self._FilesInDir(dirname), self._FilesInDir('test'))
-    self.packer._RemoveTmpdirs()
-
-  def testCopyExtraTarfile(self):
-    """Test that we can extract 'extra' tarfile contents."""
-    self.packer._tmpdir = self.packer._CreateTmpDir()
-    self.packer._basedir = dirname = self.packer._CreateTmpDir()
-    self.packer._args = self.packer.ParseArgs(['--imagedir', 'functest'])
-
-    # The bcs:// prefix tells us that the file was downloaded from BCS, and
-    # that we should unpack its contents. This file contains 'image.bin'.
-    self.packer._CopyExtraFiles(['bcs://Reef.9042.50.0.tbz2'])
-    self.assertEqual(self._FilesInDir(dirname), ['image.bin'])
-    self.packer._RemoveTmpdirs()
-
   def testBaseDirPath(self):
     """Check that _BaseDirPath() works as expected."""
     self.packer._basedir = 'base'
@@ -404,22 +378,6 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         ],
         'main-image': 'bcs://Reef.9042.50.0.tbz2',
     }
-
-  def testExtractFileLocal(self):
-    """Test handling file extraction based on a configuration property,"""
-    fake_fw = self._GetFakeReefFirmware()
-    self.packer._args = self.packer.ParseArgs(['-l'])
-    # Since the 'extra' property exists, this should give as a valid file.
-    extra = fake_fw['extra']
-    self.assertEqual(
-        self.packer._ExtractFile('reef', 'test/MODEL-files/MODEL_fake_extra',
-                                 extra, None),
-        'test/reef-files/reef_fake_extra')
-
-    # Since 'missing-prop' does not exist, this should return None.
-    self.assertIsNone(
-        self.packer._ExtractFile('reef', 'test/MODEL-files/MODEL_fake_extra',
-                                 None, None))
 
   def testExtractFileBcs(self):
     """Test handling file extraction based on a configuration property,"""

@@ -255,10 +255,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
       extra_args += ['-m', model]
     extra_args += ['-c', 'test/config.yaml', '-i', 'functest']
     expected_files = self._ExpectedFiles(
-        ['fake_extra_tool',
-         'ectool',
-         'image.bin',
-         'models/electro/setvars.sh',
+        ['models/electro/setvars.sh',
          'models/basking/setvars.sh',
          'signer_config.csv'],
         models)
@@ -286,7 +283,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     extra_args, expected_files = self._SetupArgs()
     _, files, versions = self._RunPackFirmware(extra_args)
 
-    self.assertEqual(19, len(files))
+    self.assertEqual(16, len(files))
     self.assertEqual(expected_files, files)
     version_lines = osutils.ReadFile(
         os.path.join(self.unpackdir, 'VERSION')).splitlines()
@@ -299,10 +296,6 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         lambda(x): self.assertEqual('BIOS version: Google_Reef.9042.50.0', x),
         lambda(x): self.assertIn('/reef/ec.bin', x),
         lambda(x): self.assertEqual('EC version:   reef_v1.1.5857-77f6ed7', x),
-        lambda(x): self.assertEqual('Extra files from folder: test/extra', x),
-        lambda(x): self.assertEqual('Extra file: test/usr/sbin/ectool', x),
-        lambda(x): self.assertIn(
-            'Extra BCS file: bcs://Reef.9000.0.0.tbz2:', x),
         lambda(x): self.assertEqual('', x),
         lambda(x): self.assertIn('pyro', x),
         lambda(x): self.assertIn('pyro/image.bin', x),
@@ -321,10 +314,6 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         lambda(x): self.assertEqual('BIOS version: Google_Reef.9042.50.0', x),
         lambda(x): self.assertIn('/reef/ec.bin', x),
         lambda(x): self.assertEqual('EC version:   reef_v1.1.5857-77f6ed7', x),
-        lambda(x): self.assertEqual('Extra files from folder: test/extra', x),
-        lambda(x): self.assertEqual('Extra file: test/usr/sbin/ectool', x),
-        lambda(x): self.assertIn(
-            'Extra BCS file: bcs://Reef.9000.0.0.tbz2:', x),
         lambda(x): self.assertEqual('', x),
         lambda(x): self.assertIn('basking', x),
         lambda(x): self.assertIn('sand/image.bin', x),
@@ -743,10 +732,6 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         lambda(x): self.assertEqual('BIOS version: Google_Reef.9042.50.0', x),
         lambda(x): self.assertIn('/reef/ec.bin', x),
         lambda(x): self.assertEqual('EC version:   reef_v1.1.5857-77f6ed7', x),
-        lambda(x): self.assertEqual('Extra files from folder: test/extra', x),
-        lambda(x): self.assertEqual('Extra file: test/usr/sbin/ectool', x),
-        lambda(x): self.assertIn(
-            'Extra BCS file: bcs://Reef.9000.0.0.tbz2:', x),
         lambda(x): self.assertEqual('', x),
     ]
     self.assertEqual(len(assertions), len(lines))
