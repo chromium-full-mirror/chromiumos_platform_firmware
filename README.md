@@ -109,13 +109,13 @@ from `emerge-${BOARD} chromeos-ec` then `/build/${BOARD}/firmware/ec.bin`.
 
 ### CROS_FIRMWARE_SCRIPT and packaging
 The firmware updater is built by running `pack_firmware.py`, which collects
-firmware image and extra files, all files under `pack_dist` folder, archived by
+firmware image and extra files, all files under `pack/dist` folder, archived by
 running [`shar`](https://www.gnu.org/software/sharutils/), with a special
-bootstrap stub `pack_stub`.
+bootstrap SFX script `pack/sfx.sh`.
 
 Since the verified boot has been evolved with so much differences, we put the
 updating logic in different files according to the generation of firmware:
-`pack_dist/updater*.sh`. Most Chromebooks today should use `updater4.sh`.
+`pack/dist/updater*.sh`. Most Chromebooks today should use `updater4.sh`.
 
 Usually we will increase a "logic version" when the verified boot has been
 changed so much that the updater code for previous versions would almost won't
@@ -131,6 +131,8 @@ work. Currently we have defined these versions
 
 This will be mapped to what you should set in the `CROS_FIRMWARE_SCRIPT` value
 in ebuild files.
+
+For details about package format, check [pack/README.md](./pack/README.md).
 
 ### Updater logic
 Here's a detailed list of how each updater mode works:

@@ -8,9 +8,8 @@
 
 It requires:
  - at least one firmware image (*.bin, should be AP or EC or ...)
- - pack_dist/updater?.sh main script
- - pack_stub as the template/stub script for output
- - any other additional files used by updater?.sh in pack_dist folder
+ - pack/dist/updater?.sh main script
+ - pack/sfx.sh as the self extraction (and installation) script
 """
 
 from __future__ import print_function
@@ -61,7 +60,7 @@ CHMOD_ALL_EXEC = 0555
 # For testing
 packer = None
 
-# Variables that we replace in pack_stub and setvars_template.
+# Variables that we replace in pack/sfx.sh and pack/setvars_template.
 REPLACE_VARS = [
     'TARGET_RO_FWID',
     'TARGET_FWID',
@@ -83,9 +82,9 @@ class FirmwarePacker(object):
 
   Private members:
     _args: Parsed arguments.
-    _pack_dist: Path to 'pack_dist' directory.
+    _pack_dist: Path to `dist` directory.
     _script_base: Base directory with useful files (src/platform/firmware).
-    _stub_file: Path to 'pack_stub'.
+    _sfx_file: Path to `sfx.sh`.
     _shflags_file: Path to shflags script.
     _testing: True if running tests.
     _basedir: Base temporary directory.
@@ -101,10 +100,10 @@ class FirmwarePacker(object):
     # we can access the script files using the same path as the script.
     self._script_base = os.path.dirname(progname)
     self._args = None
-    self._pack_dist = os.path.join(self._script_base, 'pack_dist')
-    self._stub_file = os.path.join(self._script_base, 'pack_stub')
-    self._setvars_template_file = os.path.join(self._script_base,
-                                               'setvars_template')
+    self._pack_dist = os.path.join(self._script_base, 'pack', 'dist')
+    self._sfx_file = os.path.join(self._script_base, 'pack', 'sfx.sh')
+    self._setvars_template_file = os.path.join(
+        self._script_base, 'pack', 'setvars_template')
     self._shflags_file = os.path.join(self._script_base, 'lib/shflags/shflags')
     self._testing = False
     self._basedir = None
@@ -783,7 +782,7 @@ class FirmwarePacker(object):
         replace_dict['REPLACE_' + key] = '<unused with unified builds>'
     replace_dict['REPLACE_UNIBUILD'] = 'UNIBUILD=%s' % unibuild
     replace_dict['REPLACE_SCRIPT'] = script
-    self._CreateFileFromTemplate(self._stub_file, self._args.output,
+    self._CreateFileFromTemplate(self._sfx_file, self._args.output,
                                  replace_dict)
 
   def _WriteVersionFile(self):
@@ -1014,8 +1013,8 @@ class FirmwarePacker(object):
     args = self._args = self.ParseArgs(argv)
 
     self._EnsureCommand('shar', 'sharutils')
-    if not os.path.exists(self._stub_file):
-      raise PackError("Cannot find required file '%s'" % self._stub_file)
+    if not os.path.exists(self._sfx_file):
+      raise PackError("Cannot find required file '%s'" % self._sfx_file)
     tool_base = args.tool_base.split(':')
     try:
       if not args.output:

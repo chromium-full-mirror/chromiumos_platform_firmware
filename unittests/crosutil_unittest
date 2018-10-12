@@ -8,7 +8,7 @@ SCRIPT_ROOT="$(dirname "$0")"
 
 . "${SCRIPT_ROOT}/../lib/shflags/shflags" || exit
 
-SCRIPT_BASE="${SCRIPT_ROOT}/../pack_dist"
+SCRIPT_BASE="${SCRIPT_ROOT}/../pack/dist"
 . "${SCRIPT_BASE}/common.sh"
 
 #----------------------------------------------------------------------

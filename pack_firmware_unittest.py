@@ -193,14 +193,14 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     # Starting up in another directory (without required files) should fail.
     with self.assertRaises(pack_firmware.PackError) as e:
       pack_firmware.main(['/'])
-    self.assertIn("'/pack_stub'", str(e.exception))
+    self.assertIn("'/pack/sfx.sh'", str(e.exception))
 
     # Should complain if the selected updater is not available.
     with self.assertRaises(pack_firmware.PackError) as e:
       pack_firmware.main(['test', '-o', 'out', '--tool_base', 'test', '-L',
                           '--tools', 'flashrom', '-b', 'test/image.bin',
                           '--script', 'updater_nonexist.sh'])
-    self.assertIn("'pack_dist/updater_nonexist.sh'", str(e.exception))
+    self.assertIn("'pack/dist/updater_nonexist.sh'", str(e.exception))
 
     # Should check for 'shar' tool.
     with mock.patch.object(osutils, 'Which', return_value=None):
