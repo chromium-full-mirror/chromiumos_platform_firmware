@@ -38,7 +38,6 @@ from cros_config_host import libcros_config_host
 # pylint: enable=import-error
 
 IMAGE_MAIN = 'bios.bin'
-IMAGE_MAIN_RW = 'bios_rw.bin'
 IMAGE_EC = 'ec.bin'
 IMAGE_PD = 'pd.bin'
 MODELS_DIR = 'models'
@@ -168,17 +167,6 @@ class FirmwarePacker(object):
         '--no-remove_inactive_updaters',
         action='store_false', dest='remove_inactive_updaters',
         help="Don't remove inactive updater scripts")
-
-    parser.add_argument('--create_bios_rw_image', action='store_true',
-                        help='Deprecated option - do not use')
-    group = parser.add_mutually_exclusive_group(required=False)
-    group.add_argument(
-        '--merge_bios_rw_image', default=True, action='store_true',
-        help='Merge the --bios_rw_image into --bios_image RW sections')
-    group.add_argument(
-        '--no-merge_bios_rw_image', action='store_false',
-        dest='merge_bios_rw_image',
-        help="Don't Merge the --bios_rw_image into --bios_image RW sections")
 
     # embedded tools
     parser.add_argument(
@@ -351,31 +339,6 @@ class FirmwarePacker(object):
     """
     return os.path.join(self._basedir, basename)
 
-  def _GetPreambleFlags(self, fname):
-    """Get the preamble flags from an image.
-
-    Args:
-      fname: Image to check (relative or absolute path).
-
-    Returns:
-      Preamble flags as an integer. See VB2_FIRMWARE_PREAMBLE_... for available
-      flags; the most common one is VB2_FIRMWARE_PREAMBLE_USE_RO_NORMAL.
-    """
-    cros_build_lib.RunCommand(['futility', 'dump_fmap', '-x', fname],
-                              quiet=True, cwd=self._tmpdir)
-    cros_build_lib.RunCommand(['futility', 'gbb', '--rootkey=rootkey.bin',
-                               'GBB'],
-                              quiet=True, cwd=self._tmpdir)
-    result = cros_build_lib.RunCommand(
-        ['futility', 'vbutil_firmware', '--verify', 'VBLOCK_A', '--signpubkey',
-         'rootkey.bin', '--fv', 'FW_MAIN_A'], quiet=True, cwd=self._tmpdir)
-    lines = ([line for line in result.output.splitlines()
-              if 'Preamble flags' in line])
-    if len(lines) != 1:
-      raise PackError("vbutil_firmware returned %d 'Preamble flags' lines",
-                      len(lines))
-    return int(lines[0].split()[-1])
-
   @staticmethod
   def _CopyTimestamp(reference_fname, fname):
     """Copy the timestamp from a reference file to another file.
@@ -540,28 +503,22 @@ class FirmwarePacker(object):
         value: ImageFile, containing filename and version.
     """
     image_main = os.path.join(target_dir, IMAGE_MAIN)
-    image_main_rw = os.path.join(target_dir, IMAGE_MAIN_RW)
     image_ec = os.path.join(target_dir, IMAGE_EC)
     image_pd = os.path.join(target_dir, IMAGE_PD)
     image_files = {}
-    merge_bios_rw_image = self._args.merge_bios_rw_image
+    merge_bios_rw_image = False
     if bios_image:
       bios_version = self._ExtractFrid(bios_image)
       bios_rw_version = bios_version
       shutil.copy2(bios_image, image_main)
       image_files['BIOS'] = ImageFile(bios_image, bios_version)
-    else:
-      merge_bios_rw_image = False
 
     if bios_rw_image:
+      assert bios_image, 'Need main (RO) firmware image to merge RW image.'
+      merge_bios_rw_image = True
       bios_rw_version = self._ExtractFrid(bios_rw_image)
-      if merge_bios_rw_image:
-        self._MergeRwFirmware(image_main, bios_rw_image)
-      elif bios_rw_image != image_main_rw:
-        shutil.copy2(bios_rw_image, image_main_rw)
+      self._MergeRwFirmware(image_main, bios_rw_image)
       image_files['BIOS (RW)'] = ImageFile(bios_rw_image, bios_rw_version)
-    else:
-      merge_bios_rw_image = False
 
     if ec_image:
       ec_version = self._ExtractFrid(ec_image)
@@ -986,9 +943,6 @@ class FirmwarePacker(object):
           dirname)
 
     extras = [os.path.expandvars(extra) for extra in firmware.extra]
-    if args.local:
-      firmware = firmware._replace(create_bios_rw_image=False)
-
     tools = firmware.tools + args.tools
 
     image_files = self._ProcessModel(

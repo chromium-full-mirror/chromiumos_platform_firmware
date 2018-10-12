@@ -235,12 +235,6 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     self.assertFalse(self.packer.ParseArgs(['--no-remove_inactive_updaters'])
                      .remove_inactive_updaters)
 
-    self.assertTrue(self.packer.ParseArgs([]).merge_bios_rw_image)
-    self.assertTrue(self.packer.ParseArgs(['--merge_bios_rw_image'])
-                    .merge_bios_rw_image)
-    self.assertFalse(self.packer.ParseArgs(['--no-merge_bios_rw_image'])
-                     .merge_bios_rw_image)
-
   def testEnsureCommand(self):
     """Check that we detect a missing command."""
     self.packer._EnsureCommand('ls', 'sample-package')
@@ -573,24 +567,9 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         'futility dump_fmap -x .*/bios.bin .*_MAIN_A'),
                     returncode=0, side_effect=cls._CreateDumpfmapFile)
 
-  @staticmethod
-  def _MockGetPreambleFlags(fname, *_args, **_kwargs):
-    """Mock of _GetPreambleFlags(). Uses the filename to determine value.
-
-    Args:
-      fname: Image filename to check.
-
-    Returns:
-      0 if the image appears to be an RW image, 1 if not.
-    """
-    return 0 if 'rw' in fname else 1
-
   def testMockedRun(self):
     """Start up with a valid updater script and BIOS."""
-    pack_firmware.FirmwarePacker._GetPreambleFlags = (
-        mock.Mock(side_effect=self._MockGetPreambleFlags))
-    args = ['.', '--create_bios_rw_image', '-L', '-e',
-            'test/ec.bin'] + self.common_flags
+    args = ['.', '-L', '-e', 'test/ec.bin'] + self.common_flags
     with cros_test_lib.RunCommandMock() as rc:
       self._AddMocks(rc)
       firmware_unittest.MockFirmwareSigner(rc)
@@ -598,10 +577,8 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
       pack_firmware.packer._versions.getvalue().splitlines()
 
   def _testMockedRunWithMerge(self, mocked_dump_fmap_output):
-    pack_firmware.FirmwarePacker._GetPreambleFlags = (
-        mock.Mock(side_effect=self._MockGetPreambleFlags))
     args = ['--bios_rw_image', 'test/image_rw.bin', '-L',
-            '--merge_bios_rw_image', '-e', 'test/ec.bin', '-p', 'test/pd.bin',
+            '-e', 'test/ec.bin', '-p', 'test/pd.bin',
             '--remove_inactive_updaters'] + self.common_flags
     with cros_test_lib.RunCommandMock() as rc:
       self._AddMocks(rc)
@@ -663,8 +640,6 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
   def testMockedRunWithUnibuildMerge(self):
     """Start up with a valid updater script and both RO and RW BIOS."""
 
-    pack_firmware.FirmwarePacker._GetPreambleFlags = (
-        mock.Mock(side_effect=self._MockGetPreambleFlags))
     args = self.SetupRunWithUnibuild('config_rw.dtb')
     with cros_test_lib.RunCommandMock() as rc:
       self._AddMocks(rc)
