@@ -154,7 +154,7 @@ RW_FWID 262468 32
 
 # Common flags that we use in several tests.
 _COMMON_FLAGS = [
-    '--script=updater4.sh', '-b', 'test/image.bin', '-q', '-o',
+    '--script=updater5.sh', '-b', 'test/image.bin', '-q', '-o',
 ]
 
 
@@ -208,7 +208,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
 
     # Should complain if we don't provide at least one image.
     with self.assertRaises(pack_firmware.PackError) as e:
-      args = ['.', '--script=updater4.sh', '-L', '-o', 'out']
+      args = ['.', '--script=updater5.sh', '-L', '-o', 'out']
       pack_firmware.main(args)
     self.assertIn('Must assign at least one', str(e.exception))
 

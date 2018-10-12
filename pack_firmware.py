@@ -148,7 +148,7 @@ class FirmwarePacker(object):
                         help='Path of input Embedded Controller firmware image')
     parser.add_argument('-p', '--pd_image', type='path',
                         help='Path of input Power Delivery firmware image')
-    parser.add_argument('--script', type=str, default='updater4.sh',
+    parser.add_argument('--script', type=str, default='updater5.sh',
                         help='File name of main script file')
     parser.add_argument('-o', '--output', type='path',
                         help='Path of output filename')
@@ -692,7 +692,7 @@ class FirmwarePacker(object):
     of the settings.
 
     Args:
-      script: Filename of update script being used (e.g. 'updater4.sh').
+      script: Filename of update script being used (e.g. 'updater5.sh').
       replace_dict: Modified by this function to add the script. Dict with:
           key: String to replace.
           value: Value to replace with.

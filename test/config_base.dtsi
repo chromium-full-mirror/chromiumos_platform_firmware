@@ -2,7 +2,6 @@
     chromeos {
         family {
             firmware {
-                script = "updater4.sh";
                 reef_firmware: reef {
                     bcs-overlay = "overlay-reef-private";
                     main-image = "bcs://Reef.9042.50.0.tbz2";

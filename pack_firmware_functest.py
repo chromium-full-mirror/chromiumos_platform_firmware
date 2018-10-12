@@ -34,7 +34,7 @@ import pack_firmware_utils
 REEF_HWID = 'Reef A12-B3C-D5E-F6G-H7I'
 REEF_MODEL = 'reef'
 REEF_RO_MAIN_VERSION = 'Google_Reef.9042.43.0'
-UPDATER = 'updater4.sh'
+UPDATER = 'updater5.sh'
 MODELS_DIR = 'models'
 
 # Firmware update runs on the device using the dash shell. Try to use this if
@@ -106,8 +106,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         expected_files.append(os.path.join(MODELS_DIR, model, 'setvars.sh'))
     return sorted(expected_files)
 
-  def _RunScript(self, outfile, hwid, model, ro_main_version,
-                 mode='autoupdate', whitelabel_tag=''):
+  def _RunScript(self, outfile, model, mode='output', whitelabel_tag=''):
     """Run an autoupdate with the shellball and check that it works.
 
     This relies on fake tools, principally crossystem which is controlled by
@@ -124,22 +123,10 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     Returns:
       List of lines output from the script
     """
-    # These are used by our fake crossystem script (see functest/ directory).
+    # These are used by our fake vpd/mosys programs (see functest/ directory).
     os.environ['FAKE_BIOS_BIN'] = os.path.join(self.indir, 'image.bin')
-    os.environ['FAKE_GBB_BIN'] = os.path.join(self.basedir, 'test', 'gbb.bin')
-    os.environ['FAKE_NVRAM_ROM'] = os.path.join(self.basedir, 'test',
-                                                'nvram.rom')
-    os.environ['FAKE_FWID'] = ro_main_version
-    os.environ['FAKE_FW_VBOOT2'] = '0'
-    os.environ['FAKE_HWID'] = hwid
-    os.environ['FAKE_MODEL'] = model
-    os.environ['FAKE_MAINFW_ACT'] = 'A'
-    os.environ['FAKE_RO_FWID'] = ro_main_version
-    os.environ['FAKE_TPM_FWVER'] = '1'
-    os.environ['FAKE_WPSW_CUR'] = '1'    # RO firmware is write-protected.
-    os.environ['FAKE_VDAT_FLAGS'] = '0'  # Not using RO normal.
     os.environ['FAKE_WHITELABEL_TAG'] = whitelabel_tag
-
+    os.environ['FAKE_MODEL'] = model
     new_path = ':'.join((os.path.join(self.basedir, 'functest/bin'),
                          os.environ.get('PATH')))
 
@@ -154,7 +141,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
 
     # We expect debugging output but should not get anything else.
     errors = [line for line in result.error.splitlines()
-              if not line.startswith(' (DEBUG')]
+              if line.split() and line.split()[0] not in
+              ['(DEBUG)', 'DEBUG:', '>>']]
     self.assertEqual(errors, [])
     return result.output.splitlines()
 
@@ -194,7 +182,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     """Run the firmware packer, unpack the result and check it."""
     extra_args = ['-b', os.path.join(self.indir, 'image.bin'), '-L',
                   '--script', UPDATER]
-    outfile, files, versions = self._RunPackFirmware(extra_args)
+    _, files, versions = self._RunPackFirmware(extra_args)
 
     # Check that we got the right files.
     self.assertEqual(9, len(files))
@@ -216,9 +204,6 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     self.assertEqual('Google_Reef', versions['TARGET_PLATFORM'])
     self.assertEqual(UPDATER, versions['TARGET_SCRIPT'])
     self.assertEqual('', versions['UNIBUILD'])
-
-    # Run the shellball to make sure we can do a fake autoupdate.
-    self._RunScript(outfile, REEF_HWID, REEF_MODEL, REEF_RO_MAIN_VERSION)
 
   def _CheckVersionsReef(self, versions):
     """Check the versions match expectations for reef.
@@ -286,7 +271,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
   def testFirmwareUpdateUnibuild(self):
     """Run the firmware packer, unpack the result and check it."""
     extra_args, expected_files = self._SetupArgs()
-    outfile, files, versions = self._RunPackFirmware(extra_args)
+    _, files, versions = self._RunPackFirmware(extra_args)
 
     self.assertEqual(23, len(files))
     self.assertEqual(expected_files, files)
@@ -373,12 +358,6 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
                      lines[4])
     self.assertEqual('basking,models/sand/bios.bin,BASKING,models/sand/ec.bin',
                      lines[5])
-
-    # Run the firmware update for Reef and Pyro.
-    self._RunScript(outfile, REEF_HWID, REEF_MODEL, REEF_RO_MAIN_VERSION)
-    self._RunScript(outfile, 'Pyro C25-R45-W23-H63-M33', 'pyro',
-                    'Google_Pyro.9021.00.0')
-    self._RunScript(outfile, REEF_HWID, 'electro', REEF_RO_MAIN_VERSION)
 
   def testVersionOutput(self):
     """Check that the -V option shows version information as expected"""
@@ -564,10 +543,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     """Check the --output feature."""
     extra_args, _ = self._SetupArgs()
     outfile, files, _ = self._RunPackFirmware(extra_args)
-    lines = self._RunScript(outfile, REEF_HWID, REEF_MODEL,
-                            REEF_RO_MAIN_VERSION, 'output')
-    self.assertIn('Firmware update (output) completed.', lines)
-    self.assertIn('Firmware images generated to: %s' % self.outdir, lines)
+    lines = self._RunScript(outfile, REEF_MODEL)
+    self.assertIn('Firmware image saved in: %s/bios.bin' % self.outdir, lines)
 
     # Check that the files were written correctly
     files = glob.glob('%s/*' % self.outdir)
@@ -576,18 +553,13 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     self.assertIn(ec_file, files)
     self.assertIn(bios_file, files)
 
-    # Now check that the file contents match. We allow a few sections to have
-    # differences due to the actions of the firmware packer. Specifically it
-    # changes some fields in the GBB.
-    regions = self._GetUnequalRegions(bios_file, '%s/image.bin' % self.indir)
-    self.assertEqual(['GBB'], regions)
+    # Now check that the file contents match.
+    self._AssertFileEqual(bios_file, '%s/image.bin' % self.indir)
     self._AssertFileEqual(ec_file, '%s/ec.bin' % self.indir)
 
     # Electro should be the same as reef
-    self._RunScript(outfile, REEF_HWID, 'electro', REEF_RO_MAIN_VERSION,
-                    'output')
-    regions = self._GetUnequalRegions(bios_file, '%s/image.bin' % self.indir)
-    self.assertEqual(['GBB'], regions)
+    self._RunScript(outfile, 'electro')
+    self._AssertFileEqual(bios_file, '%s/image.bin' % self.indir)
 
   def _GetVblock(self, sig_id, a_or_b):
     """Get the contents of an A or B vblock for a given signature ID
@@ -649,10 +621,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
       signature_id: Value to return for signature_id from the fake mosys
       whitelabel_tag: Value to return for whitelabel_tag from the fake vpd
     """
-    lines = self._RunScript(outfile, REEF_HWID, model, REEF_RO_MAIN_VERSION,
-                            'output', whitelabel_tag)
+    self._RunScript(outfile, model, whitelabel_tag=whitelabel_tag)
     expected_sig_id = signature_id or model
-    self.assertIn('Firmware keys changed to set [%s].' % expected_sig_id, lines)
     bios_file = '%s/bios.bin' % self.outdir
     regions = self._GetUnequalRegions('%s/image.bin' % self.indir, bios_file,
                                       expected_sig_id, rootkey_sum)
@@ -688,23 +658,6 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
 
     self._CheckOutput(outfile, REEF_MODEL, reef_sum)
     self._CheckOutput(outfile, 'electro', electro_sum)
-
-  def testHelp(self):
-    """Check that the -h option shows help"""
-    extra_args, _ = self._SetupArgs()
-    outfile, _, _ = self._RunPackFirmware(extra_args)
-
-    cmd = [outfile, '-h']
-    result = cros_build_lib.RunCommand(cmd, capture_output=True, quiet=True,
-                                       mute_output=True, error_code_ok=True)
-    self.assertEqual(1, result.returncode)
-    self.assertIsNone(result.error)
-    lines = result.output.splitlines()
-    self.assertIn('USAGE: %s [bundle_option|--] [updater_options]' % outfile,
-                  lines)
-    self.assertIn('USAGE: ./updater4.sh [flags] args', lines)
-    self.assertIn('  --[no]force:  Try to force update. (default: false)',
-                  lines)
 
   def testWhitelabel(self):
     """Test generation of firmware for a whitelabel model"""
