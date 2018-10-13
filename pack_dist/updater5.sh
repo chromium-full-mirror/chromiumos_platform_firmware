@@ -175,7 +175,7 @@ main() {
     args="${args} --ec_image ${IMAGE_EC}"
   fi
   if [ -s "${IMAGE_PD}" ] && [ "${FLAGS_update_pd}" = "${FLAGS_TRUE}" ]; then
-    args="${args} --pd_image ${IMAGE_pd}"
+    args="${args} --pd_image ${IMAGE_PD}"
   fi
   if [ -n "${FLAGS_wp}" ]; then
     args="${args} --wp=${FLAGS_wp}"
