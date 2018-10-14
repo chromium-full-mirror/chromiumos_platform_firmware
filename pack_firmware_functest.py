@@ -93,6 +93,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         'common.sh',
         'crosfw.sh',
         'crosutil.sh',
+        'manifest.json',
         'shflags',
         'VERSION',
         'VERSION.md5',
@@ -206,7 +207,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     outfile, files, versions = self._RunPackFirmware(extra_args)
 
     # Check that we got the right files.
-    self.assertEqual(13, len(files))
+    self.assertEqual(14, len(files))
     self.assertEqual(self._ExpectedFiles(['bios.bin']), files)
 
     # Comb through the VERSION file and check that everything is as expected.
@@ -339,7 +340,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     extra_args, expected_files = self._SetupArgs()
     outfile, files, versions = self._RunPackFirmware(extra_args)
 
-    self.assertEqual(27, len(files))
+    self.assertEqual(28, len(files))
     self.assertEqual(expected_files, files)
     version_lines = osutils.ReadFile(
         os.path.join(self.unpackdir, 'VERSION')).splitlines()
@@ -469,6 +470,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     files = [re_file.match(line).group(1) for line in remaining_md5_lines]
     expected_files.remove('VERSION')
     expected_files.remove('VERSION.md5')
+    expected_files.remove('manifest.json')
     self.assertEqual(set(expected_files), set(files))
 
   def _MakeImage(self, outfile, ro_id, rw_id=''):

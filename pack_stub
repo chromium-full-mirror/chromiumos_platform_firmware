@@ -192,6 +192,7 @@ perform_shar_repack() {
   local new_source="$1"
   local cut_mark="$(sed -n '/^##CUTHERE##/=' "$SELF")"
   local md5_file="$new_source/VERSION.md5"
+  local manifest="${new_source}/manifest.json"
   local ro_fw_ver="$(find_version_string "$new_source/bios.bin" \
                   '^Google_' RO_FRID)"
   local fw_ver="$(find_version_string "$new_source/bios.bin" \
@@ -242,10 +243,17 @@ perform_shar_repack() {
    find . -type f '!' -name VERSION.md5 '!' -name VERSION \
           -exec md5sum -b '{}' '+' ) >"$md5_file"
 
+  if type futility >/dev/null 2>&1; then
+    futility update -a "${new_source}" --manifest >"${manifest}" ||
+      rm -f "${manifest}"
+  else
+    rm -f "${manifest}"
+  fi
+
   # Use a standard timestamp for the version files so that we get the same
   # exact sharball each time. Otherwise the changing timestamps creates small
   # differences.
-  touch -t 201701010000 "$new_source/VERSION" "$md5_file"
+  touch -t 201701010000 "${new_source}/VERSION" "${manifest}" "${md5_file}"
 
   # Build shar content with files in sorted order for repeatability.
   (cd "$new_source" &&
@@ -295,6 +303,20 @@ main() {
       make_temp
       extract_bundle "$TMP_DIR"
       cat "$TMP_DIR/VERSION"*
+      echo "This is only for debugging and the format may change any time." >&2
+      echo "If you want to parse with programs, use --manifest instead." >&2
+      exit 0
+      ;;
+
+    --manifest)
+      # Read information
+      make_temp
+      extract_bundle "$TMP_DIR"
+      if [ -s "${TMP_DIR}/manifest.json" ]; then
+        cat "$TMP_DIR/manifest.json"
+      else
+        echo "No manifest.json available" >&2
+      fi
       exit 0
       ;;
 
@@ -305,6 +327,7 @@ USAGE: $SELF [bundle_option|--] [updater_options]
 bundle_option (only one option can be selected):
   -h,--help:  Show usage help
   -V:  show version and content of bundle
+  --manifest: print JSON manifest if available
   --force:  force execution and ignore $TAG_FILE_DISABLED
   --sb_extract [PATH]:  extract bundle content to a temporary folder
   --sb_repack PATH:  update bundle content from given folder
