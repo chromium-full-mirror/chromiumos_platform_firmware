@@ -94,7 +94,7 @@ clean_temp() {
 # Extracts bundle content to specified location
 extract_bundle() {
   local destination="$1"
-  sh "$SELF" --sb_extract "$destination" >/dev/null ||
+  sh "$SELF" --unpack "$destination" >/dev/null ||
     die "Cannot extract bundle content to: $destination"
 }
 
@@ -283,14 +283,15 @@ get_parameter_variable() {
 main() {
   local original_params="$*"
 
+  # The sb_* are kept for backward compatibility, especially for signing.
   case "$1" in
-    --sb_extract | --sb_extract=*)
+    --sb_extract | --sb_extract=* | --unpack | unpack=*)
       local destination="$(get_parameter_variable "$@")"
       prepare_shar_extract "$destination"
       return  # Let shar handle the remaining stuff
       ;;
 
-    --sb_repack )
+    --sb_repack | --repack )
       local new_source="$(get_parameter_variable "$@")"
       [ -d "$new_source" ] || die "Invalid source folder: $new_source"
       echo "Repacking from: $new_source"
@@ -329,8 +330,8 @@ bundle_option (only one option can be selected):
   -V:  show version and content of bundle
   --manifest: print JSON manifest if available
   --force:  force execution and ignore $TAG_FILE_DISABLED
-  --sb_extract [PATH]:  extract bundle content to a temporary folder
-  --sb_repack PATH:  update bundle content from given folder
+  --unpack [PATH]:  extract bundle content to a temporary folder
+  --repack PATH:  update bundle content from given folder
 
 updater_options:
       "

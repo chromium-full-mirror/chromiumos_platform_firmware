@@ -39,26 +39,26 @@ The SFX stub program is [sfx.sh](./sfx.sh).
 Assume you have all contents ready in `$PATH_TO_DIR`, just do:
 ```sh
 cp -f sfx.sh chromeos-firmwareupdate
-./chromeos-firmwareupdate --sb_repack $PATH_TO_DIR
+./chromeos-firmwareupdate --repack $PATH_TO_DIR
 ```
 
 ## Update package contents
 
 Run command:
 ```sh
-chromeos-firmwareupdate --sb_repack $PATH_TO_DIR
+chromeos-firmwareupdate --repack $PATH_TO_DIR
 ```
 
 ## Extract package contents
 
 Run command:
 ```sh
-chromeos-firmwareupdate --sb_extract # extracts to a new temp folder
+chromeos-firmwareupdate --unpack # extracts to a new temp folder
 ```
 
 Or add a destination path:
 ```sh
-chromeos-firmwareupdate --sb_extract $PATH_TO_DIR
+chromeos-firmwareupdate --unpack $PATH_TO_DIR
 ```
 
 ## Check contents info
