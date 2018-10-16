@@ -8,7 +8,7 @@
 
 It requires:
  - at least one firmware image (*.bin, should be AP or EC or ...)
- - pack/sfx.sh as the self extraction (and installation) script
+ - pack/sfx?.sh as the self extraction (and installation) script
 """
 
 from __future__ import print_function
@@ -60,7 +60,7 @@ CHMOD_ALL_EXEC = 0555
 # For testing
 packer = None
 
-# Variables that we replace in pack/sfx.sh and pack/setvars_template.
+# Variables that we replace in pack/setvars_template.
 REPLACE_VARS = [
     'TARGET_RO_FWID',
     'TARGET_FWID',
@@ -83,7 +83,7 @@ class FirmwarePacker(object):
   Private members:
     _args: Parsed arguments.
     _script_base: Base directory with useful files (src/platform/firmware).
-    _sfx_file: Path to `sfx.sh`.
+    _sfx_file: Path to the SFX program (pack/sfx?.sh).
     _basedir: Base temporary directory.
     _tmpdir: Temporary directory for use for running tools.
     _tmp_dirs: List of temporary directories created.
@@ -97,7 +97,7 @@ class FirmwarePacker(object):
     # we can access the script files using the same path as the script.
     self._script_base = os.path.dirname(progname)
     self._args = None
-    self._sfx_file = os.path.join(self._script_base, 'pack', 'sfx.sh')
+    self._sfx_file = os.path.join(self._script_base, 'pack', 'sfx2.sh')
     self._setvars_template_file = os.path.join(
         self._script_base, 'pack', 'setvars_template')
     self._basedir = None
@@ -963,7 +963,7 @@ class FirmwarePacker(object):
     """
     args = self._args = self.ParseArgs(argv)
 
-    self._EnsureCommand('shar', 'sharutils')
+    self._EnsureCommand('zip', 'zip')
     if not os.path.exists(self._sfx_file):
       raise PackError("Cannot find required file '%s'" % self._sfx_file)
     try:

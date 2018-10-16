@@ -191,13 +191,13 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     # Starting up in another directory (without required files) should fail.
     with self.assertRaises(pack_firmware.PackError) as e:
       pack_firmware.main(['/'])
-    self.assertIn("'/pack/sfx.sh'", str(e.exception))
+    self.assertIn("'/pack/sfx2.sh'", str(e.exception))
 
-    # Should check for 'shar' tool.
+    # Should check for 'zip' tool.
     with mock.patch.object(osutils, 'Which', return_value=None):
       with self.assertRaises(pack_firmware.PackError) as e:
         pack_firmware.main(['.'])
-      self.assertIn("'shar'", str(e.exception))
+      self.assertIn("'zip'", str(e.exception))
 
     # Should complain if we don't provide at least one image.
     with self.assertRaises(pack_firmware.PackError) as e:
@@ -447,7 +447,6 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
       for fname in ['RO_FRID', 'RW_FWID']:
         shutil.copy2(os.path.join('test', fname), destdir)
 
-    rc.AddCmdResult(partial_mock.Regex('type shar'), returncode=0)
     rc.AddCmdResult(partial_mock.ListRegex('file'), returncode=0,
                     output='ELF 64-bit LSB executable, etc.\n')
     rc.AddCmdResult(
