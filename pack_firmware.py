@@ -34,9 +34,6 @@ from chromite.lib import osutils
 from cros_config_host import libcros_config_host
 # pylint: enable=import-error
 
-IMAGE_MAIN = 'bios.bin'
-IMAGE_EC = 'ec.bin'
-IMAGE_PD = 'pd.bin'
 MODELS_DIR = 'models'
 Section = namedtuple('Section', ['offset', 'size'])
 ImageFile = namedtuple('ImageFile', ['filename', 'version'])
@@ -488,6 +485,52 @@ class FirmwarePacker(object):
       version += m.group(2)
     return version.replace('.', '-')
 
+  def _FirmwareImageOutput(self, tag, target_dir=None):
+    """Creates output file name for some firmware image.
+
+    Args:
+      tag: Type of image (e.g, "bios").
+      target_dir: Target directory to be prepended to filename.
+
+    Returns:
+      Filename of the output image.
+    """
+    fname = '%s.bin' % tag
+    return os.path.join(target_dir, fname) if target_dir else fname
+
+  def _PdImageOutput(self, target_dir=None):
+    """Creates output file name for given PD image.
+
+    Args:
+      target_dir: Target directory to be prepended to filename.
+
+    Returns:
+      Filename of the output image.
+    """
+    return self._FirmwareImageOutput('pd', target_dir)
+
+  def _EcImageOutput(self, target_dir=None):
+    """Creates output file name for given EC image.
+
+    Args:
+      target_dir: Target directory to be prepended to filename.
+
+    Returns:
+      Filename of the output image.
+    """
+    return self._FirmwareImageOutput('ec', target_dir)
+
+  def _MainImageOutput(self, target_dir=None):
+    """Creates output file name for given main image.
+
+    Args:
+      target_dir: Target directory to be prepended to filename.
+
+    Returns:
+      Filename of the output image.
+    """
+    return self._FirmwareImageOutput('bios', target_dir)
+
   def _CopyFirmwareFiles(self, bios_image, bios_rw_image, ec_image, pd_image,
                          target_dir):
     """Process firmware files and copy them into the working directory.
@@ -505,9 +548,9 @@ class FirmwarePacker(object):
         key: Name, one of BIOS, BIOS (RW), EC, EC (RW), PD, PD (RW).
         value: ImageFile, containing filename and version.
     """
-    image_main = os.path.join(target_dir, IMAGE_MAIN)
-    image_ec = os.path.join(target_dir, IMAGE_EC)
-    image_pd = os.path.join(target_dir, IMAGE_PD)
+    image_main = self._MainImageOutput(target_dir)
+    image_ec = self._EcImageOutput(target_dir)
+    image_pd = self._PdImageOutput(target_dir)
     image_files = {}
     merge_bios_rw_image = False
     if bios_image:
@@ -689,14 +732,14 @@ class FirmwarePacker(object):
           self._CopyElfs(root, [extra], self._basedir)
         print('Extra file: %s' % extra, file=self._versions)
 
-  @staticmethod
-  def _GetReplaceDict(image_files):
+  def _GetReplaceDict(self, image_files, shared_model=None):
     """Build a dictionary of string replacements for use with the update script.
 
     Args:
       image_files: Dict with:
           key: Image type (e.g. 'BIOS').
           value: ImageFile object containing filename and version.
+      shared_model: Model with which the current model shares firmware.
 
     Returns:
       Dict with:
@@ -707,7 +750,13 @@ class FirmwarePacker(object):
     bios_rw_version = image_files.get('BIOS (RW)', empty).version
     if not bios_rw_version:
       bios_rw_version = image_files['BIOS'].version
+    dirname = 'models/%s' % shared_model if shared_model else '${MODEL_DIR}'
     return {
+        'REPLACE_TARGET_IMAGE_RO_MAIN': self._MainImageOutput(dirname),
+        # TODO(evanhernandez): The bios_rw is always merged, so remove this.
+        'REPLACE_TARGET_IMAGE_RW_MAIN': os.path.join(dirname, 'bios_rw.bin'),
+        'REPLACE_TARGET_IMAGE_EC': self._EcImageOutput(dirname),
+        'REPLACE_TARGET_IMAGE_PD': self._PdImageOutput(dirname),
         'REPLACE_TARGET_RO_FWID': image_files['BIOS'].version,
         'REPLACE_TARGET_FWID': bios_rw_version,
         'REPLACE_TARGET_ECID': image_files.get('EC', empty).version,
@@ -923,10 +972,8 @@ class FirmwarePacker(object):
         model=firmware.model,
         shared_image_files=shared_image_files,
         target_dir=image_dirname)
-    setvars_dict = self._GetReplaceDict(image_files)
+    setvars_dict = self._GetReplaceDict(image_files, firmware.shared_model)
     setvars_dict['REPLACE_MODEL'] = firmware.model
-    if firmware.shared_model:
-      setvars_dict['${MODEL_DIR}'] = 'models/%s' % firmware.shared_model
 
     # For zero-touch whitelabel devices tell the firmware updater to get its
     # signature ID from the VPD.
@@ -963,10 +1010,9 @@ class FirmwarePacker(object):
           # Some models will not have a key. At present this is normally
           # just the zero-touch whitelabel devices.
           continue
-        image_fname = os.path.join(MODELS_DIR, details.shared_model or model,
-                                   IMAGE_MAIN)
-        ec_fname = os.path.join(MODELS_DIR, details.shared_model or model,
-                                IMAGE_EC)
+        dirname = os.path.join(MODELS_DIR, details.shared_model or model)
+        image_fname = self._MainImageOutput(dirname)
+        ec_fname = self._EcImageOutput(dirname)
         print(','.join((model, image_fname, details.key_id, ec_fname)), file=fd)
 
   def Start(self, argv, remove_tmpdirs=True):

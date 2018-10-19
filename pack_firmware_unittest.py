@@ -547,10 +547,10 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     self.assertEqual(11, len(result))
     self.assertIn(RO_FRID, self._FindLineInList(result, 'EC version'))
     self.assertIn(RW_FWID, self._FindLineInList(result, 'EC (RW) version'))
-    rw_fname = self.packer._BaseDirPath(pack_firmware.IMAGE_EC)
+    rw_fname = self.packer._BaseDirPath('ec.bin')
     self.assertEqual(os.stat(rw_fname).st_mtime,
                      os.stat('test/image_rw.bin').st_mtime)
-    ec_fname = self.packer._BaseDirPath(pack_firmware.IMAGE_EC)
+    ec_fname = self.packer._BaseDirPath('ec.bin')
     self.assertEqual(os.stat(ec_fname).st_mtime,
                      os.stat('test/image_rw.bin').st_mtime)
     self.packer._RemoveTmpdirs()
