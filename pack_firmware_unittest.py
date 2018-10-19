@@ -43,6 +43,8 @@ from cros_config_host import libcros_config_host
 # currently created.
 RO_FRID = 'Google_Reef.9264.0.2017_02_09_1240'
 RW_FWID = 'Google_Reef.9264.0.2017_02_09_1250'
+NO_TIMESTAMP_RO_FRID = 'Google_Reef.9264.0.1'
+EC_RO_FRID = 'reef_v1.1.5857-77f6ed7'
 
 # Expected output from vbutil.
 VBUTIL_OUTPUT = '''Key block:
@@ -293,6 +295,21 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
                       returncode=0, side_effect=_SetupImage)
       self.assertEqual('TESTING', self.packer._ExtractFrid('image.bin'))
     self.packer._RemoveTmpdirs()
+
+  def testExtractEcVersion(self):
+    """Check extracting version from firmware ID."""
+    self.assertEqual(self.packer._ExtractEcVersion(EC_RO_FRID), '1-1-5857')
+    self.assertEqual(self.packer._ExtractEcVersion('a_bad_id'), '')
+    self.assertEqual(self.packer._ExtractEcVersion(''), '')
+
+  def testExtractMainVersion(self):
+    """Check extracting version from firmware ID."""
+    self.assertEqual(self.packer._ExtractMainVersion(RO_FRID), '9264-0')
+    self.assertEqual(self.packer._ExtractMainVersion(RW_FWID), '9264-0')
+    self.assertEqual(self.packer._ExtractMainVersion(NO_TIMESTAMP_RO_FRID),
+                     '9264-0-1')
+    self.assertEqual(self.packer._ExtractMainVersion('a_bad_id'), '')
+    self.assertEqual(self.packer._ExtractMainVersion(''), '')
 
   def testUntarFile(self):
     """Test operation of the tar file unpacker."""

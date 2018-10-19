@@ -434,6 +434,60 @@ class FirmwarePacker(object):
     self._MergeFile(ec_fname, ecrw_fname, section.offset)
     self._CopyTimestamp(rw_fname, ec_fname)
 
+  @staticmethod
+  def _ExtractEcVersion(fw_id):
+    """Extracts EC version from a firmware ID, swapping dots for dashes.
+
+    Returns empty string if fw_id is empty or malformed.
+
+    Letting V denote [0-9], the expected version regex is "V+.V+.V+"
+
+    Expected format is "<board>_vV.V.VVVV-<hash>"
+    For example, "reef_v1.1.5857-77f6ed7" becomes "1-1-5857"
+
+    Args:
+      fw_id: The firmware ID providing version information.
+
+    Returns:
+      The version number.
+    """
+    m = re.search(r'((\d+\.){2}\d+)(-\S+)', fw_id)
+    return m.group(1).replace('.', '-') if m else ''
+
+  @staticmethod
+  def _ExtractMainVersion(fw_id):
+    """Extracts main version from a firmware ID.
+
+    Note this function also swaps periods for dashes, and removes
+    timestamps from local builds. Returns empty string if fw_id is empty
+    or malformed.
+
+    Letting V denote [0-9], the expected version regex is...
+      "V+.V+" for local builds
+      "V+.V+.V+" for official builds
+
+    Expected FW ID format is one of...
+      "Google_<board>.<version>.yyyy_mm_dd_tttt" for local builds
+      "Google_<board>.<version>" for official builds
+
+    For example...
+      "Google_Reef.9264.0.2017_02_09_1240" becomes "9264-0"
+      "Google_Reef.9264.0.1" becomes "9264-0-1"
+
+    Args:
+      fw_id: The firmware ID providing version information.
+
+    Returns:
+      The version number.
+    """
+    m = re.search(r'(\d+\.\d+)(\.\d+$|\.\d{4}_)', fw_id)
+    if not m:
+      return ''
+    version = m.group(1)
+    if '_' not in m.group(2):
+      version += m.group(2)
+    return version.replace('.', '-')
+
   def _CopyFirmwareFiles(self, bios_image, bios_rw_image, ec_image, pd_image,
                          target_dir):
     """Process firmware files and copy them into the working directory.
