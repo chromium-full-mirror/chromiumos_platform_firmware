@@ -264,6 +264,23 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         models)
     return extra_args, expected_files
 
+  def _CreateSignerLine(self, model, shared_model=None, key_id=None):
+    """Creates an expected CSV line for signer_instructions.csv.
+
+    Args:
+      model: Expected model name.
+      shared_model: Expected shared model.
+      key_id: Expected key ID.
+
+    Returns:
+      The expected signer instructions CSV line.
+    """
+    shared_model = shared_model or model
+    key_id = key_id or model.upper()
+    return '%s,models/%s/%s,%s,models/%s/%s' % (model, shared_model,
+                                                'bios.bin', key_id,
+                                                shared_model, 'ec.bin')
+
   def testFirmwareUpdateUnibuild(self):
     """Run the firmware packer, unpack the result and check it."""
     extra_args, expected_files = self._SetupArgs()
@@ -344,16 +361,11 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     lines = osutils.ReadFile(
         os.path.join(self.unpackdir, 'signer_config.csv')).splitlines()
     self.assertEqual('model_name,firmware_image,key_id,ec_image', lines[0])
-    self.assertEqual('reef,models/reef/bios.bin,REEF,models/reef/ec.bin',
-                     lines[1])
-    self.assertEqual('pyro,models/pyro/bios.bin,PYRO,models/pyro/ec.bin',
-                     lines[2])
-    self.assertEqual('sand,models/sand/bios.bin,SAND,models/sand/ec.bin',
-                     lines[3])
-    self.assertEqual('electro,models/reef/bios.bin,ELECTRO,models/reef/ec.bin',
-                     lines[4])
-    self.assertEqual('basking,models/sand/bios.bin,BASKING,models/sand/ec.bin',
-                     lines[5])
+    self.assertEqual(self._CreateSignerLine('reef'), lines[1])
+    self.assertEqual(self._CreateSignerLine('pyro'), lines[2])
+    self.assertEqual(self._CreateSignerLine('sand'), lines[3])
+    self.assertEqual(self._CreateSignerLine('electro', 'reef'), lines[4])
+    self.assertEqual(self._CreateSignerLine('basking', 'sand'), lines[5])
 
   def testVersionOutput(self):
     """Check that the -V option shows version information as expected"""
@@ -693,7 +705,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     lines = osutils.ReadFile(
         os.path.join(self.unpackdir, 'signer_config.csv')).splitlines()
     self.assertEqual(
-        'whitelabel-test,models/sand/bios.bin,WHITELABEL,models/sand/ec.bin',
+        self._CreateSignerLine('whitelabel-test', 'sand', 'WHITELABEL'),
         lines[-1])
 
   def _CheckZeroTouchWhitelabel(self, model, wl_models, wl_tags):
@@ -756,12 +768,11 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     # zero-touch whitelabels.
     lines = osutils.ReadFile(
         os.path.join(self.unpackdir, 'signer_config.csv')).splitlines()
-    self.assertEqual('basking,models/sand/bios.bin,BASKING,models/sand/ec.bin',
+    self.assertEqual(self._CreateSignerLine('basking', 'sand'),
                      lines[-1 - len(wl_models)])
     for i, wl_model in enumerate(wl_models):
-      expect = ('%s,models/reef/bios.bin,%s,models/reef/ec.bin' %
-                (wl_model, wl_model.upper()))
-      self.assertEqual(expect, lines[i - len(wl_models)])
+      self.assertEqual(self._CreateSignerLine(wl_model, 'reef'),
+                       lines[i - len(wl_models)])
 
     sums = self.AddFakeKeys(outfile, wl_models)
 
