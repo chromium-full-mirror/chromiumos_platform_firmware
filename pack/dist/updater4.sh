@@ -122,7 +122,8 @@ fi
 check_compatible_keys() {
   local current_image="$DIR_CURRENT/$IMAGE_MAIN"
   local target_image="$DIR_TARGET/$IMAGE_MAIN"
-  if [ "${FLAGS_check_keys}" = ${FLAGS_FALSE} ]; then
+  if [ "${FLAGS_check_keys}" = ${FLAGS_FALSE} ] ||
+     [ "${FLAGS_force}" = "${FLAGS_TRUE}" ]; then
     debug_msg "check_compatible_keys: ignored."
     return $FLAGS_TRUE
   fi
