@@ -38,6 +38,7 @@ DEFINE_string model "" \
 DEFINE_boolean update_ec $FLAGS_TRUE "Enable updating Embedded Firmware." ""
 DEFINE_boolean update_pd $FLAGS_TRUE "Enable updating PD Firmware." ""
 DEFINE_boolean update_main $FLAGS_TRUE "Enable updating Main Firmware." ""
+DEFINE_boolean host_only $FLAGS_FALSE "Only update Main Firmware." ""
 
 DEFINE_string output_dir "" \
   "Sets the output directory for files generated using --mode=output" "o"
@@ -162,6 +163,12 @@ set_flags() {
       die "Invalid option for --wp: ${FLAGS_wp}"
       ;;
   esac
+
+  if [ "${FLAGS_host_only}" = "${FLAGS_TRUE}" ]; then
+    FLAGS_update_ec=${FLAGS_FALSE}
+    FLAGS_update_pd=${FLAGS_FALSE}
+    debug_msg "Ignore EC/PD images bundled in updater."
+  fi
 
   # Adjust update_* flags according to known images.
   if [ ! -s "$IMAGE_MAIN" ]; then
