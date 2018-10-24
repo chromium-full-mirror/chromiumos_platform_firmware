@@ -1,8 +1,8 @@
 # ChromeOS Firmware Updater
 
 This repository contains the firmware updater (`chromeos-firmwareupdate`) that
-will update firmware images related to verified boot, usually AP (also known as
-BIOS or MAIN) and EC.
+will update firmware images related to verified boot, usually host (also known
+as AP, BIOS or MAIN) and EC (Embedded Controller).
 
 [TOC]
 
@@ -15,18 +15,23 @@ and must be able to update in background silently.
 
 ## Using Firmware Updater
 
-The firmware updater was made as a "shellball", a self-executable file
-containing updater logic (shell scripts), utility programs, and firmware images.
+The firmware updater was made as an self-extracting archive with firmware
+images, updating logic, even utility programs.
 
-> In all modes, updater will try to preserve few firmware data, for example the
-> VPD sections (`RO_VPD`, `RW_VPD`), `HWID` and `GBB flags` (in `GBB` section).
+> In all modes, updater will try to preserve a list of known firmware data, for
+> example the VPD sections (`RO_VPD`, `RW_VPD`), and components in `GBB` section
+> like `HWID`.
 
 ### Update manually
 
 Usually you can find the updater in `/usr/sbin/chromeos-firmwareupdate`
-on a ChromeOS device (or the rootfs partition of a disk image).
+on a Chrome OS device (or the rootfs partition of a disk image).
 
-To look at its contents (firmware images and versions):
+To look at its contents (firmware images and versions) in machine friendly way:
+
+    chromeos-firmwareupdate --manifest
+
+Currently we also support a human readable form:
 
     chromeos-firmwareupdate -V
 
@@ -43,6 +48,11 @@ updated, run:
     chromeos-firmwareupdate --mode=recovery --wp=1
 
 > The `--wp` argument will override you real write protection status.
+
+If your want *everything* (RO and RW) to be updated and would like the updater
+to check WP state for you:
+
+    chromeos-firmwareupdate --mode=factory
 
 ### Simulating ChromeOS Auto Update
 
@@ -67,9 +77,7 @@ To build an updater locally, in chroot run:
 If your board overlay has defined USE flags `bootimage` or `cros_ec`,
 `chromeos-firwmare-${BOARD}` package will add dependency to firmware and EC
 source packages (`chromeos-bootimage` and `chromeos-ec`), and have the firmware
-images in `/build/${BOARD}/firmware/{image,ec}.bin`. A "local" updater will be
-also generated in `/build/${BOARD}/firmware/updater.sh` so you can run it to
-test the locally built firmware images.
+images in `/build/${BOARD}/firmware/{image,ec}.bin`.
 
 > In other words, you can remove `bootimage` and `cros_ec` in branches that you
 > don't need firmware from source, for example the factory branches or ToT,
@@ -115,7 +123,7 @@ bootstrap SFX script `pack/sfx.sh`.
 
 Since the verified boot has been evolved with so much differences, we put the
 updating logic in different files according to the generation of firmware:
-`pack/dist/updater*.sh`. Most Chromebooks today should use `updater4.sh`.
+`pack/dist/updater*.sh`. Most Chromebooks today should use `updater5.sh`.
 
 Usually we will increase a "logic version" when the verified boot has been
 changed so much that the updater code for previous versions would almost won't
@@ -129,6 +137,10 @@ work. Currently we have defined these versions
  - Version 4: Everything after version 3 until now.
  - Version 5: Was created for vboot2, but now it's merged back to Version 4.
 
+> Starting from M70, we will migrate all projects to a newly native code based
+> updater as "updater v5". After that there won't be any versions. See
+> go/updater5 for more details.
+
 This will be mapped to what you should set in the `CROS_FIRMWARE_SCRIPT` value
 in ebuild files.
 
@@ -139,7 +151,7 @@ Here's a detailed list of how each updater mode works:
 
 ![Diagram](_docs/update_diagram.png)
 
- - `--mode=autoupdate`: Invoked by update_engine when a payload is installed.
+ - `--mode=autoupdate`: Invoked by `update_engine` when a payload is installed.
    1. Check if WP is enabled.
    2. If WP is enabled, update RW / inactive and exit. After system reboot.
       The `update_engine` will invoke `chromeos-setgoodfirmware` after 60 secs,
@@ -150,10 +162,23 @@ Here's a detailed list of how each updater mode works:
  - `--mode=recovery`: Invoked by recovery shim after installed.
    1. Check if WP is enabled.
    2. If WP is enabled, update both RW/A, RW/B and exit.
-   3. If WP is disabled, update whole image except reserved sections (GBB, VPD).
+   3. If WP is disabled, update whole image except reserved sections like VPD.
       This includes RO, RW/A, and RW/B.
+> Note in `recovery` mode, the `HWID` and flags in `GBB` are both preserved.
 
- - `--mode=factory_install`: Used for factory initial imaging.
+ - `--mode=factory`: A special recovery mode for factory initial imaging that
+   always runs as `wp=0` and *NOT* preserving GBB flags.
    1. Check if WP is enabled, and exit with failure if enabled.
    2. Update whole image except reserved sections (GBB, VPD).
       This includes RO, RW/A, and RW/B.
+> Note in `factory` mode, only `HWID` in `GBB` is preserved. The GBB flags will
+> be changed because in factory process we need to overwrite the flags so we can
+> ensure developer mode or other factory friendly settings were turned on in
+> first boot.
+
+ - `--mode=legacy`: A special mode that only updates `RW_LEGACY`.
+
+ - `--mode=output`: A special mode for updater with multiple sets of images.
+   1. Collect system information like model and white label tags.
+   2. Apply patches like signing key blocks if available.
+   3. Write images to given output folder (`--output_dir`).
