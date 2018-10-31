@@ -45,6 +45,7 @@ RO_FRID = 'Google_Reef.9264.0.2017_02_09_1240'
 RW_FWID = 'Google_Reef.9264.0.2017_02_09_1250'
 NO_TIMESTAMP_RO_FRID = 'Google_Reef.9264.0.1'
 EC_RO_FRID = 'reef_v1.1.5857-77f6ed7'
+EC_RW_FWID = 'reef_v1.1.5858-77f6ed7'
 
 # Expected output from vbutil.
 VBUTIL_OUTPUT = '''Key block:
@@ -263,8 +264,8 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
   def testExtractFrid(self):
     """Check extracting the firmware ID from a bios image."""
     self.packer._tmpdir = 'test'
-    self.packer._testing = True
-    self.packer._args = self.packer.ParseArgs(['--bios_image', 'image.bin'])
+    self.packer._args = self.packer.ParseArgs(['--bios_image', 'image.bin',
+                                               '-t'])
     with cros_test_lib.RunCommandMock() as rc:
       rc.AddCmdResult(partial_mock.ListRegex('futility dump_fmap'),
                       returncode=0)
@@ -278,8 +279,8 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
                         'TESTING \0\0\0', mode='wb')
 
     self.packer._tmpdir = self.packer._CreateTmpDir()
-    self.packer._testing = True
-    self.packer._args = self.packer.ParseArgs(['--bios_image', 'image.bin'])
+    self.packer._args = self.packer.ParseArgs(['--bios_image', 'image.bin',
+                                               '-t'])
     with cros_test_lib.RunCommandMock() as rc:
       rc.AddCmdResult(partial_mock.ListRegex('futility dump_fmap'),
                       returncode=0, side_effect=_SetupImage)
@@ -289,8 +290,9 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
   def testExtractEcVersion(self):
     """Check extracting version from firmware ID."""
     self.assertEqual(self.packer._ExtractEcVersion(EC_RO_FRID), '1-1-5857')
-    self.assertEqual(self.packer._ExtractEcVersion('a_bad_id'), '')
-    self.assertEqual(self.packer._ExtractEcVersion(''), '')
+    with self.assertRaises(pack_firmware.PackError) as e:
+      self.assertEqual(self.packer._ExtractEcVersion('a_bad_id'), '')
+    self.assertIn('Malformed EC firmware ID', str(e.exception))
 
   def testExtractMainVersion(self):
     """Check extracting version from firmware ID."""
@@ -298,8 +300,52 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     self.assertEqual(self.packer._ExtractMainVersion(RW_FWID), '9264-0')
     self.assertEqual(self.packer._ExtractMainVersion(NO_TIMESTAMP_RO_FRID),
                      '9264-0-1')
-    self.assertEqual(self.packer._ExtractMainVersion('a_bad_id'), '')
-    self.assertEqual(self.packer._ExtractMainVersion(''), '')
+    with self.assertRaises(pack_firmware.PackError) as e:
+      self.assertEqual(self.packer._ExtractMainVersion('a_bad_id'), '')
+    self.assertIn('Malformed coreboot firmware ID', str(e.exception))
+
+  def testFirmwareImageOutput(self):
+    """Check firmware image output name."""
+    self.packer._args = self.packer.ParseArgs([])
+    self.packer._tmpdir = self.packer._CreateTmpDir()
+
+    tag = 'ec'
+    fw_ids = pack_firmware.FirmwareIds(EC_RO_FRID, EC_RW_FWID)
+    bad_fw_ids = pack_firmware.FirmwareIds(EC_RO_FRID, None)
+    version_fn = lambda fwid: '1-1-5857' if fwid == EC_RO_FRID else '1-1-5858'
+    self.assertEqual(self.packer._FirmwareImageOutput(tag), '')
+    self.assertEqual(
+        self.packer._FirmwareImageOutput(tag, fw_ids), '')
+    self.assertEqual(
+        self.packer._FirmwareImageOutput(tag, extract_version=version_fn), '')
+    self.assertEqual(
+        self.packer._FirmwareImageOutput(tag, bad_fw_ids, version_fn), '')
+
+    expected_fname = 'ec.ro-1-1-5857.rw-1-1-5858.bin'
+    self.assertEqual(
+        self.packer._FirmwareImageOutput(tag, fw_ids, version_fn),
+        expected_fname)
+    self.assertEqual(
+        self.packer._FirmwareImageOutput(tag, fw_ids, version_fn,
+                                         self.packer._tmpdir),
+        os.path.join(self.packer._tmpdir, expected_fname))
+
+    self.packer._RemoveTmpdirs()
+
+  def testFirmwareImageOutputLegacy(self):
+    """Check firmware image output name when legacy is set."""
+    self.packer._args = self.packer.ParseArgs(['-L'])
+    self.packer._tmpdir = self.packer._CreateTmpDir()
+
+    fw_ids = pack_firmware.FirmwareIds(RO_FRID, RW_FWID)
+    self.assertEqual(self.packer._FirmwareImageOutput('bios'), 'bios.bin')
+    self.assertEqual(self.packer._FirmwareImageOutput('bios', fw_ids),
+                     'bios.bin')
+    self.assertEqual(
+        self.packer._FirmwareImageOutput(tag='bios',
+                                         target_dir=self.packer._tmpdir),
+        os.path.join(self.packer._tmpdir, 'bios.bin'))
+    self.packer._RemoveTmpdirs()
 
   def testUntarFile(self):
     """Test operation of the tar file unpacker."""
@@ -535,7 +581,8 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     """
 
     args = ['.', '-m', 'reef', '-m', 'pyro', '-q', '-o', self.output,
-            '-c', 'test/%s' % config_fname, '-i', 'functest']
+            '-c', 'test/%s' % config_fname, '-i', 'functest', '-t']
+
     os.environ['SYSROOT'] = 'test'
     os.environ['FILESDIR'] = 'test'
     return args

@@ -82,7 +82,6 @@ class FirmwarePacker(object):
     _args: Parsed arguments.
     _script_base: Base directory with useful files (src/platform/firmware).
     _sfx_file: Path to `sfx.sh`.
-    _testing: True if running tests.
     _basedir: Base temporary directory.
     _tmpdir: Temporary directory for use for running tools.
     _tmp_dirs: List of temporary directories created.
@@ -99,7 +98,6 @@ class FirmwarePacker(object):
     self._sfx_file = os.path.join(self._script_base, 'pack', 'sfx.sh')
     self._setvars_template_file = os.path.join(
         self._script_base, 'pack', 'setvars_template')
-    self._testing = False
     self._basedir = None
     self._tmpdir = None
     self._tmp_dirs = []
@@ -146,6 +144,8 @@ class FirmwarePacker(object):
                         help='Path of input Power Delivery firmware image')
     parser.add_argument('-o', '--output', type='path',
                         help='Path of output filename')
+    parser.add_argument('-t', '--testing', action='store_true',
+                        help='Testing mode for mocked unit tests.')
     parser.add_argument('-q', '--quiet', action='store_true',
                         help='Avoid output except for warnings/errors')
 
@@ -227,7 +227,7 @@ class FirmwarePacker(object):
     fname = os.path.join(self._tmpdir, section_name)
 
     # Remove any file that might be in the way (if not testing).
-    if not self._testing and os.path.exists(fname):
+    if not self._args.testing and os.path.exists(fname):
       os.remove(fname)
     cros_build_lib.RunCommand(['futility', 'dump_fmap', '-x', image_file],
                               quiet=True, cwd=self._tmpdir, error_code_ok=True)
@@ -443,8 +443,10 @@ class FirmwarePacker(object):
     Returns:
       The version number.
     """
-    m = re.search(r'((\d+\.){2}\d+)(-\S+)', fw_id)
-    return m.group(1).replace('.', '-') if m else ''
+    matched_version = re.search(r'((\d+\.){2}\d+)(-\S+)', fw_id)
+    if not matched_version:
+      raise PackError('Malformed EC firmware ID: %s' % fw_id)
+    return matched_version.group(1).replace('.', '-')
 
   @staticmethod
   def _ExtractMainVersion(fw_id):
@@ -472,26 +474,43 @@ class FirmwarePacker(object):
     Returns:
       The version number.
     """
-    m = re.search(r'(\d+\.\d+)(\.\d+$|\.\d{4}_)', fw_id)
-    if not m:
-      return ''
-    version = m.group(1)
-    if '_' not in m.group(2):
-      version += m.group(2)
+    matched_version = re.search(r'(\d+\.\d+)(\.\d+$|\.\d{4}_)', fw_id)
+    if not matched_version:
+      raise PackError('Malformed coreboot firmware ID: %s' % fw_id)
+    version = matched_version.group(1)
+    if '_' not in matched_version.group(2):
+      version += matched_version.group(2)
     return version.replace('.', '-')
 
-  def _FirmwareImageOutput(self, tag, fw_ids=None, target_dir=None):
+  # TODO(evanhernandez): Add build target to the name.
+  def _FirmwareImageOutput(self, tag, fw_ids=None, extract_version=None,
+                           target_dir=None):
     """Creates output file name for some firmware image.
+
+    Filename will have the form...
+      "<target_dir>/<tag>.<ro_version>.<rw_version>.bin",
+
+    If versions or model are not provided, returns empty string.
+    If legacy or testing is set, returns a generic name of the form
+    <target_dir>/<tag>.bin.
 
     Args:
       tag: Type of image (e.g, "bios").
-      fw_ids: The image firmware RO/RW IDs (FirmwareIds object). (Not yet used.)
+      fw_ids: The firmware IDs for this image.
+      extract_version: Function extracting image version from a firmware ID.
       target_dir: Target directory to be prepended to filename.
 
     Returns:
       Filename of the output image.
     """
-    fname = '%s.bin' % tag
+    use_generic = self._args.legacy or self._args.testing
+    has_required_fields = fw_ids and all([fw_ids.ro_id, fw_ids.rw_id,
+                                          extract_version])
+    if not use_generic and not has_required_fields:
+      return ''
+    fname = ('%s.bin' % tag if use_generic else
+             '%s.ro-%s.rw-%s.bin' % (tag, extract_version(fw_ids.ro_id),
+                                     extract_version(fw_ids.rw_id)))
     return os.path.join(target_dir, fname) if target_dir else fname
 
   def _PdImageOutput(self, fw_ids=None, target_dir=None):
@@ -504,7 +523,11 @@ class FirmwarePacker(object):
     Returns:
       Filename of the output image.
     """
-    return self._FirmwareImageOutput('pd', fw_ids, target_dir)
+    return self._FirmwareImageOutput(
+        tag='pd',
+        fw_ids=fw_ids,
+        extract_version=self._ExtractEcVersion,
+        target_dir=target_dir)
 
   def _EcImageOutput(self, fw_ids=None, target_dir=None):
     """Creates output file name for given EC image.
@@ -516,7 +539,11 @@ class FirmwarePacker(object):
     Returns:
       Filename of the output image.
     """
-    return self._FirmwareImageOutput('ec', fw_ids, target_dir)
+    return self._FirmwareImageOutput(
+        tag='ec',
+        fw_ids=fw_ids,
+        extract_version=self._ExtractEcVersion,
+        target_dir=target_dir)
 
   def _MainImageOutput(self, fw_ids=None, target_dir=None):
     """Creates output file name for given main image.
@@ -528,7 +555,11 @@ class FirmwarePacker(object):
     Returns:
       Filename of the output image.
     """
-    return self._FirmwareImageOutput('bios', fw_ids, target_dir)
+    return self._FirmwareImageOutput(
+        tag='bios',
+        fw_ids=fw_ids,
+        extract_version=self._ExtractMainVersion,
+        target_dir=target_dir)
 
   def _CopyFirmwareFiles(self, bios_image, bios_rw_image, ec_image, pd_image,
                          target_dir):
