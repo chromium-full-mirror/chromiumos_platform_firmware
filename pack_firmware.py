@@ -778,8 +778,6 @@ class FirmwarePacker(object):
     return {
         'REPLACE_TARGET_IMAGE_RO_MAIN': self._MainImageOutput(
             bios_fw_id, dirname),
-        # TODO(evanhernandez): The bios_rw is always merged, so remove this.
-        'REPLACE_TARGET_IMAGE_RW_MAIN': os.path.join(dirname, 'bios_rw.bin'),
         'REPLACE_TARGET_IMAGE_EC': self._EcImageOutput(ec_fw_id, dirname),
         'REPLACE_TARGET_IMAGE_PD': self._PdImageOutput(pd_fw_id, dirname),
         'REPLACE_TARGET_RO_FWID': bios_fw_id.ro_id,

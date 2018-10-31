@@ -462,9 +462,6 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     rc.AddCmdResult(
         partial_mock.ListRegex('futility vbutil_firmware'),
         returncode=0, output=VBUTIL_OUTPUT)
-    rc.AddCmdResult(
-        partial_mock.ListRegex('futility dump_fmap -x .*bios_rw.bin'),
-        side_effect=_CopySections, returncode=0)
     rc.AddCmdResult(partial_mock.ListRegex('--sb_repack'), returncode=0)
     rc.AddCmdResult(partial_mock.ListRegex('futility dump_fmap -x .*ec.bin'),
                     side_effect=_CopySections, returncode=0)
