@@ -34,9 +34,13 @@ from chromite.lib import osutils
 from cros_config_host import libcros_config_host
 # pylint: enable=import-error
 
+MAIN, MAIN_RW = 'BIOS', 'BIOS (RW)'
+EC = 'EC'
+PD = 'PD'
 MODELS_DIR = 'models'
 Section = namedtuple('Section', ['offset', 'size'])
-ImageFile = namedtuple('ImageFile', ['filename', 'version'])
+ImageFile = namedtuple('ImageFile', ['filename', 'firmware_ids'])
+FirmwareIds = namedtuple('FirmwareIds', ['ro_id', 'rw_id'])
 
 # image_files:  Dict containing information on the output image files for this
 #     model:
@@ -253,6 +257,22 @@ class FirmwarePacker(object):
     if os.path.exists(fname):
       return osutils.ReadFile(fname).replace('\x00', '').strip()
     return ''
+
+  def _ExtractFirmwareIds(self, image_file, rw_image_file=None):
+    """Extracts the RO/RW firmware IDs from image files.
+
+    Args:
+      image_file: File to process.
+      rw_image_file: RW image file, if separate.
+
+    Returns:
+      FirmwareIds object containing RO and RW firmware IDs.
+      If RW ID not found, RO ID is used in its place.
+    """
+    ro_id = self._ExtractFrid(image_file)
+    rw_id = (self._ExtractFrid(rw_image_file)
+             if rw_image_file else self._ExtractFrid(image_file, 'RW_FWID'))
+    return FirmwareIds(ro_id, rw_id or ro_id)
 
   def _BaseDirPath(self, basename):
     """Build a filename in the temporary base directory.
@@ -550,11 +570,10 @@ class FirmwarePacker(object):
     image_ec = self._EcImageOutput(target_dir)
     image_pd = self._PdImageOutput(target_dir)
     image_files = {}
-    merge_bios_rw_image = False
+
     # Merge firmware first so output can be named by version.
     if bios_rw_image:
       assert bios_image, 'Need main (RO) firmware image to merge RW image.'
-      merge_bios_rw_image = True
       bios_image = self._CopyFile(bios_image, self._tmpdir, preserve_path=True)
       self._MergeRwFirmware(bios_image, bios_rw_image)
       if ec_image:
@@ -565,30 +584,23 @@ class FirmwarePacker(object):
         self._MergeRwEcFirmware(pd_image, bios_image, 'PD_MAIN_A', 'pdrw')
 
     if bios_image:
-      bios_version = self._ExtractFrid(bios_image)
-      bios_rw_version = bios_version
+      bios_fw_id = self._ExtractFirmwareIds(bios_image, bios_rw_image)
       shutil.copy2(bios_image, image_main)
-      image_files['BIOS'] = ImageFile(bios_image, bios_version)
+      image_files[MAIN] = ImageFile(bios_image, bios_fw_id)
 
     if bios_rw_image:
-      bios_rw_version = self._ExtractFrid(bios_rw_image)
-      image_files['BIOS (RW)'] = ImageFile(bios_rw_image, bios_rw_version)
+      image_files[MAIN_RW] = ImageFile(
+          bios_rw_image, self._ExtractFirmwareIds(bios_rw_image))
 
     if ec_image:
-      ec_version = self._ExtractFrid(ec_image)
-      image_files['EC'] = ImageFile(ec_image, ec_version)
+      ec_fw_id = self._ExtractFirmwareIds(ec_image)
+      image_files[EC] = ImageFile(ec_image, ec_fw_id)
       shutil.copy2(ec_image, image_ec)
-      if merge_bios_rw_image:
-        ec_rw_version = self._ExtractFrid(image_ec, 'RW_FWID')
-        image_files['EC (RW)'] = ImageFile(None, ec_rw_version)
 
     if pd_image:
-      pd_version = self._ExtractFrid(pd_image)
-      image_files['PD'] = ImageFile(pd_image, pd_version)
+      pd_fw_id = self._ExtractFirmwareIds(pd_image)
+      image_files[PD] = ImageFile(pd_image, pd_fw_id)
       shutil.copy2(pd_image, image_pd)
-      if merge_bios_rw_image:
-        pd_rw_version = self._ExtractFrid(image_pd, 'RW_FWID')
-        image_files['PD (RW)'] = ImageFile(None, pd_rw_version)
     return image_files
 
   def _WriteVersions(self, model, image_files):
@@ -604,8 +616,13 @@ class FirmwarePacker(object):
     if model:
       print('Model:        %s' % model, file=self._versions)
     for name in sorted(image_files.keys()):
-      image_file = image_files[name]
-      self._AddVersionInfo(name, image_file.filename, image_file.version)
+      filename = image_files[name].filename
+      ro_id, rw_id = image_files[name].firmware_ids
+      self._AddVersionInfo(name, filename, ro_id)
+      # Only write the RW version if it differs from RO. Main has separate
+      # RO/RW inputs, so check to avoid writing RW version twice.
+      if ro_id != rw_id and name != MAIN:
+        self._AddVersionInfo(name + ' (RW)', None, rw_id)
 
   def _UntarFile(self, pathname, dst_dirname, suffix=''):
     """Unpack the only item in a tar file.
@@ -750,10 +767,9 @@ class FirmwarePacker(object):
           key: String to replace.
           value: Value to replace with.
     """
-    empty = ImageFile(None, '')
-    bios_rw_version = image_files.get('BIOS (RW)', empty).version
-    if not bios_rw_version:
-      bios_rw_version = image_files['BIOS'].version
+    empty = ImageFile(None, FirmwareIds('', ''))
+    bios_fw_id, ec_fw_id, pd_fw_id = [
+        image_files.get(k, empty).firmware_ids for k in [MAIN, EC, PD]]
     dirname = 'models/%s' % shared_model if shared_model else '${MODEL_DIR}'
     return {
         'REPLACE_TARGET_IMAGE_RO_MAIN': self._MainImageOutput(dirname),
@@ -761,13 +777,13 @@ class FirmwarePacker(object):
         'REPLACE_TARGET_IMAGE_RW_MAIN': os.path.join(dirname, 'bios_rw.bin'),
         'REPLACE_TARGET_IMAGE_EC': self._EcImageOutput(dirname),
         'REPLACE_TARGET_IMAGE_PD': self._PdImageOutput(dirname),
-        'REPLACE_TARGET_RO_FWID': image_files['BIOS'].version,
-        'REPLACE_TARGET_FWID': bios_rw_version,
-        'REPLACE_TARGET_ECID': image_files.get('EC', empty).version,
-        'REPLACE_TARGET_PDID': image_files.get('PD', empty).version,
+        'REPLACE_TARGET_RO_FWID': bios_fw_id.ro_id,
+        'REPLACE_TARGET_FWID': bios_fw_id.rw_id,
+        'REPLACE_TARGET_ECID': ec_fw_id.ro_id,
+        'REPLACE_TARGET_PDID': pd_fw_id.ro_id,
         # Set platform to first field of firmware version
         # (ex: Google_Link.1234 -> Google_Link).
-        'REPLACE_TARGET_PLATFORM': image_files['BIOS'].version.split('.')[0],
+        'REPLACE_TARGET_PLATFORM': bios_fw_id.ro_id.split('.')[0],
     }
 
   @staticmethod
