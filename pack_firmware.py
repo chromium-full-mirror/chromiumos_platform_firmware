@@ -747,44 +747,6 @@ class FirmwarePacker(object):
       for fname in glob.glob(self._BaseDirPath('VERSION*')):
         print(osutils.ReadFile(fname))
 
-  def _ProcessModel(self, model, bios_image, bios_rw_image, ec_image, pd_image,
-                    shared_image_files, target_dir):
-    """Set up the firmware update for one model.
-
-    Args:
-      model: name of model to set up for (e.g. 'reef'). If this is not a
-          unified build then this should be ''.
-      bios_image: Input filename of main BIOS (main) image.
-      bios_rw_image: Input filename of RW BIOS image, or None if none.
-      ec_image: Input filename of EC (Embedded Controller) image, or None if
-          none.
-      pd_image: Input filename of PD (Power Delivery) image, or None if none.
-      shared_image_files: Dict of image file information for the model whose
-          images we want to share (or None if none):
-        key: Image name (e.g. 'BIOS (RW)' or 'EC').
-        value: ImageFile object for that image.
-      target_dir: Target directory for image files.
-
-    Returns:
-      Dict containing information on the output image files:
-        key: Name, one of "BIOS", "BIOS (RW)", "EC", "EC (RW)", "PD", "PD (RW)".
-        value: ImageFile, containing filename and version.
-    """
-    if shared_image_files:
-      image_files = shared_image_files
-    else:
-      if not bios_image and not ec_image and not pd_image:
-        raise PackError("Model '%s': Must assign at least one of BIOS or EC or "
-                        'PD image' % model)
-      image_files = self._CopyFirmwareFiles(
-          bios_image=bios_image,
-          bios_rw_image=bios_rw_image,
-          ec_image=ec_image,
-          pd_image=pd_image,
-          target_dir=target_dir)
-    self._WriteVersions(model, image_files)
-    return image_files
-
   def _ExtractFile(
       self, build_target, fname_template, uri, dirname, suffix=''):
     """Obtain a file based on provided information.
@@ -822,67 +784,69 @@ class FirmwarePacker(object):
     return self._UntarFile(
         os.path.join(self._args.imagedir, fname), dirname, suffix)
 
-  def _GenerateOneModel(self, firmware, args, model_details):
-    """Generate the output files for a single model.
+  def _WriteFirmwareImages(self, models, firmware_info):
+    """Extract and build all firmware images.
 
-    Create the firmware files and set up the 'setvars.sh' script for a single
-    model. If this model uses shared firmware the files are reused from the
-    shared model rather than being recreated.
+    Args:
+      models: List of models to extract images for.
+      firmware_info: Dict:
+        key: Model name.
+        value: FirmwareInfo object for that model.
+
+    Returns:
+      Dict:
+        key: Target name.
+        value: Firmware files for that model (ImageFiles object).
+    """
+    images = {}
+    for model in models:
+      firmware = firmware_info[model]
+      fw_target = firmware.shared_model or model
+      if fw_target in images:
+        continue
+
+      target_subdir = os.path.join(MODELS_DIR, fw_target)
+      unpack_dir = os.path.join(self._tmpdir, target_subdir)
+      osutils.SafeMakedirs(unpack_dir)
+      bios_image = self._ExtractFile(
+          firmware.bios_build_target, self._args.bios_image,
+          firmware.main_image_uri, unpack_dir)
+      bios_rw_image = self._ExtractFile(
+          firmware.bios_build_target, None, firmware.main_rw_image_uri,
+          unpack_dir, 'rw')
+      ec_image = self._ExtractFile(
+          firmware.ec_build_target, self._args.ec_image, firmware.ec_image_uri,
+          unpack_dir)
+      pd_image = self._ExtractFile(
+          firmware.ec_build_target, self._args.pd_image, firmware.pd_image_uri,
+          unpack_dir)
+
+      if not bios_image and not ec_image and not pd_image:
+        raise PackError("Target '%s': Must assign at least one of BIOS or EC "
+                        'or PD image' % fw_target)
+
+      target_dir = self._BaseDirPath(target_subdir)
+      osutils.SafeMakedirs(target_dir)
+      images[fw_target] = self._CopyFirmwareFiles(
+          bios_image=bios_image,
+          bios_rw_image=bios_rw_image,
+          ec_image=ec_image,
+          pd_image=pd_image,
+          target_dir=target_dir)
+    return images
+
+  def _GenerateSetVars(self, firmware, image_files):
+    """Generate the setvars.sh script for a single model.
 
     Args:
       firmware: Firmware information to process (FirmwareInfo object)
-      args: Command-line arguments (argparse.Namespace object).
-      model_details: Dict:
-          key: Model name.
-          value: ModelDetails object for that model.
-
-    Returns:
-      ModelDetails object for |model|.
+      image_files: Dict:
+          key: Image type (e.g. BIOS).
+          value: ImageFile object for that image.
     """
-    shared_image_files = None
-    if firmware.shared_model and firmware.shared_model in model_details:
-      shared_image_files = model_details[firmware.shared_model].image_files
-    if not firmware.have_image:
-      return ModelDetails(None, firmware.shared_model, firmware.key_id)
-
     setvars_dirname = self._BaseDirPath(os.path.join(MODELS_DIR,
                                                      firmware.model))
     osutils.SafeMakedirs(setvars_dirname)
-    if firmware.shared_model:
-      image_dirname = self._BaseDirPath(os.path.join(MODELS_DIR,
-                                                     firmware.shared_model))
-      osutils.SafeMakedirs(image_dirname)
-    else:
-      image_dirname = setvars_dirname
-    # Put all model files in a separate subdirectory.
-    dirname = os.path.join(self._tmpdir, MODELS_DIR, firmware.model)
-    osutils.SafeMakedirs(dirname)
-
-    if shared_image_files:
-      bios_image, bios_rw_image, ec_image, pd_image = None, None, None, None
-    else:
-      bios_image = self._ExtractFile(
-          firmware.bios_build_target, args.bios_image, firmware.main_image_uri,
-          dirname)
-      bios_rw_image = self._ExtractFile(
-          firmware.bios_build_target, None, firmware.main_rw_image_uri, dirname,
-          'rw')
-
-      ec_image = self._ExtractFile(
-          firmware.ec_build_target, args.ec_image, firmware.ec_image_uri,
-          dirname)
-      pd_image = self._ExtractFile(
-          firmware.ec_build_target, args.pd_image, firmware.pd_image_uri,
-          dirname)
-
-    image_files = self._ProcessModel(
-        bios_image=bios_image,
-        bios_rw_image=bios_rw_image,
-        ec_image=ec_image,
-        pd_image=pd_image,
-        model=firmware.model,
-        shared_image_files=shared_image_files,
-        target_dir=image_dirname)
     setvars_dict = self._GetReplaceDict(image_files, firmware.shared_model)
     setvars_dict['REPLACE_MODEL'] = firmware.model
 
@@ -890,11 +854,9 @@ class FirmwarePacker(object):
     # signature ID from the VPD.
     # TODO(sjg): Update this to say that it comes from mosys / cros_config.
     setvars_dict['REPLACE_SIGNATURE_ID'] = firmware.sig_id
-    fname = os.path.join(self._basedir, MODELS_DIR, firmware.model,
-                         'setvars.sh')
-    self._CreateFileFromTemplate(self._setvars_template_file, fname,
+    setvars_fname = os.path.join(setvars_dirname, 'setvars.sh')
+    self._CreateFileFromTemplate(self._setvars_template_file, setvars_fname,
                                  setvars_dict)
-    return ModelDetails(image_files, firmware.shared_model, firmware.key_id)
 
   def _WriteSignerInstructions(self, model_details):
     """Write the signer instructions file.
@@ -920,21 +882,8 @@ class FirmwarePacker(object):
           # Some models will not have a key. At present this is normally
           # just the zero-touch whitelabel devices.
           continue
-        # Sometimes, shared images are stored in their own directory instead
-        # of with a particular model. (See coral.) For whitelabel devices
-        # that use these images, we have to search for the corresponding
-        # image_files dictionary in order to write out the correct file name.
-        shared_model = details.shared_model
-        if shared_model:
-          if not shared_model in model_details:
-            image_files = next(d for d in model_details.values()
-                               if d.shared_model == shared_model
-                               and d.image_files).image_files
-          else:
-            image_files = model_details[shared_model].image_files
-        else:
-          image_files = details.image_files
-        dirname = os.path.join(MODELS_DIR, shared_model or model)
+        image_files = details.image_files
+        dirname = os.path.join(MODELS_DIR, details.shared_model or model)
         image_fname = self._MainImageOutput(
             image_files[MAIN].firmware_ids, dirname)
         if EC in image_files:
@@ -983,23 +932,27 @@ class FirmwarePacker(object):
         # TODO: Ignore the passed-in model list and use the list from
         # libcros_config_host always. For now the passed-in list is used for
         # testing.
-        models = args.models
-        if not args.models:
-          models = []
-          if firmware_info:
-            models = firmware_info.keys()
+        models = args.models or firmware_info.keys()
+        images = self._WriteFirmwareImages(models, firmware_info)
         for model in models:
-          model_details[model] = self._GenerateOneModel(
-              firmware_info[model], args, model_details)
+          fw = firmware_info[model]
+          image_files = images[fw.shared_model or model]
+          model_details[model] = ModelDetails(image_files, fw.shared_model,
+                                              fw.key_id)
+          if not fw.have_image:
+            continue
+          self._WriteVersions(model, image_files)
+          self._GenerateSetVars(fw, image_files)
       else:
-        self._ProcessModel(
-            model='',
+        if not args.bios_image and not args.ec_image and not args.pd_image:
+          raise PackError("Must assign at least one of BIOS or EC or PD image")
+        image_files = self._CopyFirmwareFiles(
             bios_image=args.bios_image,
             bios_rw_image=args.bios_rw_image,
             ec_image=args.ec_image,
             pd_image=args.pd_image,
-            shared_image_files=None,
             target_dir=self._basedir)
+        self._WriteVersions('', image_files)
       self._WriteVersionFile()
       if model_details:
         self._WriteSignerInstructions(model_details)
