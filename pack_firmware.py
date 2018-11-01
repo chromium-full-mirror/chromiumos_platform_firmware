@@ -80,7 +80,6 @@ class FirmwarePacker(object):
     _pack_dist: Path to `dist` directory.
     _script_base: Base directory with useful files (src/platform/firmware).
     _sfx_file: Path to `sfx.sh`.
-    _shflags_file: Path to shflags script.
     _testing: True if running tests.
     _basedir: Base temporary directory.
     _tmpdir: Temporary directory for use for running tools.
@@ -99,7 +98,6 @@ class FirmwarePacker(object):
     self._sfx_file = os.path.join(self._script_base, 'pack', 'sfx.sh')
     self._setvars_template_file = os.path.join(
         self._script_base, 'pack', 'setvars_template')
-    self._shflags_file = os.path.join(self._script_base, 'lib/shflags/shflags')
     self._testing = False
     self._basedir = None
     self._tmpdir = None
@@ -700,11 +698,6 @@ class FirmwarePacker(object):
       raise PackError("Cannot find required file '%s'" %
                       os.path.join(self._pack_dist, script))
 
-  def _CopyBaseFiles(self):
-    """Copy base files that every firmware update needs.
-    """
-    self._CopyFile(self._shflags_file, self._basedir)
-
   def _CopyExtraFiles(self, extras):
     """Copy extra files into the base directory.
 
@@ -877,7 +870,6 @@ class FirmwarePacker(object):
           pd_image=pd_image,
           target_dir=target_dir)
     self._WriteVersions(model, image_files)
-    self._CopyBaseFiles()
     if extras:
       self._CopyExtraFiles(extras)
     return image_files

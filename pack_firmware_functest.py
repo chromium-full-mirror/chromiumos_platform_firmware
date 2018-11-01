@@ -90,11 +90,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
       A sorted list of files to expect.
     """
     expected_files = [
-        'common.sh',
-        'crosfw.sh',
-        'crosutil.sh',
         'manifest.json',
-        'shflags',
         'VERSION',
         'VERSION.md5',
         UPDATER,
@@ -185,7 +181,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     _, files, versions = self._RunPackFirmware(extra_args)
 
     # Check that we got the right files.
-    self.assertEqual(9, len(files))
+    self.assertEqual(5, len(files))
     self.assertEqual(self._ExpectedFiles(['bios.bin']), files)
 
     # Comb through the VERSION file and check that everything is as expected.
@@ -273,7 +269,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     extra_args, expected_files = self._SetupArgs()
     _, files, versions = self._RunPackFirmware(extra_args)
 
-    self.assertEqual(23, len(files))
+    self.assertEqual(19, len(files))
     self.assertEqual(expected_files, files)
     version_lines = osutils.ReadFile(
         os.path.join(self.unpackdir, 'VERSION')).splitlines()
