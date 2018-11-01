@@ -447,8 +447,9 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     rc.AddCmdResult(partial_mock.Regex('type shar'), returncode=0)
     rc.AddCmdResult(partial_mock.ListRegex('file'), returncode=0,
                     output='ELF 64-bit LSB executable, etc.\n')
-    rc.AddCmdResult(partial_mock.ListRegex('futility dump_fmap -x .*image.bin'),
-                    side_effect=_CopySections, returncode=0)
+    rc.AddCmdResult(
+        partial_mock.ListRegex('futility dump_fmap -x .*image.bin$'),
+        side_effect=_CopySections, returncode=0)
     rc.AddCmdResult(partial_mock.ListRegex('futility gbb'), returncode=0,
                     output=' - exported root_key to file: rootkey.bin')
     rc.AddCmdResult(
@@ -513,8 +514,9 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     rc.AddCmdResult(
         partial_mock.ListRegex('futility dump_fmap -p .*image.binrw'),
         returncode=0, output=mocked_dump_fmap_output)
-    rc.AddCmdResult(partial_mock.ListRegex('futility dump_fmap -p .*bios.bin'),
-                    returncode=0, output=mocked_dump_fmap_output)
+    rc.AddCmdResult(
+        partial_mock.ListRegex('futility dump_fmap -p .*image.bin'),
+        returncode=0, output=mocked_dump_fmap_output)
     rc.AddCmdResult(partial_mock.Regex('extract_ecrw'), returncode=0)
     rc.AddCmdResult(partial_mock.ListRegex('futility dump_fmap -p .*ec.bin'),
                     returncode=0, output=FMAP_OUTPUT_EC)
@@ -522,9 +524,9 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
                     side_effect=cls._CreateCbfstoolFile)
     rc.AddCmdResult(partial_mock.ListRegex('futility dump_fmap -p .*pd.bin'),
                     returncode=0, output=FMAP_OUTPUT_EC)
-    rc.AddCmdResult(partial_mock.ListRegex(
-        'futility dump_fmap -x .*/bios.bin .*_MAIN_A'),
-                    returncode=0, side_effect=cls._CreateDumpfmapFile)
+    rc.AddCmdResult(
+        partial_mock.ListRegex('futility dump_fmap -x .*image.bin .*_MAIN_A'),
+        returncode=0, side_effect=cls._CreateDumpfmapFile)
 
   def testMockedRun(self):
     """Start up with a valid updater script and BIOS."""

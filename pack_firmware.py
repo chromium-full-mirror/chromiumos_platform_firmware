@@ -553,6 +553,19 @@ class FirmwarePacker(object):
     image_pd = self._PdImageOutput(target_dir)
     image_files = {}
     merge_bios_rw_image = False
+    # Merge firmware first so output can be named by version.
+    if bios_rw_image:
+      assert bios_image, 'Need main (RO) firmware image to merge RW image.'
+      merge_bios_rw_image = True
+      bios_image = self._CopyFile(bios_image, self._tmpdir, preserve_path=True)
+      self._MergeRwFirmware(bios_image, bios_rw_image)
+      if ec_image:
+        ec_image = self._CopyFile(ec_image, self._tmpdir, preserve_path=True)
+        self._MergeRwEcFirmware(ec_image, bios_image, 'EC_MAIN_A', 'ecrw')
+      if pd_image:
+        pd_image = self._CopyFile(pd_image, self._tmpdir, preserve_path=True)
+        self._MergeRwEcFirmware(pd_image, bios_image, 'PD_MAIN_A', 'pdrw')
+
     if bios_image:
       bios_version = self._ExtractFrid(bios_image)
       bios_rw_version = bios_version
@@ -560,10 +573,7 @@ class FirmwarePacker(object):
       image_files['BIOS'] = ImageFile(bios_image, bios_version)
 
     if bios_rw_image:
-      assert bios_image, 'Need main (RO) firmware image to merge RW image.'
-      merge_bios_rw_image = True
       bios_rw_version = self._ExtractFrid(bios_rw_image)
-      self._MergeRwFirmware(image_main, bios_rw_image)
       image_files['BIOS (RW)'] = ImageFile(bios_rw_image, bios_rw_version)
 
     if ec_image:
@@ -571,7 +581,6 @@ class FirmwarePacker(object):
       image_files['EC'] = ImageFile(ec_image, ec_version)
       shutil.copy2(ec_image, image_ec)
       if merge_bios_rw_image:
-        self._MergeRwEcFirmware(image_ec, image_main, 'EC_MAIN_A', 'ecrw')
         ec_rw_version = self._ExtractFrid(image_ec, 'RW_FWID')
         image_files['EC (RW)'] = ImageFile(None, ec_rw_version)
 
@@ -580,7 +589,6 @@ class FirmwarePacker(object):
       image_files['PD'] = ImageFile(pd_image, pd_version)
       shutil.copy2(pd_image, image_pd)
       if merge_bios_rw_image:
-        self._MergeRwEcFirmware(image_pd, image_main, 'PD_MAIN_A', 'pdrw')
         pd_rw_version = self._ExtractFrid(image_pd, 'RW_FWID')
         image_files['PD (RW)'] = ImageFile(None, pd_rw_version)
     return image_files
@@ -629,19 +637,22 @@ class FirmwarePacker(object):
       return fname
 
   @staticmethod
-  def _CopyFile(src, dst, mode=CHMOD_ALL_READ):
+  def _CopyFile(src, dst, mode=CHMOD_ALL_READ, preserve_path=False):
     """Copy a file (to another file or into a directory) and set its mode.
 
     Args:
       src: Source filename (relative or absolute path).
       dst: Destination filename or directory (relative or absolute path).
       mode: File mode to OR with the existing mode.
+      preserve_path: Whether or not to preserve src's path inside dst.
 
     Returns:
       Full pathname of the new file.
     """
     if os.path.isdir(dst):
-      dst = os.path.join(dst, os.path.basename(src))
+      dst = os.path.join(
+          dst, src.strip('/') if preserve_path else os.path.basename(src))
+    osutils.SafeMakedirs(dst if os.path.isdir(dst) else os.path.dirname(dst))
     shutil.copy2(src, dst)
     os.chmod(dst, os.stat(dst).st_mode | mode)
     return dst
