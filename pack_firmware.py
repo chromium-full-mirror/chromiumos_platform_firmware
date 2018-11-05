@@ -599,7 +599,7 @@ class FirmwarePacker(object):
       Filename of the output image.
     """
     return self._FirmwareImageOutput(
-        tag='bios',
+        tag='image',
         build_target=image_file.build_target,
         fw_ids=image_file.firmware_ids,
         extract_version=self._ExtractMainVersion,

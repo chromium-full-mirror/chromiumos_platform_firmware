@@ -344,13 +344,13 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     """Check firmware image output name when legacy is set."""
     self.packer._args = self.packer.ParseArgs(['-L'])
     self.packer._tmpdir = self.packer._CreateTmpDir()
-    self.assertEqual(self.packer._FirmwareImageOutput('bios'), 'bios.bin')
-    self.assertEqual(self.packer._FirmwareImageOutput('bios', 'reef'),
-                     'bios.bin')
+    self.assertEqual(self.packer._FirmwareImageOutput('image'), 'image.bin')
+    self.assertEqual(self.packer._FirmwareImageOutput('image', 'reef'),
+                     'image.bin')
     self.assertEqual(
-        self.packer._FirmwareImageOutput(tag='bios',
+        self.packer._FirmwareImageOutput(tag='image',
                                          target_dir=self.packer._tmpdir),
-        os.path.join(self.packer._tmpdir, 'bios.bin'))
+        os.path.join(self.packer._tmpdir, 'image.bin'))
     self.packer._RemoveTmpdirs()
 
   def testUntarFile(self):

@@ -36,9 +36,9 @@ REEF_MODEL = 'reef'
 REEF_RO_MAIN_VERSION = 'Google_Reef.9042.43.0'
 
 BIOS_IMAGES = {
-    'reef': 'bios-reef.ro-9042-50-0.rw-9042-50-0.bin',
-    'pyro': 'bios-pyro.ro-9042-41-0.rw-9042-41-0.bin',
-    'sand': 'bios-reef.ro-9000-0-0.rw-9000-0-0.bin'
+    'reef': 'image-reef.ro-9042-50-0.rw-9042-50-0.bin',
+    'pyro': 'image-pyro.ro-9042-41-0.rw-9042-41-0.bin',
+    'sand': 'image-reef.ro-9000-0-0.rw-9000-0-0.bin'
 }
 BIOS_IMAGES['electro'] = BIOS_IMAGES['reef']
 BIOS_IMAGES['basking'] = BIOS_IMAGES['sand']
@@ -190,7 +190,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
 
     # Check that we got the right files.
     self.assertEqual(3, len(files))
-    self.assertEqual(self._ExpectedFiles(['bios.bin']), files)
+    self.assertEqual(self._ExpectedFiles(['image.bin']), files)
 
     # Comb through the VERSION file and check that everything is as expected.
     lines = osutils.ReadFile(
@@ -407,7 +407,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     ec_id = 'GoogleEC_Veyron_Mickey.6588.197.0'
     pd_id = 'GooglePD_Veyron_Mickey.6588.197.0'
 
-    self._MakeImage('bios.bin', ro_id, rw_id)
+    self._MakeImage('image.bin', ro_id, rw_id)
     self._MakeImage('ec.bin', ec_id)
     self._MakeImage('pd.bin', pd_id)
 
@@ -426,7 +426,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     outfile, files, _ = self._RunPackFirmware(extra_args)
 
     # The shellball shows files in a comment with this format:
-    # 16777216 -rw-r--r-- bios.bin
+    # 16777216 -rw-r--r-- image.bin
     re_files = re.compile(r'^# +[0-9]+ [-rwx]+ \(.*\)$')
     for line in osutils.ReadFile(outfile).splitlines():
       m = re_files.match(line)
@@ -599,8 +599,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     """
     self._RunScript(outfile, model, whitelabel_tag=whitelabel_tag)
     expected_sig_id = signature_id or model
-    bios_file = os.path.join(self.outdir, 'bios.bin')
-    regions = self._GetUnequalRegions('%s/image.bin' % self.indir, bios_file,
+    host_file = os.path.join(self.outdir, 'image.bin')
+    regions = self._GetUnequalRegions('%s/image.bin' % self.indir, host_file,
                                       expected_sig_id, rootkey_sum)
     self.assertEqual([], regions)
 
