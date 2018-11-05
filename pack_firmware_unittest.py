@@ -310,23 +310,31 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     self.packer._tmpdir = self.packer._CreateTmpDir()
 
     tag = 'ec'
+    target = 'reef'
     fw_ids = pack_firmware.FirmwareIds(EC_RO_FRID, EC_RW_FWID)
     bad_fw_ids = pack_firmware.FirmwareIds(EC_RO_FRID, None)
     version_fn = lambda fwid: '1-1-5857' if fwid == EC_RO_FRID else '1-1-5858'
     self.assertEqual(self.packer._FirmwareImageOutput(tag), '')
     self.assertEqual(
-        self.packer._FirmwareImageOutput(tag, fw_ids), '')
+        self.packer._FirmwareImageOutput(tag, fw_ids=fw_ids,
+                                         extract_version=version_fn),
+        '')
     self.assertEqual(
-        self.packer._FirmwareImageOutput(tag, extract_version=version_fn), '')
+        self.packer._FirmwareImageOutput(tag, target, fw_ids), '')
     self.assertEqual(
-        self.packer._FirmwareImageOutput(tag, bad_fw_ids, version_fn), '')
+        self.packer._FirmwareImageOutput(tag, target,
+                                         extract_version=version_fn),
+        '')
+    self.assertEqual(
+        self.packer._FirmwareImageOutput(tag, target, bad_fw_ids, version_fn),
+        '')
 
-    expected_fname = 'ec.ro-1-1-5857.rw-1-1-5858.bin'
+    expected_fname = 'ec-reef.ro-1-1-5857.rw-1-1-5858.bin'
     self.assertEqual(
-        self.packer._FirmwareImageOutput(tag, fw_ids, version_fn),
+        self.packer._FirmwareImageOutput(tag, target, fw_ids, version_fn),
         expected_fname)
     self.assertEqual(
-        self.packer._FirmwareImageOutput(tag, fw_ids, version_fn,
+        self.packer._FirmwareImageOutput(tag, target, fw_ids, version_fn,
                                          self.packer._tmpdir),
         os.path.join(self.packer._tmpdir, expected_fname))
 
@@ -336,10 +344,8 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     """Check firmware image output name when legacy is set."""
     self.packer._args = self.packer.ParseArgs(['-L'])
     self.packer._tmpdir = self.packer._CreateTmpDir()
-
-    fw_ids = pack_firmware.FirmwareIds(RO_FRID, RW_FWID)
     self.assertEqual(self.packer._FirmwareImageOutput('bios'), 'bios.bin')
-    self.assertEqual(self.packer._FirmwareImageOutput('bios', fw_ids),
+    self.assertEqual(self.packer._FirmwareImageOutput('bios', 'reef'),
                      'bios.bin')
     self.assertEqual(
         self.packer._FirmwareImageOutput(tag='bios',
