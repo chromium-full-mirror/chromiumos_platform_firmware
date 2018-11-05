@@ -41,6 +41,9 @@ Section = namedtuple('Section', ['offset', 'size'])
 ImageFile = namedtuple('ImageFile', ['filename', 'firmware_ids'])
 FirmwareIds = namedtuple('FirmwareIds', ['ro_id', 'rw_id'])
 
+# Source locations for all firmware images.
+FirmwareSource = namedtuple('FirmwareSource', ['bios', 'bios_rw', 'ec', 'pd'])
+
 # image_files:  Dict containing information on the output image files for this
 #     model:
 #   key: Image name (e.g. 'BIOS (RW)' or 'EC').
@@ -262,6 +265,17 @@ class FirmwarePacker(object):
     """
     return os.path.join(self._basedir, basename)
 
+  def _TmpDirPath(self, basename):
+    """Build a filename in the temporary directory.
+
+    Args:
+      basename: Leafname (with no directory) of file to build.
+
+    Returns:
+      New filename within the self._tmpdir directory.
+    """
+    return os.path.join(self._tmpdir, basename)
+
   @staticmethod
   def _CopyTimestamp(reference_fname, fname):
     """Copy the timestamp from a reference file to another file.
@@ -339,8 +353,11 @@ class FirmwarePacker(object):
     self._MergeFile(dst, src, dst_section.offset, src_section.offset,
                     src_section.size)
 
-  def _MergeRwFirmware(self, ro_fname, rw_fname):
-    """Merge RW sections from RW firmware to RO firmware.
+  def _MergeRwMainFirmware(self, ro_fname, rw_fname):
+    """Merge RW sections from main RW firmware to main RO firmware.
+
+    The RO image is cloned to a temporary directory before the RW image
+    is merged.
 
     Args:
       ro_fname: RO firmware image file (relative or absolute path).
@@ -406,7 +423,7 @@ class FirmwarePacker(object):
       self._ExtractEcRwUsingCBFS(fname, cbfs_name, ecrw_fname)
 
   def _MergeRwEcFirmware(self, ec_fname, rw_fname, fmap_area_name, cbfs_name):
-    """Merge EC firmware from an image into the given file.
+    """Merge EC firmware from an image into a copy of the given file.
 
     Args:
       ec_fname: Filename to merge RW EC binary into (relative or absolute path).
@@ -425,6 +442,30 @@ class FirmwarePacker(object):
                       'section %#x, cannot merge' % (ecrw_size, section.size))
     self._MergeFile(ec_fname, ecrw_fname, section.offset)
     self._CopyTimestamp(rw_fname, ec_fname)
+
+  def _MergeRwFirmware(self, fw_source, merge_dir):
+    """Merge all RW firmware into corresponding RO images.
+
+    RO images are cloned to a given directory before being modified.
+
+    Args:
+      fw_source: Locations of original images.
+      merge_dir: Directory in which to perform the merge.
+
+    Returns:
+      FirmwareSource with locations of merged firmware.
+    """
+    if not fw_source.bios:
+      raise PackError('Need main (RO) firmware image to merge RW image.')
+    bios, bios_rw, ec, pd = [
+        fw and self._CopyFile(fw, merge_dir, preserve_path=True)
+        for fw in fw_source]
+    self._MergeRwMainFirmware(bios, bios_rw)
+    if ec:
+      self._MergeRwEcFirmware(ec, bios, 'EC_MAIN_A', 'ecrw')
+    if pd:
+      self._MergeRwEcFirmware(pd, bios, 'PD_MAIN_A', 'pdrw')
+    return FirmwareSource(bios, bios_rw, ec, pd)
 
   @staticmethod
   def _ExtractEcVersion(fw_id):
@@ -561,16 +602,13 @@ class FirmwarePacker(object):
         extract_version=self._ExtractMainVersion,
         target_dir=target_dir)
 
-  def _CopyFirmwareFiles(self, bios_image, bios_rw_image, ec_image, pd_image,
-                         target_dir):
+  def _CopyFirmwareFiles(self, image_files, target_dir):
     """Process firmware files and copy them into the working directory.
 
     Args:
-      bios_image: Input filename of main BIOS (main) image.
-      bios_rw_image: Input filename of RW BIOS image, or None if none.
-      ec_image: Input filename of EC (Embedded Controller) image, or None if
-          none.
-      pd_image: Input filename of PD (Power Delivery) image, or None if none.
+      image_files: Dict:
+        key: Type of image (e.g. 'BIOS')
+        value: Corresponding ImageFile object.
       target_dir: Target directory for output images.
 
     Returns:
@@ -578,42 +616,16 @@ class FirmwarePacker(object):
         key: Name, one of BIOS, BIOS (RW), EC, EC (RW), PD, PD (RW).
         value: ImageFile, containing filename and version.
     """
-    image_files = {}
-
-    # Merge firmware first so output can be named by version.
-    if bios_rw_image:
-      assert bios_image, 'Need main (RO) firmware image to merge RW image.'
-      bios_image = self._CopyFile(bios_image, self._tmpdir, preserve_path=True)
-      self._MergeRwFirmware(bios_image, bios_rw_image)
-      if ec_image:
-        ec_image = self._CopyFile(ec_image, self._tmpdir, preserve_path=True)
-        self._MergeRwEcFirmware(ec_image, bios_image, 'EC_MAIN_A', 'ecrw')
-      if pd_image:
-        pd_image = self._CopyFile(pd_image, self._tmpdir, preserve_path=True)
-        self._MergeRwEcFirmware(pd_image, bios_image, 'PD_MAIN_A', 'pdrw')
-
-    if bios_image:
-      bios_fw_id = self._ExtractFirmwareIds(bios_image, bios_rw_image)
-      image_main = self._MainImageOutput(bios_fw_id, target_dir)
-      shutil.copy2(bios_image, image_main)
-      image_files[MAIN] = ImageFile(bios_image, bios_fw_id)
-
-    if bios_rw_image:
-      image_files[MAIN_RW] = ImageFile(
-          bios_rw_image, self._ExtractFirmwareIds(bios_rw_image))
-
-    if ec_image:
-      ec_fw_id = self._ExtractFirmwareIds(ec_image)
-      image_ec = self._EcImageOutput(ec_fw_id, target_dir)
-      image_files[EC] = ImageFile(ec_image, ec_fw_id)
-      shutil.copy2(ec_image, image_ec)
-
-    if pd_image:
-      pd_fw_id = self._ExtractFirmwareIds(pd_image)
-      image_pd = self._PdImageOutput(pd_fw_id, target_dir)
-      image_files[PD] = ImageFile(pd_image, pd_fw_id)
-      shutil.copy2(pd_image, image_pd)
-    return image_files
+    bios, ec, pd = [image_files.get(label, None) for label in [MAIN, EC, PD]]
+    if bios:
+      shutil.copy2(bios.filename,
+                   self._MainImageOutput(bios.firmware_ids, target_dir))
+    if ec:
+      shutil.copy2(ec.filename,
+                   self._EcImageOutput(ec.firmware_ids, target_dir))
+    if pd:
+      shutil.copy2(pd.filename,
+                   self._PdImageOutput(pd.firmware_ids, target_dir))
 
   def _WriteVersions(self, model, image_files):
     """Write version information for all image files into the version file.
@@ -747,6 +759,55 @@ class FirmwarePacker(object):
       for fname in glob.glob(self._BaseDirPath('VERSION*')):
         print(osutils.ReadFile(fname))
 
+  def _AddImageFile(self, image_files, key, ro_image, rw_image=None):
+    """Adds an ImageFile to the given dict if possible.
+
+    Does nothing in ro_image not provided.
+
+    Args:
+      image_files: Dictionary in which to insert ImageFile.
+      key: Dictionary key for the new ImageFile.
+      ro_image: Path to the RO image.
+      rw_image: Path to the RW image, if any.
+    """
+    if not ro_image:
+      return
+    image_files[key] = ImageFile(ro_image,
+                                 self._ExtractFirmwareIds(ro_image, rw_image))
+
+  def _ProcessFirmware(self, fw_source, target_dir, fw_name=None):
+    """Prepares firmware to be copied into shellball, then copies it.
+
+    In particular, merges the RW firmware if it is provided.
+
+    Args:
+      fw_source: Locations of original images.
+      target_dir: Output location for firmware images.
+      fw_name: The build target for this firmware, if available.
+
+    Returns:
+      Dict:
+        key: Type of firmware (e.g. 'BIOS')
+        value: Corresponding ImageFile object.
+    """
+    if not fw_source.bios and not fw_source.ec and not fw_source.pd:
+      raise PackError("Target '%s': Must assign at least one of BIOS or EC "
+                      'or PD image' % fw_name)
+    if fw_source.bios_rw:
+      merge_dir = self._TmpDirPath('%s-merged' % (fw_name or 'images'))
+      # We use os.mkdir instead of osutils.SafeMakedirs because merge_dir
+      # should not exist. If it does, something is broken and we want to know.
+      # This prevents FirmwarePacker from silently reusing dirty images.
+      os.mkdir(merge_dir)
+      fw_source = self._MergeRwFirmware(fw_source, merge_dir)
+    image_files = {}
+    self._AddImageFile(image_files, MAIN, fw_source.bios, fw_source.bios_rw)
+    self._AddImageFile(image_files, MAIN_RW, fw_source.bios_rw)
+    self._AddImageFile(image_files, EC, fw_source.ec)
+    self._AddImageFile(image_files, PD, fw_source.pd)
+    self._CopyFirmwareFiles(image_files, target_dir)
+    return image_files
+
   def _ExtractFile(
       self, build_target, fname_template, uri, dirname, suffix=''):
     """Obtain a file based on provided information.
@@ -784,8 +845,28 @@ class FirmwarePacker(object):
     return self._UntarFile(
         os.path.join(self._args.imagedir, fname), dirname, suffix)
 
+  def _ExtractFirmware(self, firmware, dirname):
+    """Extract all firmware images to a temporary directory.
+
+    Args:
+      firmware: FirmwareInfo object, describing what firmware to extract.
+      dirname: Destination for extracted firmware.
+
+    Returns:
+      FirmwareSource object containing filenames of extracted images.
+    """
+    bios = self._ExtractFile(firmware.bios_build_target, self._args.bios_image,
+                             firmware.main_image_uri, dirname)
+    bios_rw = self._ExtractFile(firmware.bios_build_target, None,
+                                firmware.main_rw_image_uri, dirname, 'rw')
+    ec = self._ExtractFile(firmware.ec_build_target, self._args.ec_image,
+                           firmware.ec_image_uri, dirname)
+    pd = self._ExtractFile(firmware.ec_build_target, self._args.pd_image,
+                           firmware.pd_image_uri, dirname)
+    return FirmwareSource(bios, bios_rw, ec, pd)
+
   def _WriteFirmwareImages(self, models, firmware_info):
-    """Extract and build all firmware images.
+    """Extract and build all firmware images, then copy them to the shellball.
 
     Args:
       models: List of models to extract images for.
@@ -808,31 +889,12 @@ class FirmwarePacker(object):
       target_subdir = os.path.join(MODELS_DIR, fw_target)
       unpack_dir = os.path.join(self._tmpdir, target_subdir)
       osutils.SafeMakedirs(unpack_dir)
-      bios_image = self._ExtractFile(
-          firmware.bios_build_target, self._args.bios_image,
-          firmware.main_image_uri, unpack_dir)
-      bios_rw_image = self._ExtractFile(
-          firmware.bios_build_target, None, firmware.main_rw_image_uri,
-          unpack_dir, 'rw')
-      ec_image = self._ExtractFile(
-          firmware.ec_build_target, self._args.ec_image, firmware.ec_image_uri,
-          unpack_dir)
-      pd_image = self._ExtractFile(
-          firmware.ec_build_target, self._args.pd_image, firmware.pd_image_uri,
-          unpack_dir)
-
-      if not bios_image and not ec_image and not pd_image:
-        raise PackError("Target '%s': Must assign at least one of BIOS or EC "
-                        'or PD image' % fw_target)
+      fw_source = self._ExtractFirmware(firmware, unpack_dir)
 
       target_dir = self._BaseDirPath(target_subdir)
       osutils.SafeMakedirs(target_dir)
-      images[fw_target] = self._CopyFirmwareFiles(
-          bios_image=bios_image,
-          bios_rw_image=bios_rw_image,
-          ec_image=ec_image,
-          pd_image=pd_image,
-          target_dir=target_dir)
+      images[fw_target] = self._ProcessFirmware(fw_source, target_dir,
+                                                fw_target)
     return images
 
   def _GenerateSetVars(self, firmware, image_files):
@@ -944,14 +1006,10 @@ class FirmwarePacker(object):
           self._WriteVersions(model, image_files)
           self._GenerateSetVars(fw, image_files)
       else:
-        if not args.bios_image and not args.ec_image and not args.pd_image:
-          raise PackError("Must assign at least one of BIOS or EC or PD image")
-        image_files = self._CopyFirmwareFiles(
-            bios_image=args.bios_image,
-            bios_rw_image=args.bios_rw_image,
-            ec_image=args.ec_image,
-            pd_image=args.pd_image,
-            target_dir=self._basedir)
+        image_files = self._ProcessFirmware(
+            FirmwareSource(args.bios_image, args.bios_rw_image, args.ec_image,
+                           args.pd_image),
+            self._basedir)
         self._WriteVersions('', image_files)
       self._WriteVersionFile()
       if model_details:

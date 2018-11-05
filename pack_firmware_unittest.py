@@ -505,9 +505,10 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
   @classmethod
   def _AddMergeMocks(cls, rc, mocked_dump_fmap_output):
     rc.AddCmdResult(partial_mock.ListRegex(
-        'futility dump_fmap -x .*test/image_rw.bin'), returncode=0)
+        'futility dump_fmap -x .*/images-merged/.*image_rw.bin'), returncode=0)
     rc.AddCmdResult(
-        partial_mock.ListRegex('futility dump_fmap -p .*/test/image_rw.bin'),
+        partial_mock.ListRegex(
+            'futility dump_fmap -p .*/images-merged/.*image_rw.bin'),
         returncode=0, output=mocked_dump_fmap_output)
     rc.AddCmdResult(
         partial_mock.ListRegex('futility dump_fmap -p .*image.binrw'),
