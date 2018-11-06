@@ -1,0 +1,7 @@
+chromeos:
+  devices:
+    - skus:
+        - config:
+            name: "reef"
+            firmware:
+              main-rw-image: "bcs://Reef.9000.0.0.tbz2"

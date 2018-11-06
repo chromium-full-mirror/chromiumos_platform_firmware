@@ -8,3 +8,4 @@
 *-firmware-binaries/
 *.pyc
 test/*.dtb
+test/*.json

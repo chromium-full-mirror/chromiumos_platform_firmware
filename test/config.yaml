@@ -1,0 +1,141 @@
+firmware_common: &firmware_common
+  $build-target: "reef"
+  $fw-name: "Reef"
+  $ro-rev: "9042.50"
+  $ec-rev: "{{$ro-rev}}"
+  bcs-overlay: "overlay-{{$build-target}}-private"
+  build-targets:
+    coreboot: "{{$build-target}}"
+    ec: "{{$build-target}}"
+    depthcharge: "{{$build-target}}"
+    libpayload: "{{$build-target}}"
+  ec-image: "bcs://{{$fw-name}}_EC.{{$ec-rev}}.0.tbz2"
+  main-image: "bcs://{{$fw-name}}.{{$ro-rev}}.0.tbz2"
+
+firmwares:
+  reef_9042_50: &reef_9042_50
+    <<: *firmware_common
+    $ro-rev: "9042.50"
+    name: "reef"
+    extra:
+      - "${FILESDIR}/extra"
+      - "${SYSROOT}/usr/sbin/ectool"
+      - "bcs://Reef.9000.0.0.tbz2"
+  reef_9000ro_9042ec: &reef_9000ro_9042ec
+    <<: *firmware_common
+    $ro-rev: "9000.0"
+    $ec-rev: "9042.50"
+    name: "sand"
+  pyro_9042_41: &pyro_9042_41
+    <<: *firmware_common
+    $fw-name: "Pyro"
+    $build-target: "pyro"
+    $ro-rev: "9042.41"
+  snappy_9042_43: &snappy_9042_43
+    <<: *firmware_common
+    $fw-name: "Snappy"
+    $build-target: "snappy"
+    $ro-rev: "9042.43"
+
+
+base_config: &base_config
+  name: "{{$device-name}}"
+
+device_config: &device_config
+  <<: *base_config
+  identity:
+    platform-name: "{{$device-name}}"
+    smbios-name-match: "{{$device-name}}"
+  firmware-signing:
+    key-id: "{{$key-id}}"
+    signature-id: "{{$device-name}}"
+
+wl_device_config: &wl_device_config
+  <<: *base_config
+  $signature-id: "{{$device-name}}-{{$whitelabel-tag}}"
+  identity:
+    platform-name: "{{$device-name}}"
+    smbios-name-match: "{{$device-name}}"
+    whitelabel-tag: "{{$whitelabel-tag}}"
+  firmware-signing:
+    key-id: "{{$key-id}}"
+    signature-id: "{{$signature-id}}"
+    sig-id-in-customization-id: true
+
+chromeos:
+  devices:
+    - $device-name: "reef"
+      products:
+        - $key-id: "REEF"
+      skus:
+        - config:
+            <<: *device_config
+            firmware: *reef_9042_50
+    - $device-name: "electro"
+      products:
+        - $key-id: "ELECTRO"
+      skus:
+        - config:
+            <<: *device_config
+            firmware: *reef_9042_50
+    - $device-name: "basking"
+      products:
+        - $key-id: "BASKING"
+      skus:
+        - config:
+            <<: *device_config
+            firmware: *reef_9000ro_9042ec
+    - $device-name: "sand"
+      products:
+        - $key-id: "SAND"
+      skus:
+        - config:
+            <<: *device_config
+            firmware: *reef_9000ro_9042ec
+    - $device-name: "pyro"
+      products:
+        - $key-id: "PYRO"
+      skus:
+        - config:
+            <<: *device_config
+            firmware: *pyro_9042_41
+    - $device-name: "snappy"
+      products:
+        - $key-id: "SNAPPY"
+      skus:
+        - config:
+            <<: *device_config
+            firmware: *snappy_9042_43
+    - $device-name: "whitelabel-test"
+      products:
+        - $key-id: "WHITELABEL"
+      skus:
+        - config:
+            <<: *device_config
+            firmware: *reef_9000ro_9042ec
+    - $device-name: "zero-touch-whitelabel"
+      products:
+        - $whitelabel-tag: "" # default
+          $signature-id: "{{$device-name}}-default"
+          $key-id: ""
+        - $whitelabel-tag: "zt1"
+          $key-id: "ZT1"
+        - $whitelabel-tag: "zt2"
+          $key-id: "ZT2"
+      skus:
+        - config:
+            <<: *wl_device_config
+            firmware: *reef_9042_50
+    - $device-name: "wlref"
+      products:
+        - $whitelabel-tag: "" # default
+          $signature-id: "{{$device-name}}-default"
+          $key-id: ""
+        - $whitelabel-tag: "wltag1"
+          $key-id: "WLREF-WLTAG1"
+        - $whitelabel-tag: "wltag2"
+          $key-id: "WLREF-WLTAG2"
+      skus:
+        - config:
+            <<: *wl_device_config
+            firmware: *reef_9042_50

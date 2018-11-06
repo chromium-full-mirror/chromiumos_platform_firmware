@@ -393,21 +393,28 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     self.packer._basedir = 'base'
     self.assertEqual('base/fred', self.packer._BaseDirPath('fred'))
 
-  def _SetUpConfigNode(self):
-    """Set up ready our test configuration ready for use.
+  def _GetFakeReefFirmware(self):
+    """Get the fake reef firmware config
 
     Returns:
-      Integer offset of the firmware node.
+      Dict of the reef firmware config
     """
-    config = libcros_config_host.CrosConfig('test/config.dtb')
-    return config.GetFamilyNode('/firmware/reef')
+    return {
+        'ec-image': 'bcs://Reef_EC.9042.50.0.tbz2',
+        'extra': [
+            '${FILESDIR}/extra',
+            '${SYSROOT}/usr/sbin/ectool',
+            'bcs://Reef.9000.0.0.tbz2'
+        ],
+        'main-image': 'bcs://Reef.9042.50.0.tbz2',
+    }
 
   def testExtractFileLocal(self):
     """Test handling file extraction based on a configuration property,"""
-    node = self._SetUpConfigNode()
+    fake_fw = self._GetFakeReefFirmware()
     self.packer._args = self.packer.ParseArgs(['-l'])
     # Since the 'extra' property exists, this should give as a valid file.
-    extra = node.GetStrList('extra')
+    extra = fake_fw['extra']
     self.assertEqual(
         self.packer._ExtractFile('reef', 'test/MODEL-files/MODEL_fake_extra',
                                  extra, None),
@@ -423,15 +430,15 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     self.packer._tmpdir = self.packer._CreateTmpDir()
     self.packer._args = self.packer.ParseArgs(['--imagedir', 'functest'])
     dirname = self.packer._CreateTmpDir()
-    node = self._SetUpConfigNode()
+    fake_fw = self._GetFakeReefFirmware()
 
     # This should look up main-image, find that file in functest/, copy it to
     # our directory and return its filename.
-    main_image = node.GetStr('main-image')
+    main_image = fake_fw['main-image']
     self.assertEqual(
         self.packer._ExtractFile(None, None, main_image, dirname),
         os.path.join(dirname, 'image.bin'))
-    ec_image = node.GetStr('ec-image')
+    ec_image = fake_fw['ec-image']
     self.assertEqual(
         self.packer._ExtractFile(None, None, ec_image, dirname),
         os.path.join(dirname, 'ec.bin'))
@@ -591,7 +598,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
 
   def testMockedRunWithUnibuild(self):
     """Start up with a valid updater script and BIOS."""
-    args = self.SetupRunWithUnibuild('config.dtb')
+    args = self.SetupRunWithUnibuild('config.yaml')
     with cros_test_lib.RunCommandMock() as rc:
       self._AddMocks(rc)
       pack_firmware.main(args)
@@ -600,7 +607,11 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
   def testMockedRunWithUnibuildMerge(self):
     """Start up with a valid updater script and both RO and RW BIOS."""
 
-    args = self.SetupRunWithUnibuild('config_rw.dtb')
+    # Due to a bug in the DT impl, the RW firmware image was never actually
+    # present.
+    # TODO(sjg): Change this to config_rw.json once the RW merge case if
+    # correctly supported.
+    args = self.SetupRunWithUnibuild('config.yaml')
     with cros_test_lib.RunCommandMock() as rc:
       self._AddMocks(rc)
       self._AddMergeMocks(rc, FMAP_OUTPUT)

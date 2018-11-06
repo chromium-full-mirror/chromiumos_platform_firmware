@@ -253,7 +253,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     extra_args = []
     for model in all_models:
       extra_args += ['-m', model]
-    extra_args += ['-c', 'test/config.dtb', '-i', 'functest']
+    extra_args += ['-c', 'test/config.yaml', '-i', 'functest']
     expected_files = self._ExpectedFiles(
         ['fake_extra_tool',
          'ectool',
@@ -356,7 +356,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     versions = pack_firmware_utils.ReadVersions(
         os.path.join(self.unpackdir, MODELS_DIR, 'pyro/setvars.sh'))
     self.assertEqual('Google_Pyro.9042.41.0', versions['TARGET_FWID'])
-    self._CheckVars(versions, '${MODEL_DIR}/%s', 'pyro')
+    self._CheckVars(versions, 'models/pyro/%s', 'pyro')
 
     lines = osutils.ReadFile(
         os.path.join(self.unpackdir, 'signer_config.csv')).splitlines()
