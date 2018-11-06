@@ -37,6 +37,7 @@ MAIN, MAIN_RW = 'BIOS', 'BIOS (RW)'
 EC = 'EC'
 PD = 'PD'
 MODELS_DIR = 'models'
+IMG_DIR = 'images'
 Section = namedtuple('Section', ['offset', 'size'])
 ImageFile = namedtuple('ImageFile',
                        ['filename', 'build_target', 'firmware_ids'])
@@ -49,11 +50,8 @@ FirmwareSource = namedtuple('FirmwareSource', ['bios', 'bios_rw', 'ec', 'pd'])
 #     model:
 #   key: Image name (e.g. 'BIOS (RW)' or 'EC').
 #   value: ImageFile, containing filename and version.
-# shared_model: shared model name if this model shares firmware with another
-#     model (or None if it does not)
 # key_id: key ID to use to sign the image for this model
-ModelDetails = namedtuple('ModelDetails',
-                          ['image_files', 'shared_model', 'key_id'])
+ModelDetails = namedtuple('ModelDetails', ['image_files', 'key_id'])
 
 # File execution permissions. We could use state.S_... but that's confusing.
 CHMOD_ALL_READ = 0444
@@ -681,6 +679,8 @@ class FirmwarePacker(object):
   def _CopyFile(src, dst, mode=CHMOD_ALL_READ, preserve_path=False):
     """Copy a file (to another file or into a directory) and set its mode.
 
+    Fails if src/dst do not exist.
+
     Args:
       src: Source filename (relative or absolute path).
       dst: Destination filename or directory (relative or absolute path).
@@ -698,27 +698,25 @@ class FirmwarePacker(object):
     os.chmod(dst, os.stat(dst).st_mode | mode)
     return dst
 
-  def _GetReplaceDict(self, image_files, shared_model=None):
+  def _GetReplaceDict(self, image_files):
     """Build a dictionary of string replacements for use with the update script.
 
     Args:
       image_files: Dict with:
           key: Image type (e.g. 'BIOS').
           value: ImageFile object containing filename and version.
-      shared_model: Model with which the current model shares firmware.
 
     Returns:
       Dict with:
           key: String to replace.
           value: Value to replace with.
     """
-    empty = ImageFile(None, None, FirmwareIds('', ''))
+    empty = ImageFile('', '', FirmwareIds('', ''))
     bios, ec, pd = [image_files.get(label, empty) for label in [MAIN, EC, PD]]
-    dirname = 'models/%s' % shared_model if shared_model else '${MODEL_DIR}'
     return {
-        'REPLACE_TARGET_IMAGE_RO_MAIN': self._MainImageOutput(bios, dirname),
-        'REPLACE_TARGET_IMAGE_EC': self._EcImageOutput(ec, dirname),
-        'REPLACE_TARGET_IMAGE_PD': self._PdImageOutput(pd, dirname),
+        'REPLACE_TARGET_IMAGE_RO_MAIN': self._MainImageOutput(bios, IMG_DIR),
+        'REPLACE_TARGET_IMAGE_EC': self._EcImageOutput(ec, IMG_DIR),
+        'REPLACE_TARGET_IMAGE_PD': self._PdImageOutput(pd, IMG_DIR),
     }
 
   @staticmethod
@@ -892,15 +890,12 @@ class FirmwarePacker(object):
       if fw_target in images:
         continue
 
-      target_subdir = os.path.join(MODELS_DIR, fw_target)
-      unpack_dir = os.path.join(self._tmpdir, target_subdir)
+      unpack_dir = self._TmpDirPath(fw_target)
       osutils.SafeMakedirs(unpack_dir)
       fw_source = self._ExtractFirmware(firmware, unpack_dir)
 
-      target_dir = self._BaseDirPath(target_subdir)
-      osutils.SafeMakedirs(target_dir)
       images[fw_target] = self._ProcessFirmware(
-          fw_source, target_dir, firmware.bios_build_target,
+          fw_source, self._BaseDirPath(IMG_DIR), firmware.bios_build_target,
           firmware.ec_build_target, fw_target)
     return images
 
@@ -916,7 +911,7 @@ class FirmwarePacker(object):
     setvars_dirname = self._BaseDirPath(os.path.join(MODELS_DIR,
                                                      firmware.model))
     osutils.SafeMakedirs(setvars_dirname)
-    setvars_dict = self._GetReplaceDict(image_files, firmware.shared_model)
+    setvars_dict = self._GetReplaceDict(image_files)
     setvars_dict['REPLACE_MODEL'] = firmware.model
 
     # For zero-touch whitelabel devices tell the firmware updater to get its
@@ -951,10 +946,9 @@ class FirmwarePacker(object):
           # Some models will not have a key. At present this is normally
           # just the zero-touch whitelabel devices.
           continue
-        dirname = os.path.join(MODELS_DIR, details.shared_model or model)
-        image_fname = self._MainImageOutput(details.image_files[MAIN], dirname)
+        image_fname = self._MainImageOutput(details.image_files[MAIN], IMG_DIR)
         if EC in details.image_files:
-          ec_fname = self._EcImageOutput(details.image_files[EC], dirname)
+          ec_fname = self._EcImageOutput(details.image_files[EC], IMG_DIR)
         else:
           ec_fname = ''
         print(','.join((model, image_fname, details.key_id, ec_fname)), file=fd)
@@ -993,7 +987,7 @@ class FirmwarePacker(object):
 
         conf = libcros_config_host.CrosConfig(args.config)
         osutils.SafeMakedirs(self._BaseDirPath(MODELS_DIR))
-        osutils.SafeMakedirs(os.path.join(self._tmpdir, MODELS_DIR))
+        osutils.SafeMakedirs(self._BaseDirPath(IMG_DIR))
 
         firmware_info = conf.GetFirmwareInfo()
         # TODO: Ignore the passed-in model list and use the list from
@@ -1004,8 +998,7 @@ class FirmwarePacker(object):
         for model in models:
           fw = firmware_info[model]
           image_files = images[fw.shared_model or model]
-          model_details[model] = ModelDetails(image_files, fw.shared_model,
-                                              fw.key_id)
+          model_details[model] = ModelDetails(image_files, fw.key_id)
           if not fw.have_image:
             continue
           self._WriteVersions(model, image_files)

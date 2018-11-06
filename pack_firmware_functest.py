@@ -51,6 +51,7 @@ EC_IMAGES['sand'] = EC_IMAGES['reef']
 EC_IMAGES['electro'] = EC_IMAGES['reef']
 EC_IMAGES['basking'] = EC_IMAGES['reef']
 MODELS_DIR = 'models'
+IMG_DIR = 'images'
 
 # Firmware update runs on the device using the dash shell. Try to use this if
 # available.
@@ -94,7 +95,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     self.packer._force_dash = HAVE_DASH
 
   @staticmethod
-  def _ExpectedFiles(extra_files, models=None):
+  def _ExpectedFiles(extra_files, models=[]):
     """Get a sorted list of files that we expect to see in the shellball.
 
     Args:
@@ -104,17 +105,11 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     Returns:
       A sorted list of files to expect.
     """
-    expected_files = [
-        'manifest.json',
-        'VERSION',
-    ] + extra_files
-    if models:
-      for model in models:
-        expected_files.append(
-            os.path.join(MODELS_DIR, model, BIOS_IMAGES[model]))
-        expected_files.append(
-            os.path.join(MODELS_DIR, model, EC_IMAGES[model]))
-        expected_files.append(os.path.join(MODELS_DIR, model, 'setvars.sh'))
+    expected_files = set(['manifest.json', 'VERSION'] + extra_files)
+    for model in models:
+      expected_files.add(os.path.join(IMG_DIR, BIOS_IMAGES[model]))
+      expected_files.add(os.path.join(IMG_DIR, EC_IMAGES[model]))
+      expected_files.add(os.path.join(MODELS_DIR, model, 'setvars.sh'))
     return sorted(expected_files)
 
   def _RunScript(self, outfile, model, mode='output', whitelabel_tag=''):
@@ -226,7 +221,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     self.assertEqual('', versions['TARGET_PDID'])
     self.assertEqual('Google_Reef', versions['TARGET_PLATFORM'])
 
-  def _CheckVars(self, model, versions, base, signature_id):
+  def _CheckVars(self, model, versions, signature_id):
     """Check the versions match expectations.
 
     Args:
@@ -234,10 +229,9 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
       versions: Dict of version information:
         key: Shell variable name..
         value: Value of that variable.
-      base: Base directory format, e.g. 'models/reef/%s' for location of
-          firmware files.
       signature_id: Expected signature ID.
     """
+    base = 'images/%s'
     self.assertEqual(base % BIOS_IMAGES[model], versions['IMAGE_MAIN'])
     self.assertEqual(base % EC_IMAGES[model], versions['IMAGE_EC'])
     self.assertEqual(signature_id, versions['SIGNATURE_ID'])
@@ -270,30 +264,28 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         models)
     return extra_args, expected_files
 
-  def _CreateSignerLine(self, model, shared_model=None, key_id=None):
+  def _CreateSignerLine(self, model, fw_target=None, key_id=None):
     """Creates an expected CSV line for signer_instructions.csv.
 
     Args:
       model: Expected model name.
-      shared_model: Expected shared model.
+      fw_target: Expected firmware target.
       key_id: Expected key ID.
 
     Returns:
       The expected signer instructions CSV line.
     """
-    shared_model = shared_model or model
+    fw_target = fw_target or model
     key_id = key_id or model.upper()
-    return '%s,models/%s/%s,%s,models/%s/%s' % (model, shared_model,
-                                                BIOS_IMAGES[shared_model],
-                                                key_id, shared_model,
-                                                EC_IMAGES[shared_model])
+    return '%s,images/%s,%s,images/%s' % (model, BIOS_IMAGES[fw_target],
+                                          key_id, EC_IMAGES[fw_target])
 
   def testFirmwareUpdateUnibuild(self):
     """Run the firmware packer, unpack the result and check it."""
     extra_args, expected_files = self._SetupArgs()
     _, files, versions = self._RunPackFirmware(extra_args)
 
-    self.assertEqual(14, len(files))
+    self.assertEqual(13, len(files))
     self.assertEqual(expected_files, files)
     version_lines = osutils.ReadFile(
         os.path.join(self.unpackdir, 'VERSION')).splitlines()
@@ -340,15 +332,15 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     manifest = pack_firmware_utils.ReadManifest(self.unpackdir)
     versions = manifest['reef']
     self._CheckVersionsReef(versions)
-    self._CheckVars('reef', versions, 'models/reef/%s', 'reef')
+    self._CheckVars('reef', versions, 'reef')
 
     versions = manifest['electro']
     self._CheckVersionsReef(versions)
-    self._CheckVars('electro', versions, 'models/reef/%s', 'electro')
+    self._CheckVars('electro', versions, 'electro')
 
     versions = manifest['pyro']
     self.assertEqual('Google_Pyro.9042.41.0', versions['TARGET_FWID'])
-    self._CheckVars('pyro', versions, 'models/pyro/%s', 'pyro')
+    self._CheckVars('pyro', versions, 'pyro')
 
     lines = osutils.ReadFile(
         os.path.join(self.unpackdir, 'signer_config.csv')).splitlines()
@@ -675,7 +667,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     versions = pack_firmware_utils.ReadManifest(
         self.unpackdir)['whitelabel-test']
     self.assertEqual('Google_Reef.9000.0.0', versions['TARGET_FWID'])
-    self._CheckVars('sand', versions, 'models/sand/%s', 'whitelabel-test')
+    self._CheckVars('sand', versions, 'whitelabel-test')
 
     # Check the signer instructions - the last line should be for whitelabel.
     lines = osutils.ReadFile(
@@ -733,8 +725,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     # Check that the manifest is correct (points to sand).
     versions = pack_firmware_utils.ReadManifest(self.unpackdir)[model]
     self.assertEqual('Google_Reef.9042.50.0', versions['TARGET_FWID'])
-    self._CheckVars('reef', versions, 'models/reef/%s',
-                    'sig-id-in-customization-id')
+    self._CheckVars('reef', versions, 'sig-id-in-customization-id')
 
     # Check the signer instructions - we should get keys for the two
     # zero-touch whitelabels.
