@@ -155,15 +155,6 @@ class FirmwarePacker(object):
         '--extra', type=str,
         help='Directory list (separated by :) of files to be merged')
 
-    group = parser.add_mutually_exclusive_group(required=False)
-    group.add_argument(
-        '--remove_inactive_updaters', default=True,
-        action='store_true', help='Remove inactive updater scripts')
-    group.add_argument(
-        '--no-remove_inactive_updaters',
-        action='store_false', dest='remove_inactive_updaters',
-        help="Don't remove inactive updater scripts")
-
     parser.add_argument('--root', type='path',
                         help='The board sysroot to find ELF dependencies under')
     parser.add_argument('--tool_base', type=str, default='',
@@ -702,22 +693,13 @@ class FirmwarePacker(object):
       script: Update script being used (so that we can avoid copying the
           other update scripts over).
     """
-    copied = False
-    for fname in glob.glob(os.path.join(self._pack_dist, '*')):
-      if (self._args.remove_inactive_updaters and 'updater' in fname and
-          not script in fname):
-        continue
-      newfile = self._CopyFile(fname, self._basedir, CHMOD_ALL_EXEC)
-      if not copied:
-        copied = script in fname
-      if self._force_dash and fname.endswith('.sh'):
-        with open(newfile) as fd:
-          fd.readline()
-          rest = fd.read()
-        osutils.WriteFile(newfile, '#!/bin/dash\n' + rest)
-    if not copied:
-      raise PackError("Cannot find required file '%s'" %
-                      os.path.join(self._pack_dist, script))
+    fname = os.path.join(self._pack_dist, script)
+    newfile = self._CopyFile(fname, self._basedir, CHMOD_ALL_EXEC)
+    if self._force_dash and fname.endswith('.sh'):
+      with open(newfile) as fd:
+        fd.readline()
+        rest = fd.read()
+      osutils.WriteFile(newfile, '#!/bin/dash\n' + rest)
 
   def _CopyExtraFiles(self, extras):
     """Copy extra files into the base directory.

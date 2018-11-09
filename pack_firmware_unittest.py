@@ -197,7 +197,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     self.assertIn("'/pack/sfx.sh'", str(e.exception))
 
     # Should complain if the selected updater is not available.
-    with self.assertRaises(pack_firmware.PackError) as e:
+    with self.assertRaises(IOError) as e:
       pack_firmware.main(['test', '-o', 'out', '-L', '-b', 'test/image.bin',
                           '--script', 'updater_nonexist.sh'])
     self.assertIn("'pack/dist/updater_nonexist.sh'", str(e.exception))
@@ -223,10 +223,6 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     self.assertIsNone(self.packer.ParseArgs([]).bios_image)
     self.assertEqual('/bios.bin',
                      self.packer.ParseArgs(['-b', '/bios.bin']).bios_image)
-
-    self.assertTrue(self.packer.ParseArgs([]).remove_inactive_updaters)
-    self.assertFalse(self.packer.ParseArgs(['--no-remove_inactive_updaters'])
-                     .remove_inactive_updaters)
 
   def testEnsureCommand(self):
     """Check that we detect a missing command."""
@@ -543,8 +539,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
 
   def _testMockedRunWithMerge(self, mocked_dump_fmap_output):
     args = ['--bios_rw_image', 'test/image_rw.bin', '-L',
-            '-e', 'test/ec.bin', '-p', 'test/pd.bin',
-            '--remove_inactive_updaters'] + self.common_flags
+            '-e', 'test/ec.bin', '-p', 'test/pd.bin'] + self.common_flags
     with cros_test_lib.RunCommandMock() as rc:
       self._AddMocks(rc)
       self._AddMergeMocks(rc, mocked_dump_fmap_output)
