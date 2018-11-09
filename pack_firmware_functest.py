@@ -158,7 +158,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
           value: value of that variable.
     """
     outfile = os.path.join(self.outdir, 'output.sh')
-    argv = extra_args + ['-o', outfile, '-q', '--script', UPDATER]
+    argv = extra_args + ['-o', outfile, '-q']
 
     # Create the shellball, extract it, and get a list of files it contains.
     os.environ['SYSROOT'] = 'test'
@@ -177,8 +177,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
 
   def testFirmwareUpdate(self):
     """Run the firmware packer, unpack the result and check it."""
-    extra_args = ['-b', os.path.join(self.indir, 'image.bin'), '-L',
-                  '--script', UPDATER]
+    extra_args = ['-b', os.path.join(self.indir, 'image.bin'), '-L']
     _, files, versions = self._RunPackFirmware(extra_args)
 
     # Check that we got the right files.

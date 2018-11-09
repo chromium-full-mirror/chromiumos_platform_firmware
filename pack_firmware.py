@@ -38,6 +38,7 @@ MAIN, MAIN_RW = 'BIOS', 'BIOS (RW)'
 EC = 'EC'
 PD = 'PD'
 MODELS_DIR = 'models'
+UPDATER_SCRIPT = 'updater5.sh'
 Section = namedtuple('Section', ['offset', 'size'])
 ImageFile = namedtuple('ImageFile', ['filename', 'firmware_ids'])
 FirmwareIds = namedtuple('FirmwareIds', ['ro_id', 'rw_id'])
@@ -147,8 +148,6 @@ class FirmwarePacker(object):
                         help='Path of input Embedded Controller firmware image')
     parser.add_argument('-p', '--pd_image', type='path',
                         help='Path of input Power Delivery firmware image')
-    parser.add_argument('--script', type=str, default='updater5.sh',
-                        help='File name of main script file')
     parser.add_argument('-o', '--output', type='path',
                         help='Path of output filename')
     parser.add_argument('-q', '--quiet', action='store_true',
@@ -728,7 +727,7 @@ class FirmwarePacker(object):
     osutils.WriteFile(outfile, data)
     os.chmod(outfile, os.stat(outfile).st_mode | 0555)
 
-  def _WriteUpdateScript(self, script, replace_dict):
+  def _WriteUpdateScript(self, replace_dict):
     """Create and write the update script which will run on the device.
 
     This generates the beginnings of the output file (shellball) based on the
@@ -738,7 +737,6 @@ class FirmwarePacker(object):
     of the settings.
 
     Args:
-      script: Filename of update script being used (e.g. 'updater5.sh').
       replace_dict: Modified by this function to add the script. Dict with:
           key: String to replace.
           value: Value to replace with.
@@ -751,7 +749,7 @@ class FirmwarePacker(object):
       for key in REPLACE_VARS:
         replace_dict['REPLACE_' + key] = '<unused with unified builds>'
     replace_dict['REPLACE_UNIBUILD'] = 'UNIBUILD=%s' % unibuild
-    replace_dict['REPLACE_SCRIPT'] = script
+    replace_dict['REPLACE_SCRIPT'] = UPDATER_SCRIPT
     self._CreateFileFromTemplate(self._sfx_file, self._args.output,
                                  replace_dict)
 
@@ -1027,9 +1025,8 @@ class FirmwarePacker(object):
             shared_image_files=None,
             target_dir=self._basedir)
         replace_dict = self._GetReplaceDict(image_files)
-      script = args.script
-      self._CopyUpdateScript(script)
-      self._WriteUpdateScript(script, replace_dict)
+      self._CopyUpdateScript(UPDATER_SCRIPT)
+      self._WriteUpdateScript(replace_dict)
       self._WriteVersionFile()
       if model_details:
         self._WriteSignerInstructions(model_details)

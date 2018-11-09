@@ -156,7 +156,7 @@ RW_FWID 262468 32
 
 # Common flags that we use in several tests.
 _COMMON_FLAGS = [
-    '--script=updater5.sh', '-b', 'test/image.bin', '-q', '-o',
+    '-b', 'test/image.bin', '-q', '-o',
 ]
 
 
@@ -196,12 +196,6 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
       pack_firmware.main(['/'])
     self.assertIn("'/pack/sfx.sh'", str(e.exception))
 
-    # Should complain if the selected updater is not available.
-    with self.assertRaises(IOError) as e:
-      pack_firmware.main(['test', '-o', 'out', '-L', '-b', 'test/image.bin',
-                          '--script', 'updater_nonexist.sh'])
-    self.assertIn("'pack/dist/updater_nonexist.sh'", str(e.exception))
-
     # Should check for 'shar' tool.
     with mock.patch.object(osutils, 'Which', return_value=None):
       with self.assertRaises(pack_firmware.PackError) as e:
@@ -210,7 +204,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
 
     # Should complain if we don't provide at least one image.
     with self.assertRaises(pack_firmware.PackError) as e:
-      args = ['.', '--script=updater5.sh', '-L', '-o', 'out']
+      args = ['.', '-L', '-o', 'out']
       pack_firmware.main(args)
     self.assertIn('Must assign at least one', str(e.exception))
 
