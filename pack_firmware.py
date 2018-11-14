@@ -1050,7 +1050,10 @@ class FirmwarePacker(object):
         dirname = os.path.join(MODELS_DIR, shared_model or model)
         image_fname = self._MainImageOutput(
             image_files[MAIN].firmware_ids, dirname)
-        ec_fname = self._EcImageOutput(image_files[EC].firmware_ids, dirname)
+        if EC in image_files:
+          ec_fname = self._EcImageOutput(image_files[EC].firmware_ids, dirname)
+        else:
+          ec_fname = ''
         print(','.join((model, image_fname, details.key_id, ec_fname)), file=fd)
 
   def Start(self, argv, remove_tmpdirs=True):
