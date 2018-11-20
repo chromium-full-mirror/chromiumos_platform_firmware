@@ -410,7 +410,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     rc.AddCmdResult(
         partial_mock.ListRegex('futility vbutil_firmware'),
         returncode=0, output=VBUTIL_OUTPUT)
-    rc.AddCmdResult(partial_mock.ListRegex('--sb_repack'), returncode=0)
+    rc.AddCmdResult(partial_mock.ListRegex('--repack'), returncode=0)
     rc.AddCmdResult(partial_mock.ListRegex('futility dump_fmap -x .*ec.bin'),
                     side_effect=_CopySections, returncode=0)
     rc.AddCmdResult(partial_mock.ListRegex('futility dump_fmap -x .*pd.bin'),
@@ -588,10 +588,6 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     result = self.packer._versions.getvalue()
     self.assertNotIn('EC version', result)
     self.assertEqual(4, len(result.splitlines()))
-
-    # In the script, the EC version should be ''.
-    lines = osutils.ReadFile(self.output).splitlines()
-    self.assertIn('', self._FindLineInList(lines, 'TARGET_ECID'))
 
 
 if __name__ == '__main__':

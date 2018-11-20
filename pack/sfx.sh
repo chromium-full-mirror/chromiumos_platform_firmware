@@ -3,25 +3,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# This is replaced by 'UNIBUILD=' for non-unibuild, or 'UNIBUILD="yes"' for
-# unibuild by pack_firmware.py. In the unibuild case the variables below are
-# not used, but are set later by the setvars.sh script, since we don't have
-# access to the configuration until we unpack the archive.
-REPLACE_UNIBUILD
-
-if [ -z "${UNIBUILD}" ]; then
-  # Version information. Please keep this in head of the updater.
-  TARGET_RO_FWID="REPLACE_TARGET_RO_FWID"
-  TARGET_FWID="REPLACE_TARGET_FWID"
-  TARGET_ECID="REPLACE_TARGET_ECID"
-  TARGET_PDID="REPLACE_TARGET_PDID"
-  TARGET_PLATFORM="REPLACE_TARGET_PLATFORM"
-fi
-
-# Export all version information
-export TARGET_FWID TARGET_RO_FWID TARGET_ECID TARGET_PDID
-export TARGET_PLATFORM
-export UNIBUILD MODEL_DIR SIGNATURE_ID
 set -e
 
 # Global variables
@@ -94,8 +75,8 @@ extract_bundle() {
     die "Cannot extract bundle content to: $destination"
 }
 
-# Executes a script in bundle
-exec_bundle_script() {
+# Executes the updater bundle
+exec_bundle() {
   local rc=0
   make_exec_temp
   extract_bundle "$TMP_DIR"
@@ -125,112 +106,15 @@ prepare_shar_extract() {
   set -- "-c"  # Force shar to overwrite files
 }
 
-find_version_string() {
-  local filename="$1"
-  local pattern="$2"
-  local section="$3"
-  if [ ! -s "$filename" ]; then
-    return
-  fi
-
-  # Chrome OS & chroot has futility, and standard Linux desktop has strings.
-  if type futility >/dev/null 2>&1; then
-
-    local tmpdir="$(mktemp -d)"
-    local filepath="$(readlink -f "$filename")"
-    (cd "$tmpdir"; futility dump_fmap -x "$filepath" "$section") >/dev/null 2>&1
-    cat "$tmpdir/$section" #2>/dev/null
-    rm -rf "$tmpdir"
-
-  elif type strings >/dev/null 2>&1; then
-
-    local versions=$( (strings "$filename" | grep "$pattern") || true)
-    local version="$(echo "$versions" | uniq)"
-
-    local num_versions="$(echo "$versions" | wc -l)"
-    local num_version="$(echo "$version" | wc -l)"
-
-    # To deal with firmware having RO != RW, we need to find difference
-    # between RO_FRID, RW_FWID_A and RW_FWID_B; and unfortunately that is not
-    # possible if there's just strings, since we don't know the ordering of
-    # RO/RW sections. The hack here is, if there are three versions with only
-    # 2 different values, we assume the duplicated = RW and unique = RO.
-    if [ "$num_version" -eq 1 ]; then
-      echo "$version"
-    elif [ "$num_version" -eq 2 -a "$num_versions" -eq 3 ]; then
-      case "$section" in
-        RO_FRID)
-          echo "$versions" | uniq -u
-          ;;
-        RW_FWID_*)
-          echo "$versions" | uniq -d
-          ;;
-        *)
-          echo "WARNING: Unknown firmware versions for $filename." >&2
-          ;;
-      esac
-    else
-      echo "WARNING: cannot identify firmware version for $filename." >&2
-    fi
-
-  else
-
-    (echo "WARNING: 'strings' and 'futility' are both not available."
-     echo "         TARGET_{FW,EC,PD}ID can't be updated."
-     echo "         You have to manually change that or repack on a desktop."
-     ) >&2
-
-  fi
-}
-
 # Repacks current file ($SELF) by given source folder.
 perform_shar_repack() {
   local new_source="$1"
   local cut_mark="$(sed -n '/^##CUTHERE##/=' "$SELF")"
   local manifest="${new_source}/manifest.json"
-  local ro_fw_ver="$(find_version_string "$new_source/bios.bin" \
-                  '^Google_' RO_FRID)"
-  local fw_ver="$(find_version_string "$new_source/bios.bin" \
-                  '^Google_' RW_FWID_A)"
-  local ec_ver="$(find_version_string "$new_source/ec.bin" \
-                  '^[a-zA-Z0-9]*_v[0-9\.]*-[a-z0-9]*$' RO_FRID)"
-  local pd_ver="$(find_version_string "$new_source/pd.bin" \
-                  '^[a-zA-Z0-9]*_v[0-9\.]*-[a-z0-9]*$' RO_FRID)"
-
-  # Since mosys r430, trailing spaces reported by mosys is always scrubbed.
-  ec_ver="$(echo "$ec_ver" | sed 's/ *$//')"
 
   [ "$cut_mark" -gt 0 ] || die "File corrupted: $SELF"
   sed -i "$((cut_mark + 1)),\$d" "$SELF" ||
     die "Failed to truncate existing data in $SELF"
-
-  # Try to update firmware version if available. This doesn't work with
-  # unified builds since the variables are in separate files.
-  if [ -z "${UNIBUILD}" ]; then
-    if [ -n "$fw_ver" ]; then
-      sed -i 's/^\( *TARGET_FWID=\)".*"/\1"'"$fw_ver"'"/' "$SELF" &&
-        echo "Changed TARGET_FWID to $fw_ver"
-      sed -i 's/^\( *TARGET_RO_FWID=\)".*"/\1"'"$ro_fw_ver"'"/' \
-          "$SELF" &&
-        echo "Changed TARGET_ROFWID to $ro_fw_ver"
-      if [ -s "$new_source/VERSION" ]; then
-        sed -i "s/^\(BIOS version: *\).*/\1$ro_fw_ver/;
-                s/^\(BIOS .RW. version: *\).*/\1$fw_ver/" "$new_source/VERSION"
-      fi
-    fi
-    if [ -n "$ec_ver" ]; then
-      sed -i 's/^\( *TARGET_ECID=\)".*"/\1"'"$ec_ver"'"/' "$SELF" &&
-        echo "Changed TARGET_ECID to $ec_ver"
-      [ -s "$new_source/VERSION" ] &&
-        sed -i "s/^\(EC version:*\).*/\1$ec_ver/" "$new_source/VERSION"
-    fi
-    if [ -n "$pd_ver" ]; then
-      sed -i 's/^\( *TARGET_PDID=\)".*"/\1"'"$pd_ver"'"/' "$SELF" &&
-        echo "Changed TARGET_PDID to $pd_ver"
-      [ -s "$new_source/VERSION" ] &&
-        sed -i "s/^\(PD version:*\).*/\1$pd_ver/" "$new_source/VERSION"
-    fi
-  fi
 
   if type futility >/dev/null 2>&1; then
     futility update -a "${new_source}" --manifest >"${manifest}" ||
@@ -328,7 +212,7 @@ updater_options:
       "
       # Invoke script with -h for usage help
       IS_IGNORE_RC=TRUE
-      exec_bundle_script "-h"
+      exec_bundle "-h"
       ;;
 
     --force)
@@ -356,7 +240,11 @@ updater_options:
     exit 0
   fi
 
-  exec_bundle_script "$@"
+  if type futility >/dev/null 2>&1; then
+    exec_bundle "$@"
+  else
+    die "Need 'futility' in PATH to execute updater."
+  fi
 }
 
 main "$@"

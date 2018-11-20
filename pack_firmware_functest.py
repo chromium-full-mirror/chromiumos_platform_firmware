@@ -161,7 +161,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     os.environ['SYSROOT'] = 'test'
     os.environ['FILESDIR'] = 'test'
     self.packer.Start(argv)
-    cros_build_lib.RunCommand([outfile, '--sb_extract', self.unpackdir],
+    cros_build_lib.RunCommand([outfile, '--unpack', self.unpackdir],
                               quiet=True, mute_output=True)
     files = []
     for dirpath, _, fnames in os.walk(self.unpackdir):
@@ -195,7 +195,6 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     self.assertEqual('', versions['TARGET_ECID'])
     self.assertEqual('', versions['TARGET_PDID'])
     self.assertEqual('Google_Reef', versions['TARGET_PLATFORM'])
-    self.assertEqual('', versions['UNIBUILD'])
 
   def _CheckVersionsReef(self, versions):
     """Check the versions match expectations for reef.
@@ -322,22 +321,18 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
       if assertion:
         assertion(version_lines[i])
 
-    self.assertEqual('yes', versions['UNIBUILD'])
-    for var in pack_firmware.REPLACE_VARS:
-      self.assertEqual('<unused with unified builds>', versions[var])
-
-    versions = pack_firmware_utils.ReadVersions(
+    versions = pack_firmware_utils.ReadSetVars(
         os.path.join(self.unpackdir, MODELS_DIR, 'reef/setvars.sh'))
     self.assertEqual(9, len(versions))
     self._CheckVersionsReef(versions)
     self._CheckVars(versions, 'models/reef/%s', 'reef')
 
-    versions = pack_firmware_utils.ReadVersions(
+    versions = pack_firmware_utils.ReadSetVars(
         os.path.join(self.unpackdir, MODELS_DIR, 'electro/setvars.sh'))
     self._CheckVersionsReef(versions)
     self._CheckVars(versions, 'models/reef/%s', 'electro')
 
-    versions = pack_firmware_utils.ReadVersions(
+    versions = pack_firmware_utils.ReadSetVars(
         os.path.join(self.unpackdir, MODELS_DIR, 'pyro/setvars.sh'))
     self.assertEqual('Google_Pyro.9042.41.0', versions['TARGET_FWID'])
     self._CheckVars(versions, 'models/pyro/%s', 'pyro')
@@ -400,7 +395,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
 
     # Extract the file into a directory, then overwrite various files with new
     # images with a different IDs.
-    cros_build_lib.RunCommand([outfile, '--sb_extract', self.unpackdir],
+    cros_build_lib.RunCommand([outfile, '--unpack', self.unpackdir],
                               quiet=True, mute_output=True)
     ro_id = 'Google_Veyron_Mickey.6588.197.0'
     rw_id = 'Google_Veyron_Mickey.6588.197.1'
@@ -412,7 +407,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     self._MakeImage('pd.bin', pd_id)
 
     # Repack the file and make sure that the versions update.
-    cros_build_lib.RunCommand([outfile, '--sb_repack', self.unpackdir],
+    cros_build_lib.RunCommand([outfile, '--repack', self.unpackdir],
                               quiet=True, mute_output=True)
     versions = pack_firmware_utils.ReadVersions(outfile)
     self.assertEqual(ro_id, versions['TARGET_RO_FWID'])
@@ -611,12 +606,12 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     Returns:
       List of sums for each key in key_ids
     """
-    cros_build_lib.RunCommand([outfile, '--sb_extract', self.unpackdir],
+    cros_build_lib.RunCommand([outfile, '--unpack', self.unpackdir],
                               quiet=True, mute_output=True)
     keydir = os.path.join(self.unpackdir, 'keyset')
     osutils.SafeMakedirs(keydir)
     key_sums = [self._AddKeys(keydir, x) for x in key_ids]
-    cros_build_lib.RunCommand([outfile, '--sb_repack', self.unpackdir],
+    cros_build_lib.RunCommand([outfile, '--repack', self.unpackdir],
                               quiet=True, mute_output=True)
     return key_sums
 
@@ -661,7 +656,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         assertion(lines[i])
 
     # Check that the setvars.sh file is correct (points to sand).
-    versions = pack_firmware_utils.ReadVersions(
+    versions = pack_firmware_utils.ReadSetVars(
         os.path.join(self.unpackdir, MODELS_DIR, 'whitelabel-test/setvars.sh'))
     self.assertEqual('Google_Reef.9000.0.0', versions['TARGET_FWID'])
     self._CheckVars(versions, 'models/sand/%s', 'whitelabel-test')
@@ -720,7 +715,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
       self.assertNotExists(os.path.join(self.unpackdir, MODELS_DIR, wl_model))
 
     # Check that the setvars.sh file is correct (points to sand).
-    versions = pack_firmware_utils.ReadVersions(
+    versions = pack_firmware_utils.ReadSetVars(
         os.path.join(self.unpackdir, MODELS_DIR, '%s/setvars.sh' % model))
     self.assertEqual('Google_Reef.9042.50.0', versions['TARGET_FWID'])
     self._CheckVars(versions, 'models/reef/%s', 'sig-id-in-customization-id')

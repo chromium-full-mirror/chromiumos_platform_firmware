@@ -704,31 +704,6 @@ class FirmwarePacker(object):
     osutils.WriteFile(outfile, data)
     os.chmod(outfile, os.stat(outfile).st_mode | 0555)
 
-  def _WriteUpdateScript(self, replace_dict):
-    """Create and write the update script which will run on the device.
-
-    This generates the beginnings of the output file (shellball) based on the
-    template. Normally all the required settings for firmware update are at the
-    top of the script. With unified builds only TARGET_SCRIPT is used: the
-    rest are unset and the model-specific setvars.sh files contain the rest
-    of the settings.
-
-    Args:
-      replace_dict: Modified by this function to add the script. Dict with:
-          key: String to replace.
-          value: Value to replace with.
-        Note: For unified builds this should be empty.
-    """
-    if replace_dict:
-      unibuild = ''
-    else:
-      unibuild = '"yes"'
-      for key in REPLACE_VARS:
-        replace_dict['REPLACE_' + key] = '<unused with unified builds>'
-    replace_dict['REPLACE_UNIBUILD'] = 'UNIBUILD=%s' % unibuild
-    self._CreateFileFromTemplate(self._sfx_file, self._args.output,
-                                 replace_dict)
-
   def _WriteVersionFile(self):
     """Write out the VERSION file with our collected version information."""
     print(file=self._versions)
@@ -737,10 +712,12 @@ class FirmwarePacker(object):
   def _BuildShellball(self):
     """Build a shell-ball containing the firmware update.
 
-    Add our files to the shell-ball, and display all version information.
+    Create a new shell-ball by copying from SFX file, add our files to the
+    shell-ball, and display all version information.
     """
+    self._CopyFile(self._sfx_file, self._args.output, mode=CHMOD_ALL_EXEC)
     cros_build_lib.RunCommand(
-        ['sh', self._args.output, '--sb_repack', self._basedir],
+        ['sh', self._args.output, '--repack', self._basedir],
         quiet=self._args.quiet, mute_output=not self._args.quiet)
     if not self._args.quiet:
       for fname in glob.glob(self._BaseDirPath('VERSION*')):
@@ -990,9 +967,8 @@ class FirmwarePacker(object):
         for model in models:
           model_details[model] = self._GenerateOneModel(
               firmware_info[model], args, model_details)
-        replace_dict = {}
       else:
-        image_files = self._ProcessModel(
+        self._ProcessModel(
             model='',
             bios_image=args.bios_image,
             bios_rw_image=args.bios_rw_image,
@@ -1000,8 +976,6 @@ class FirmwarePacker(object):
             pd_image=args.pd_image,
             shared_image_files=None,
             target_dir=self._basedir)
-        replace_dict = self._GetReplaceDict(image_files)
-      self._WriteUpdateScript(replace_dict)
       self._WriteVersionFile()
       if model_details:
         self._WriteSignerInstructions(model_details)
