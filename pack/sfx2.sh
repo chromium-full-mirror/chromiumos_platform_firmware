@@ -42,19 +42,27 @@ repack() {
   need_program futility
   futility update -a "${src}" --manifest > "${src}/manifest.json"
 
+  # Use a standard timestamp for the version files so that we get the same
+  # exact sharball each time. Otherwise the changing timestamps creates small
+  # differences.
+  touch -t 201701010000 "${src}/VERSION" "${src}/manifest.json"
+
   # TODO(hungte) Use futility to check content and initial repack in future.
   need_program zip
-  # Currently we are only updating ZIP, not removing existing entries.
-  if zip -l "${dest}" >/dev/null 2>&1; then
-    futility update -a "${dest}" --repack "${src}" ||
-      die "Failed archiving: ${dest}"
-  else
-    local tmp="$(mktemp --tmpdir "${TMP_TEMPLATE}")"
-    (cd "${src}" && zip -r "${tmp}.zip" .) || die "Failed archiving: ${dest}"
-    cat "${tmp}.zip" >>"${dest}"
-    rm -f "${tmp}" "${tmp}.zip"
-    zip -A "${dest}"
+
+  # Currently the libzip inside futility will discard SFX if we try to update
+  # so we need to always create a new archive.
+  local cut_mark="$(sed -n '/^##CUTHERE##/=' "${dest}")"
+  if ! [ "${cut_mark}" -gt 0 ]; then
+    die "SFX File corrupted: ${dest}"
   fi
+  sed -i "$((cut_mark + 1)),\$d" "${dest}"
+
+  local tmp="$(mktemp --tmpdir "${TMP_TEMPLATE}")"
+  (cd "${src}" && zip -r "${tmp}.zip" .) || die "Failed archiving: ${dest}"
+  cat "${tmp}.zip" >>"${dest}"
+  rm -f "${tmp}" "${tmp}.zip"
+  zip -A "${dest}"
   echo "OK: Repacked (updated): ${src} -> ${dest}"
 }
 
