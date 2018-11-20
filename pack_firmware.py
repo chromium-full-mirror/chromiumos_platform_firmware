@@ -8,7 +8,6 @@
 
 It requires:
  - at least one firmware image (*.bin, should be AP or EC or ...)
- - pack/dist/updater?.sh main script
  - pack/sfx.sh as the self extraction (and installation) script
 """
 
@@ -38,7 +37,6 @@ MAIN, MAIN_RW = 'BIOS', 'BIOS (RW)'
 EC = 'EC'
 PD = 'PD'
 MODELS_DIR = 'models'
-UPDATER_SCRIPT = 'updater5.sh'
 Section = namedtuple('Section', ['offset', 'size'])
 ImageFile = namedtuple('ImageFile', ['filename', 'firmware_ids'])
 FirmwareIds = namedtuple('FirmwareIds', ['ro_id', 'rw_id'])
@@ -82,7 +80,6 @@ class FirmwarePacker(object):
 
   Private members:
     _args: Parsed arguments.
-    _pack_dist: Path to `dist` directory.
     _script_base: Base directory with useful files (src/platform/firmware).
     _sfx_file: Path to `sfx.sh`.
     _testing: True if running tests.
@@ -99,7 +96,6 @@ class FirmwarePacker(object):
     # we can access the script files using the same path as the script.
     self._script_base = os.path.dirname(progname)
     self._args = None
-    self._pack_dist = os.path.join(self._script_base, 'pack', 'dist')
     self._sfx_file = os.path.join(self._script_base, 'pack', 'sfx.sh')
     self._setvars_template_file = os.path.join(
         self._script_base, 'pack', 'setvars_template')
@@ -657,25 +653,6 @@ class FirmwarePacker(object):
     os.chmod(dst, os.stat(dst).st_mode | mode)
     return dst
 
-  def _CopyUpdateScript(self, script):
-    """Copy the update script into the base directory.
-
-    The update script is the shell script executed to perform the update. It
-    needs to be copied into the base directory so it will appear in the
-    output file.
-
-    Args:
-      script: Update script being used (so that we can avoid copying the
-          other update scripts over).
-    """
-    fname = os.path.join(self._pack_dist, script)
-    newfile = self._CopyFile(fname, self._basedir, CHMOD_ALL_EXEC)
-    if self._force_dash and fname.endswith('.sh'):
-      with open(newfile) as fd:
-        fd.readline()
-        rest = fd.read()
-      osutils.WriteFile(newfile, '#!/bin/dash\n' + rest)
-
   def _GetReplaceDict(self, image_files, shared_model=None):
     """Build a dictionary of string replacements for use with the update script.
 
@@ -749,7 +726,6 @@ class FirmwarePacker(object):
       for key in REPLACE_VARS:
         replace_dict['REPLACE_' + key] = '<unused with unified builds>'
     replace_dict['REPLACE_UNIBUILD'] = 'UNIBUILD=%s' % unibuild
-    replace_dict['REPLACE_SCRIPT'] = UPDATER_SCRIPT
     self._CreateFileFromTemplate(self._sfx_file, self._args.output,
                                  replace_dict)
 
@@ -1025,7 +1001,6 @@ class FirmwarePacker(object):
             shared_image_files=None,
             target_dir=self._basedir)
         replace_dict = self._GetReplaceDict(image_files)
-      self._CopyUpdateScript(UPDATER_SCRIPT)
       self._WriteUpdateScript(replace_dict)
       self._WriteVersionFile()
       if model_details:

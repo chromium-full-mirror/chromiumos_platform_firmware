@@ -34,7 +34,6 @@ import pack_firmware_utils
 REEF_HWID = 'Reef A12-B3C-D5E-F6G-H7I'
 REEF_MODEL = 'reef'
 REEF_RO_MAIN_VERSION = 'Google_Reef.9042.43.0'
-UPDATER = 'updater5.sh'
 MODELS_DIR = 'models'
 
 # Firmware update runs on the device using the dash shell. Try to use this if
@@ -93,7 +92,6 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         'manifest.json',
         'VERSION',
         'VERSION.md5',
-        UPDATER,
     ] + extra_files
     if models:
       for model in models:
@@ -181,7 +179,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     _, files, versions = self._RunPackFirmware(extra_args)
 
     # Check that we got the right files.
-    self.assertEqual(5, len(files))
+    self.assertEqual(4, len(files))
     self.assertEqual(self._ExpectedFiles(['bios.bin']), files)
 
     # Comb through the VERSION file and check that everything is as expected.
@@ -198,7 +196,6 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     self.assertEqual('', versions['TARGET_ECID'])
     self.assertEqual('', versions['TARGET_PDID'])
     self.assertEqual('Google_Reef', versions['TARGET_PLATFORM'])
-    self.assertEqual(UPDATER, versions['TARGET_SCRIPT'])
     self.assertEqual('', versions['UNIBUILD'])
 
   def _CheckVersionsReef(self, versions):
@@ -282,7 +279,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     extra_args, expected_files = self._SetupArgs()
     _, files, versions = self._RunPackFirmware(extra_args)
 
-    self.assertEqual(16, len(files))
+    self.assertEqual(15, len(files))
     self.assertEqual(expected_files, files)
     version_lines = osutils.ReadFile(
         os.path.join(self.unpackdir, 'VERSION')).splitlines()

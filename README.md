@@ -117,9 +117,9 @@ from `emerge-${BOARD} chromeos-ec` then `/build/${BOARD}/firmware/ec.bin`.
 
 ### CROS_FIRMWARE_SCRIPT and packaging
 The firmware updater is built by running `pack_firmware.py`, which collects
-firmware image files, all files under `pack/dist` folder, archived by
-running [`shar`](https://www.gnu.org/software/sharutils/), with a special
-bootstrap SFX script `pack/sfx.sh`.
+firmware image files, and then archived by running
+[`shar`](https://www.gnu.org/software/sharutils/), with a special bootstrap
+SFX script `pack/sfx.sh`.
 
 Since the verified boot has been evolved with so much differences, we put the
 updating logic in different files according to the generation of firmware:

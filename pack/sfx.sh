@@ -18,11 +18,9 @@ if [ -z "${UNIBUILD}" ]; then
   TARGET_PLATFORM="REPLACE_TARGET_PLATFORM"
 fi
 
-TARGET_SCRIPT="REPLACE_SCRIPT"
-
 # Export all version information
 export TARGET_FWID TARGET_RO_FWID TARGET_ECID TARGET_PDID
-export TARGET_PLATFORM TARGET_SCRIPT
+export TARGET_PLATFORM
 export UNIBUILD MODEL_DIR SIGNATURE_ID
 set -e
 
@@ -33,8 +31,6 @@ SELF="$(readlink -f "$0")"
 TMP_DIR=
 # Decides if we need to print debug messages
 IS_DEBUG=
-# The default script to be invoked from extracted bundle
-SCRIPT="./${TARGET_SCRIPT:-updater.sh}"
 
 # Tag file to prohibit updater execution
 TAG_FILE_DISABLED='/root/.leave_firmware_alone'
@@ -103,13 +99,13 @@ exec_bundle_script() {
   local rc=0
   make_exec_temp
   extract_bundle "$TMP_DIR"
-  [ -x "$TMP_DIR/$SCRIPT" ] || die "Missing program in bundle: $SCRIPT"
+  type futility >/dev/null 2>&1 || die "Missing program 'futility'."
 
-  debug "Start running script: $SCRIPT $@"
-  (cd "$TMP_DIR" && PATH="${PATH}:${TMP_DIR}" "$SCRIPT" "$@") || rc="$?"
+  debug "Start running updater: futility update -a ${TMP_DIR} $@"
+  (cd "$TMP_DIR" && futility update -a . "$@") || rc="$?"
 
   if [ "$rc" -ne 0 -a -z "$IS_IGNORE_RC" ]; then
-    die_as "$rc" "Execution failed: $SCRIPT (error code = $rc)"
+    die_as "$rc" "Execution failed: (error code = $rc)"
   fi
   exit "$rc"
 }
