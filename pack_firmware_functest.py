@@ -135,10 +135,11 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
                                        extra_env={'PATH': new_path},
                                        print_cmd=False)
 
-    # We expect debugging output but should not get anything else.
+    # The stderr may contain debug messages, info, and status (>>).
+    # Anything else (for instance, 'ERROR:') should be error.
     errors = [line for line in result.error.splitlines()
               if line.split() and line.split()[0] not in
-              ['(DEBUG)', 'DEBUG:', '>>']]
+              ['(DEBUG)', 'DEBUG:', '>>', 'INFO:']]
     self.assertEqual(errors, [])
     return result.output.splitlines()
 
