@@ -676,13 +676,6 @@ class FirmwarePacker(object):
             bios_fw_id, dirname),
         'REPLACE_TARGET_IMAGE_EC': self._EcImageOutput(ec_fw_id, dirname),
         'REPLACE_TARGET_IMAGE_PD': self._PdImageOutput(pd_fw_id, dirname),
-        'REPLACE_TARGET_RO_FWID': bios_fw_id.ro_id,
-        'REPLACE_TARGET_FWID': bios_fw_id.rw_id,
-        'REPLACE_TARGET_ECID': ec_fw_id.ro_id,
-        'REPLACE_TARGET_PDID': pd_fw_id.ro_id,
-        # Set platform to first field of firmware version
-        # (ex: Google_Link.1234 -> Google_Link).
-        'REPLACE_TARGET_PLATFORM': bios_fw_id.ro_id.split('.')[0],
     }
 
   @staticmethod

@@ -7,13 +7,6 @@
 # particular model. The pack_firmware.py script uses this to create a working
 # setvars-model.sh script.
 
-# Version information for model REPLACE_MODEL
-TARGET_RO_FWID="REPLACE_TARGET_RO_FWID"
-TARGET_FWID="REPLACE_TARGET_FWID"
-TARGET_ECID="REPLACE_TARGET_ECID"
-TARGET_PDID="REPLACE_TARGET_PDID"
-TARGET_PLATFORM="REPLACE_TARGET_PLATFORM"
-
 # Image and key files for model REPLACE_MODEL
 IMAGE_MAIN="REPLACE_TARGET_IMAGE_RO_MAIN"
 IMAGE_EC="REPLACE_TARGET_IMAGE_EC"

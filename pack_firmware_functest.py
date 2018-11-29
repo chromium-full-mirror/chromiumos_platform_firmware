@@ -224,7 +224,6 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     """
     self.assertEqual(base % 'bios.bin', versions['IMAGE_MAIN'])
     self.assertEqual(base % 'ec.bin', versions['IMAGE_EC'])
-    self.assertEqual(base % 'pd.bin', versions['IMAGE_PD'])
     self.assertEqual(signature_id, versions['SIGNATURE_ID'])
 
   def _SetupArgs(self, extra_models=None):
@@ -321,19 +320,16 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
       if assertion:
         assertion(version_lines[i])
 
-    versions = pack_firmware_utils.ReadSetVars(
-        os.path.join(self.unpackdir, MODELS_DIR, 'reef/setvars.sh'))
-    self.assertEqual(9, len(versions))
+    manifest = pack_firmware_utils.ReadManifest(self.unpackdir)
+    versions = manifest['reef']
     self._CheckVersionsReef(versions)
     self._CheckVars(versions, 'models/reef/%s', 'reef')
 
-    versions = pack_firmware_utils.ReadSetVars(
-        os.path.join(self.unpackdir, MODELS_DIR, 'electro/setvars.sh'))
+    versions = manifest['electro']
     self._CheckVersionsReef(versions)
     self._CheckVars(versions, 'models/reef/%s', 'electro')
 
-    versions = pack_firmware_utils.ReadSetVars(
-        os.path.join(self.unpackdir, MODELS_DIR, 'pyro/setvars.sh'))
+    versions = manifest['pyro']
     self.assertEqual('Google_Pyro.9042.41.0', versions['TARGET_FWID'])
     self._CheckVars(versions, 'models/pyro/%s', 'pyro')
 
@@ -655,9 +651,9 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
       if assertion:
         assertion(lines[i])
 
-    # Check that the setvars.sh file is correct (points to sand).
-    versions = pack_firmware_utils.ReadSetVars(
-        os.path.join(self.unpackdir, MODELS_DIR, 'whitelabel-test/setvars.sh'))
+    # Check that the manifest is correct (points to sand).
+    versions = pack_firmware_utils.ReadManifest(
+        self.unpackdir)['whitelabel-test']
     self.assertEqual('Google_Reef.9000.0.0', versions['TARGET_FWID'])
     self._CheckVars(versions, 'models/sand/%s', 'whitelabel-test')
 
@@ -714,9 +710,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     for wl_model in wl_models:
       self.assertNotExists(os.path.join(self.unpackdir, MODELS_DIR, wl_model))
 
-    # Check that the setvars.sh file is correct (points to sand).
-    versions = pack_firmware_utils.ReadSetVars(
-        os.path.join(self.unpackdir, MODELS_DIR, '%s/setvars.sh' % model))
+    # Check that the manifest is correct (points to sand).
+    versions = pack_firmware_utils.ReadManifest(self.unpackdir)[model]
     self.assertEqual('Google_Reef.9042.50.0', versions['TARGET_FWID'])
     self._CheckVars(versions, 'models/reef/%s', 'sig-id-in-customization-id')
 

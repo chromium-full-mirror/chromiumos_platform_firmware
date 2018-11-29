@@ -11,38 +11,37 @@ This includes a few useful functions shared among unit and functional tests.
 from __future__ import print_function
 
 import json
+import os
 import re
 import subprocess
 
-# We are looking for KEY="VALUE", or KEY=
-RE_KEY_VALUE = re.compile('(?P<key>[A-Z_]+)=("(?P<value>.*)")?$')
-
-def ReadSetVars(fname):
-  """Read the start of the supplied script to get the version information.
-
-  This picks up various shell variable assignments from the script and
-  returns them so their values can be checked.
+def ReadManifest(folder):
+  """Read the manifest information from given folder.
 
   Args:
-    fname: Filename of script file.
+    folder: Path to a folder with unpacked firmware updater package
 
   Returns:
     Dict with:
-        key: Shell variable.
-        value: Value of that shell variable.
+        key: Keys of versions
+        value: Value of given key
   """
-  with open(fname) as fd:
-    lines = fd.read(1000).splitlines()[:30]
-  # Use strip() where needed since some lines are indented.
-  prefixes = ['TARGET', 'IMAGE', 'SIGNATURE']
-  lines = [line.strip() for line in lines
-           if line.strip().split('_')[0] in prefixes]
-  versions = {}
-  for line in lines:
-    m = RE_KEY_VALUE.match(line)
-    value = m.group('value')
-    versions[m.group('key')] = value if value else ''
-  return versions
+  with open(os.path.join(folder, 'manifest.json')) as f:
+    data = json.load(f)
+  result = {}
+  for k, v in data.iteritems():
+    model = {}
+    model['TARGET_RO_FWID'] = v['host']['versions']['ro']
+    model['TARGET_FWID'] = v['host']['versions']['rw']
+    model['TARGET_ECID'] = v.get('ec', {}).get('versions', {}).get('ro', '')
+    model['TARGET_PDID'] = v.get('pd', {}).get('versions', {}).get('ro', '')
+    model['TARGET_PLATFORM'] = v['host']['versions']['ro'].partition('.')[0]
+    model['IMAGE_MAIN'] = v['host']['image']
+    model['IMAGE_EC'] = v.get('ec', {}).get('image', '')
+    model['IMAGE_PD'] = v.get('pd', {}).get('image', '')
+    model['SIGNATURE_ID'] = v.get('signature_id', k or '')
+    result[k] = model
+  return result
 
 def ReadVersions(fname):
   """Read the version of images in an updater archive.
