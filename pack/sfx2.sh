@@ -112,7 +112,9 @@ main() {
       # TODO(hungte) See if we should add -V in futility in future.
       need_program unzip
       warn "For machine-friendly version, please use --manifest"
-      exec unzip -p "$0" VERSION
+      unzip -p "$0" VERSION
+      echo "Package Contents:"
+      exec unzip -l "$0"
       ;;
     --manifest)
       if has_program futility && futility update -a "$0" --manifest; then

@@ -187,7 +187,6 @@ find_version_string() {
 perform_shar_repack() {
   local new_source="$1"
   local cut_mark="$(sed -n '/^##CUTHERE##/=' "$SELF")"
-  local md5_file="$new_source/VERSION.md5"
   local manifest="${new_source}/manifest.json"
   local ro_fw_ver="$(find_version_string "$new_source/bios.bin" \
                   '^Google_' RO_FRID)"
@@ -233,12 +232,6 @@ perform_shar_repack() {
     fi
   fi
 
-  # Update checksum data for every files except VERSION*
-  (cd "$new_source" &&
-   echo "Package Content:" &&
-   find . -type f '!' -name VERSION.md5 '!' -name VERSION \
-          -exec md5sum -b '{}' '+' ) >"$md5_file"
-
   if type futility >/dev/null 2>&1; then
     futility update -a "${new_source}" --manifest >"${manifest}" ||
       rm -f "${manifest}"
@@ -249,7 +242,7 @@ perform_shar_repack() {
   # Use a standard timestamp for the version files so that we get the same
   # exact sharball each time. Otherwise the changing timestamps creates small
   # differences.
-  touch -t 201701010000 "${new_source}/VERSION" "${manifest}" "${md5_file}"
+  touch -t 201701010000 "${new_source}/VERSION" "${manifest}"
 
   # Build shar content with files in sorted order for repeatability.
   (cd "$new_source" &&
@@ -300,6 +293,8 @@ main() {
       make_temp
       extract_bundle "$TMP_DIR"
       cat "$TMP_DIR/VERSION"*
+      echo "Package Content:"
+      (cd "${TMP_DIR}" && find . -type f -exec md5sum -b '{}' ';' )
       echo "This is only for debugging and the format may change any time." >&2
       echo "If you want to parse with programs, use --manifest instead." >&2
       exit 0

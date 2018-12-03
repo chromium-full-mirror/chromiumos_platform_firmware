@@ -91,7 +91,6 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     expected_files = [
         'manifest.json',
         'VERSION',
-        'VERSION.md5',
     ] + extra_files
     if models:
       for model in models:
@@ -179,7 +178,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     _, files, versions = self._RunPackFirmware(extra_args)
 
     # Check that we got the right files.
-    self.assertEqual(4, len(files))
+    self.assertEqual(3, len(files))
     self.assertEqual(self._ExpectedFiles(['bios.bin']), files)
 
     # Comb through the VERSION file and check that everything is as expected.
@@ -279,7 +278,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     extra_args, expected_files = self._SetupArgs()
     _, files, versions = self._RunPackFirmware(extra_args)
 
-    self.assertEqual(15, len(files))
+    self.assertEqual(14, len(files))
     self.assertEqual(expected_files, files)
     version_lines = osutils.ReadFile(
         os.path.join(self.unpackdir, 'VERSION')).splitlines()
@@ -365,25 +364,6 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     version_lines = osutils.ReadFile(
         os.path.join(self.unpackdir, 'VERSION')).splitlines()
     self.assertEqual(version_lines, check_version_lines[:len(version_lines)])
-
-    # Now check the second part of the -V output, which is the contents of
-    # the VERSIONS.md5 file. Note that VERSION and VERSION.md5 do not have
-    # entries in this output.
-    first_md5_line, remaining_md5_lines = (
-        check_version_lines[len(version_lines)],
-        check_version_lines[len(version_lines) + 1:])
-    self.assertEqual('Package Content:', first_md5_line)
-
-    # We want to get the filename, The line format is:
-    #
-    # ab911c951ccf0dddf023defee22dea83 *./crosfw.sh
-    #
-    # so split into two words and strip the *./ off the second word
-    re_file = re.compile('.* ...(.*)$')
-    files = [re_file.match(line).group(1) for line in remaining_md5_lines]
-    expected_files.remove('VERSION')
-    expected_files.remove('VERSION.md5')
-    expected_files.remove('manifest.json')
     self.assertEqual(set(expected_files), set(files))
 
   def _MakeImage(self, outfile, ro_id, rw_id=''):
