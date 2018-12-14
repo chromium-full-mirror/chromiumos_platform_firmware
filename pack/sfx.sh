@@ -68,6 +68,37 @@ clean_temp() {
   fi
 }
 
+
+# Reports current system information
+report_system() {
+  if ! crossystem fwid >/dev/null 2>&1; then
+    return
+  fi
+
+  local model="$(mosys platform model 2>/dev/null)"
+  local manifest="$(sh "${SELF}" --manifest 2>/dev/null)"
+  local package="$(echo "${manifest}" |
+    jq -c ".${model}.host.versions" 2>/dev/null)"
+  local swwp="1"
+  if flashrom -p host --wp-status 2>/dev/null | grep -q disabled; then
+    swwp=0
+  fi
+  if [ -z "${package}" ]; then
+    package="${manifest:-unknown}"
+  else
+    package="RO=$(echo "${package}" | jq -r .ro)    RW=$(
+                  echo "${package}" | jq -r .rw)"
+  fi
+
+  echo "
+  Machine Model: ${model}
+  Write Protect: HW=$(crossystem wpsw_cur)/$(crossystem wpsw_boot) SW=${swwp}
+  Last Boot Version: RO=$(crossystem ro_fwid) ACT/$(
+                           crossystem mainfw_act)=$(crossystem fwid)
+  Firmware Updater:  ${package}
+  "
+}
+
 # Extracts bundle content to specified location
 extract_bundle() {
   local destination="$1"
@@ -240,7 +271,11 @@ updater_options:
     exit 0
   fi
 
-  if type futility >/dev/null 2>&1; then
+  report_system
+  if [ -z "$*" ]; then
+    echo "No arguments specified, abort." >&2
+    exit 1
+  elif type futility >/dev/null 2>&1; then
     exec_bundle "$@"
   else
     die "Need 'futility' in PATH to execute updater."
