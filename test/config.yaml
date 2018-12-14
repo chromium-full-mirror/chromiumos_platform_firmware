@@ -17,10 +17,6 @@ firmwares:
     <<: *firmware_common
     $ro-rev: "9042.50"
     name: "reef"
-    extra:
-      - "${FILESDIR}/extra"
-      - "${SYSROOT}/usr/sbin/ectool"
-      - "bcs://Reef.9000.0.0.tbz2"
   reef_9000ro_9042ec: &reef_9000ro_9042ec
     <<: *firmware_common
     $ro-rev: "9000.0"
