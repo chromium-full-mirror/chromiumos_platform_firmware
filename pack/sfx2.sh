@@ -85,6 +85,37 @@ unpack() {
   echo "OK: Unpacked: ${dest}"
 }
 
+# Reports current system information
+report_system() {
+  local self="$1"
+  if ! crossystem fwid >/dev/null 2>&1; then
+    return
+  fi
+
+  local model="$(mosys platform model 2>/dev/null)"
+  local manifest="$(sh "${self}" --manifest 2>/dev/null)"
+  local package="$(echo "${manifest}" |
+    jq -c ".${model}.host.versions" 2>/dev/null)"
+  local swwp="1"
+  if flashrom -p host --wp-status 2>/dev/null | grep -q disabled; then
+    swwp=0
+  fi
+  if [ -z "${package}" ]; then
+    package="${manifest:-unknown}"
+  else
+    package="RO=$(echo "${package}" | jq -r .ro)    RW=$(
+                  echo "${package}" | jq -r .rw)"
+  fi
+
+  echo "
+  Machine Model: ${model}
+  Write Protect: HW=$(crossystem wpsw_cur)/$(crossystem wpsw_boot) SW=${swwp}
+  Last Boot Version: RO=$(crossystem ro_fwid) ACT/$(
+                           crossystem mainfw_act)=$(crossystem fwid)
+  Firmware Updater:  ${package}
+  "
+}
+
 usage() {
   local prog="$1"
   echo "Usage: ${prog} [options]
@@ -147,6 +178,10 @@ main() {
 
     *)
       # This is what a release Chrome OS will run and can only invoke futility.
+      report_system "$0"
+      if [ -z "$*" ]; then
+        die "No arguments specified, abort."
+      fi
       need_program futility
       exec futility update -a "$0" "$@"
       ;;
