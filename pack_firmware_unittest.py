@@ -416,13 +416,13 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
       Dict of the reef firmware config
     """
     return {
-        'ec-image': 'bcs://Reef_EC.9042.50.0.tbz2',
+        'ec-ro-image': 'bcs://Reef_EC.9042.50.0.tbz2',
         'extra': [
             '${FILESDIR}/extra',
             '${SYSROOT}/usr/sbin/ectool',
             'bcs://Reef.9000.0.0.tbz2'
         ],
-        'main-image': 'bcs://Reef.9042.50.0.tbz2',
+        'main-ro-image': 'bcs://Reef.9042.50.0.tbz2',
     }
 
   def testExtractFileBcs(self):
@@ -432,13 +432,13 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     dirname = self.packer._CreateTmpDir()
     fake_fw = self._GetFakeReefFirmware()
 
-    # This should look up main-image, find that file in functest/, copy it to
+    # This should look up main-ro-image, find that file in functest/, copy it to
     # our directory and return its filename.
-    main_image = fake_fw['main-image']
+    main_image = fake_fw['main-ro-image']
     self.assertEqual(
         self.packer._ExtractFile(None, None, main_image, dirname),
         os.path.join(dirname, 'image.bin'))
-    ec_image = fake_fw['ec-image']
+    ec_image = fake_fw['ec-ro-image']
     self.assertEqual(
         self.packer._ExtractFile(None, None, ec_image, dirname),
         os.path.join(dirname, 'ec.bin'))
