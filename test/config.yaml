@@ -9,8 +9,8 @@ firmware_common: &firmware_common
     ec: "{{$build-target}}"
     depthcharge: "{{$build-target}}"
     libpayload: "{{$build-target}}"
-  ec-image: "bcs://{{$fw-name}}_EC.{{$ec-rev}}.0.tbz2"
-  main-image: "bcs://{{$fw-name}}.{{$ro-rev}}.0.tbz2"
+  ec-ro-image: "bcs://{{$fw-name}}_EC.{{$ec-rev}}.0.tbz2"
+  main-ro-image: "bcs://{{$fw-name}}.{{$ro-rev}}.0.tbz2"
 
 firmwares:
   reef_9042_50: &reef_9042_50
