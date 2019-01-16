@@ -31,10 +31,6 @@ from chromite.signing.lib import firmware_unittest
 import pack_firmware
 import pack_firmware_utils
 
-# pylint: disable=import-error
-from cros_config_host import libcros_config_host
-# pylint: enable=import-error
-
 # We need to poke around in internal members of PackFirmware.
 # pylint: disable=W0212
 
