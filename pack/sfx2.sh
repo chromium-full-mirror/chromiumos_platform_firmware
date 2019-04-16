@@ -140,12 +140,24 @@ main() {
 
   case "$1" in
     -V)
-      # TODO(hungte) See if we should add -V in futility in future.
-      need_program unzip
-      warn "For machine-friendly version, please use --manifest"
-      unzip -p "$0" VERSION
-      echo "Package Contents:"
-      exec unzip -l "$0"
+      # TODO(hungte) Replace by generating a human readable output by
+      # processing the output of --manifest.
+      warn "WARNING: The output format of -V may change anytime."
+      warn "WARNING: For machine-friendly version, please use --manifest"
+      if has_program unzip; then
+        unzip -p "$0" VERSION
+        echo "Package Contents:"
+        exec unzip -l "$0"
+      elif has_program futility; then
+        local tmp="$(mktemp -d --tmpdir "${TMP_TEMPLATE}")"
+        futility update -a "$0" --unpack "${tmp}" >/dev/null 2>&1 || true
+        cat "${tmp}/VERSION" || true
+        echo "Package Contents:"
+        (cd "${tmp}" && find . -type f) || true
+        rm -rf "${tmp}"
+      else
+        die "Need program 'unzip' or 'futility' to continue."
+      fi
       ;;
     --manifest)
       if has_program futility && futility update -a "$0" --manifest; then
