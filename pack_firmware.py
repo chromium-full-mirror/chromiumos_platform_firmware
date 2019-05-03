@@ -869,14 +869,16 @@ class FirmwarePacker(object):
                            firmware.pd_image_uri, dirname)
     return FirmwareSource(bios, bios_rw, ec, pd)
 
-  def _WriteFirmwareImages(self, models, firmware_info):
+  def _WriteFirmwareImages(self, firmware_info, devices_fw_target):
     """Extract and build all firmware images, then copy them to the shellball.
 
     Args:
-      models: List of models to extract images for.
       firmware_info: Dict:
         key: Model name.
         value: FirmwareInfo object for that model.
+      devices_fw_target: Dict:
+        key: Device name.
+        value: Firmware target name.
 
     Returns:
       Dict:
@@ -884,9 +886,8 @@ class FirmwarePacker(object):
         value: Firmware files for that model (ImageFiles object).
     """
     images = {}
-    for model in models:
-      firmware = firmware_info[model]
-      fw_target = firmware.shared_model or model
+    for device, fw_target in devices_fw_target.items():
+      firmware = firmware_info[device]
       if fw_target in images:
         continue
 
@@ -989,19 +990,27 @@ class FirmwarePacker(object):
         osutils.SafeMakedirs(self._BaseDirPath(MODELS_DIR))
         osutils.SafeMakedirs(self._BaseDirPath(IMG_DIR))
 
+        devices_fw_target = conf.GetFirmwareConfigsByDevice()
+
+        # TODO(yshaul): delete this once the api migration is complete.
         firmware_info = conf.GetFirmwareInfo()
         # TODO: Ignore the passed-in model list and use the list from
         # libcros_config_host always. For now the passed-in list is used for
         # testing.
-        models = args.models or firmware_info.keys()
-        images = self._WriteFirmwareImages(models, firmware_info)
-        for model in models:
-          fw = firmware_info[model]
-          image_files = images[fw.shared_model or model]
-          model_details[model] = ModelDetails(image_files, fw.key_id)
+        if args.models:
+          # tests depend on exact ordering
+          devices_fw_target = OrderedDict(
+              (model, devices_fw_target[model]) for model in args.models
+          )
+
+        images = self._WriteFirmwareImages(firmware_info, devices_fw_target)
+        for device, fw_target in devices_fw_target.items():
+          fw = firmware_info[device]
+          image_files = images[fw_target]
+          model_details[device] = ModelDetails(image_files, fw.key_id)
           if not fw.have_image:
             continue
-          self._WriteVersions(model, image_files)
+          self._WriteVersions(device, image_files)
           self._GenerateSetVars(fw, image_files)
       else:
         image_files = self._ProcessFirmware(
