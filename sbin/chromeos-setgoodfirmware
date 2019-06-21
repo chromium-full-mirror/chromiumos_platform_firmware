@@ -28,7 +28,9 @@ info() {
 # Usage: clone_firmware <from_slot> <to_slot>
 clone_firmware() {
   local from="$1" to="$2"
-  local image="$(mktemp)" rw_section="$(mktemp)"
+  local image rw_section
+  image="$(mktemp)"
+  rw_section="$(mktemp)"
   # shellcheck disable=SC2064
   trap "rm -f ${image} ${rw_section}" EXIT
 
@@ -56,7 +58,8 @@ has_ec() {
 # Clones "good" (active) firmware to other slot.
 # Usage: clone_good_firmware
 clone_good_firmware() {
-  local mainfw_act="$(crossystem mainfw_act)"
+  local mainfw_act
+  mainfw_act="$(crossystem mainfw_act)"
   case "${mainfw_act}" in
     A)
       clone_firmware A B
