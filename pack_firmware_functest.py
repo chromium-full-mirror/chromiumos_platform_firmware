@@ -293,36 +293,36 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     # Each assertion matches to a line:
     assertions = [
         None,  # Skip testing first line.
-        lambda(x): self.assertIn('reef', x),
-        lambda(x): self.assertIn('reef/image.bin', x),
-        lambda(x): self.assertEqual('BIOS version: Google_Reef.9042.50.0', x),
-        lambda(x): self.assertIn('/reef/ec.bin', x),
-        lambda(x): self.assertEqual('EC version:   reef_v1.1.5857-77f6ed7', x),
-        lambda(x): self.assertEqual('', x),
-        lambda(x): self.assertIn('pyro', x),
-        lambda(x): self.assertIn('pyro/image.bin', x),
-        lambda(x): self.assertEqual('BIOS version: Google_Pyro.9042.41.0', x),
-        lambda(x): self.assertIn('/pyro/ec.bin', x),
-        lambda(x): self.assertEqual('EC version:   pyro_v1.1.5840-f0d7761', x),
-        lambda(x): self.assertEqual('', x),
-        lambda(x): self.assertIn('sand', x),
-        lambda(x): self.assertIn('sand/image.bin', x),
-        lambda(x): self.assertEqual('BIOS version: Google_Reef.9000.0.0', x),
-        lambda(x): self.assertIn('/sand/ec.bin', x),
-        lambda(x): self.assertEqual('EC version:   reef_v1.1.5857-77f6ed7', x),
-        lambda(x): self.assertEqual('', x),
-        lambda(x): self.assertIn('electro', x),
-        lambda(x): self.assertIn('reef/image.bin', x),
-        lambda(x): self.assertEqual('BIOS version: Google_Reef.9042.50.0', x),
-        lambda(x): self.assertIn('/reef/ec.bin', x),
-        lambda(x): self.assertEqual('EC version:   reef_v1.1.5857-77f6ed7', x),
-        lambda(x): self.assertEqual('', x),
-        lambda(x): self.assertIn('basking', x),
-        lambda(x): self.assertIn('sand/image.bin', x),
-        lambda(x): self.assertEqual('BIOS version: Google_Reef.9000.0.0', x),
-        lambda(x): self.assertIn('/sand/ec.bin', x),
-        lambda(x): self.assertEqual('EC version:   reef_v1.1.5857-77f6ed7', x),
-        lambda(x): self.assertEqual('', x),
+        lambda x: self.assertIn('reef', x),
+        lambda x: self.assertIn('reef/image.bin', x),
+        lambda x: self.assertEqual('BIOS version: Google_Reef.9042.50.0', x),
+        lambda x: self.assertIn('/reef/ec.bin', x),
+        lambda x: self.assertEqual('EC version:   reef_v1.1.5857-77f6ed7', x),
+        lambda x: self.assertEqual('', x),
+        lambda x: self.assertIn('pyro', x),
+        lambda x: self.assertIn('pyro/image.bin', x),
+        lambda x: self.assertEqual('BIOS version: Google_Pyro.9042.41.0', x),
+        lambda x: self.assertIn('/pyro/ec.bin', x),
+        lambda x: self.assertEqual('EC version:   pyro_v1.1.5840-f0d7761', x),
+        lambda x: self.assertEqual('', x),
+        lambda x: self.assertIn('sand', x),
+        lambda x: self.assertIn('sand/image.bin', x),
+        lambda x: self.assertEqual('BIOS version: Google_Reef.9000.0.0', x),
+        lambda x: self.assertIn('/sand/ec.bin', x),
+        lambda x: self.assertEqual('EC version:   reef_v1.1.5857-77f6ed7', x),
+        lambda x: self.assertEqual('', x),
+        lambda x: self.assertIn('electro', x),
+        lambda x: self.assertIn('reef/image.bin', x),
+        lambda x: self.assertEqual('BIOS version: Google_Reef.9042.50.0', x),
+        lambda x: self.assertIn('/reef/ec.bin', x),
+        lambda x: self.assertEqual('EC version:   reef_v1.1.5857-77f6ed7', x),
+        lambda x: self.assertEqual('', x),
+        lambda x: self.assertIn('basking', x),
+        lambda x: self.assertIn('sand/image.bin', x),
+        lambda x: self.assertEqual('BIOS version: Google_Reef.9000.0.0', x),
+        lambda x: self.assertIn('/sand/ec.bin', x),
+        lambda x: self.assertEqual('EC version:   reef_v1.1.5857-77f6ed7', x),
+        lambda x: self.assertEqual('', x),
     ]
     self.assertEqual(len(assertions), len(version_lines))
     for i, assertion in enumerate(assertions):
@@ -651,12 +651,12 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     self.assertTrue(found)
     lines = version_lines[found:]
     assertions = [
-        lambda(x): self.assertIn('whitelabel-test', x),
-        lambda(x): self.assertIn('sand/image.bin', x),
-        lambda(x): self.assertEqual('BIOS version: Google_Reef.9000.0.0', x),
-        lambda(x): self.assertIn('/sand/ec.bin', x),
-        lambda(x): self.assertEqual('EC version:   reef_v1.1.5857-77f6ed7', x),
-        lambda(x): self.assertEqual('', x),
+        lambda x: self.assertIn('whitelabel-test', x),
+        lambda x: self.assertIn('sand/image.bin', x),
+        lambda x: self.assertEqual('BIOS version: Google_Reef.9000.0.0', x),
+        lambda x: self.assertIn('/sand/ec.bin', x),
+        lambda x: self.assertEqual('EC version:   reef_v1.1.5857-77f6ed7', x),
+        lambda x: self.assertEqual('', x),
     ]
     self.assertEqual(len(assertions), len(lines))
     for i, assertion in enumerate(assertions):
@@ -706,12 +706,12 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     self.assertTrue(found)
     lines = version_lines[found:]
     assertions = [
-        lambda(x): self.assertIn(model, x),
-        lambda(x): self.assertIn('reef/image.bin', x),
-        lambda(x): self.assertEqual('BIOS version: Google_Reef.9042.50.0', x),
-        lambda(x): self.assertIn('/reef/ec.bin', x),
-        lambda(x): self.assertEqual('EC version:   reef_v1.1.5857-77f6ed7', x),
-        lambda(x): self.assertEqual('', x),
+        lambda x: self.assertIn(model, x),
+        lambda x: self.assertIn('reef/image.bin', x),
+        lambda x: self.assertEqual('BIOS version: Google_Reef.9042.50.0', x),
+        lambda x: self.assertIn('/reef/ec.bin', x),
+        lambda x: self.assertEqual('EC version:   reef_v1.1.5857-77f6ed7', x),
+        lambda x: self.assertEqual('', x),
     ]
     self.assertEqual(len(assertions), len(lines))
     for i, assertion in enumerate(assertions):
