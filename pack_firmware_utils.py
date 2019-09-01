@@ -12,8 +12,8 @@ from __future__ import print_function
 
 import json
 import os
-import re
 import subprocess
+
 
 def ReadManifest(folder):
   """Read the manifest information from given folder.

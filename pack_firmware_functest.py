@@ -24,7 +24,6 @@ from chromite.lib import cros_build_lib
 from chromite.lib import osutils
 from chromite.lib import path_util
 
-import pack_firmware
 from pack_firmware import FirmwarePacker
 import pack_firmware_utils
 
@@ -95,7 +94,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     self.packer._force_dash = HAVE_DASH
 
   @staticmethod
-  def _ExpectedFiles(extra_files, models=[]):
+  def _ExpectedFiles(extra_files, models=()):
     """Get a sorted list of files that we expect to see in the shellball.
 
     Args:

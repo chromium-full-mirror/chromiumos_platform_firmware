@@ -15,7 +15,7 @@ from __future__ import print_function
 
 from collections import namedtuple, OrderedDict
 import glob
-import md5
+import hashlib
 import os
 import re
 import shutil
@@ -195,7 +195,7 @@ class FirmwarePacker(object):
       version: Version string (e.g. 'Google_Reef.9042.40.0').
     """
     if fname:
-      digest = md5.new()
+      digest = hashlib.md5()
       digest.update(osutils.ReadFile(fname, mode='rb'))
 
       # Modify the filename to replace any use of our base directory with a
@@ -348,7 +348,7 @@ class FirmwarePacker(object):
                       section)
     if src_section.offset != dst_section.offset:
       raise PackError("Firmware section '%s' is not in same location, cannot "
-                      "clone" % section)
+                      'clone' % section)
     self._MergeFile(dst, src, dst_section.offset, src_section.offset,
                     src_section.size)
 
@@ -732,7 +732,7 @@ class FirmwarePacker(object):
     """
     data = osutils.ReadFile(infile)
     rep = dict((re.escape(k), v) for k, v in replace_dict.iteritems())
-    pattern = re.compile("|".join(rep.keys()))
+    pattern = re.compile('|'.join(rep.keys()))
     data = pattern.sub(lambda m: rep[re.escape(m.group(0))], data)
 
     osutils.WriteFile(outfile, data)
@@ -1038,5 +1038,6 @@ def main(argv):
   packer = FirmwarePacker(argv[0])
   packer.Start(argv[1:])
 
-if __name__ == "__main__":
+
+if __name__ == '__main__':
   main(sys.argv)

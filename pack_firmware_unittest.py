@@ -13,7 +13,6 @@ from __future__ import print_function
 
 from contextlib import contextmanager
 import glob
-import mock
 import os
 import shutil
 import struct
@@ -23,6 +22,8 @@ try:
   from StringIO import StringIO
 except ImportError:
   from io import StringIO
+
+import mock
 
 from chromite.lib import cros_test_lib
 from chromite.lib import osutils
@@ -44,7 +45,7 @@ EC_RO_FRID = 'reef_v1.1.5857-77f6ed7'
 EC_RW_FWID = 'reef_v1.1.5858-77f6ed7'
 
 # Expected output from vbutil.
-VBUTIL_OUTPUT = '''Key block:
+VBUTIL_OUTPUT = """Key block:
   Size:                2232
   Flags:               7 (ignored)
   Data key algorithm:  7 RSA4096 SHA256
@@ -60,10 +61,10 @@ Preamble:
   Firmware body size:    920000
   Preamble flags:        1
 Body verification succeeded.
-'''
+"""
 
 # Expected output from 'futility dump_fmap -p' for main image.
-FMAP_OUTPUT = '''WP_RO 0 4194304
+FMAP_OUTPUT = """WP_RO 0 4194304
 SI_DESC 0 4096
 IFWI 4096 2093056
 RO_VPD 2097152 16384
@@ -97,13 +98,13 @@ RW_LEGACY 13828096 2097152
 BIOS_UNUSABLE 15925248 323584
 DEVICE_EXTENSION 16248832 524288
 UNUSED_HOLE 16773120 4096
-'''
+"""
 
 # Expected output from 'futility dump_fmap -p' for alternate main image.
 # This FMAP contains EC_MAIN_A and PD_MAIN_A sections, which will alter
 # the behavior of repack. A similar FMAP is used on some legacy Chrome OS
 # devices.
-FMAP_OUTPUT_LEGACY = '''SI_ALL 0 2097152
+FMAP_OUTPUT_LEGACY = """SI_ALL 0 2097152
 SI_DESC 0 4096
 SI_ME 4096 2093056
 SI_BIOS 2097152 6291456
@@ -136,20 +137,20 @@ RO_FRID 6359040 64
 RO_FRID_PAD 6359104 1984
 GBB 6361088 978944
 BOOT_STUB 7340032 1048576
-'''
+"""
 
 # Size of dummy 'ecrw' file.
 ECRW_SIZE = 0x38000
 
 # Expected output from 'futility dump_fmap -p' for EC image.
-FMAP_OUTPUT_EC = '''EC_RO 64 229376
+FMAP_OUTPUT_EC = """EC_RO 64 229376
 FR_MAIN 64 229376
 RO_FRID 388 32
 FMAP 135232 350
 WP_RO 0 262144
 EC_RW 262144 229376
 RW_FWID 262468 32
-'''
+"""
 
 # Common flags that we use in several tests.
 _COMMON_FLAGS = [
@@ -570,7 +571,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     args = ['.', '-m', 'reef', '-o', 'output']
     with self.assertRaises(pack_firmware.PackError) as e:
       pack_firmware.main(args)
-    self.assertIn("Missing master configuration file", str(e.exception))
+    self.assertIn('Missing master configuration file', str(e.exception))
 
   def SetupRunWithUnibuild(self, config_fname):
     """Set up to run with a valid updater script and BIOS.
