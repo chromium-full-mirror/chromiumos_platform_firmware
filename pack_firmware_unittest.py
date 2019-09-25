@@ -18,12 +18,8 @@ import shutil
 import struct
 import sys
 
-try:
-  from StringIO import StringIO
-except ImportError:
-  from io import StringIO
-
 import mock
+from six.moves import StringIO
 
 from chromite.lib import cros_test_lib
 from chromite.lib import osutils

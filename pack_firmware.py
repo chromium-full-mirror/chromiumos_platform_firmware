@@ -21,9 +21,10 @@ import re
 import shutil
 import struct
 import sys
-from StringIO import StringIO
 import tarfile
 import tempfile
+
+from six.moves import StringIO
 
 from chromite.lib import commandline
 from chromite.lib import cros_build_lib
