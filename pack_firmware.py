@@ -55,8 +55,8 @@ FirmwareSource = namedtuple('FirmwareSource', ['bios', 'bios_rw', 'ec', 'pd'])
 ModelDetails = namedtuple('ModelDetails', ['image_files', 'key_id'])
 
 # File execution permissions. We could use state.S_... but that's confusing.
-CHMOD_ALL_READ = 0444
-CHMOD_ALL_EXEC = 0555
+CHMOD_ALL_READ = 0o444
+CHMOD_ALL_EXEC = 0o555
 
 # For testing
 packer = None
@@ -737,7 +737,7 @@ class FirmwarePacker(object):
     data = pattern.sub(lambda m: rep[re.escape(m.group(0))], data)
 
     osutils.WriteFile(outfile, data)
-    os.chmod(outfile, os.stat(outfile).st_mode | 0555)
+    os.chmod(outfile, os.stat(outfile).st_mode | 0o555)
 
   def _WriteVersionFile(self):
     """Write out the VERSION file with our collected version information."""
