@@ -235,7 +235,8 @@ class FirmwarePacker(object):
     cros_build_lib.RunCommand(['futility', 'dump_fmap', '-x', image_file],
                               quiet=True, cwd=self._tmpdir, error_code_ok=True)
     if os.path.exists(fname):
-      return osutils.ReadFile(fname).replace('\x00', '').strip()
+      return osutils.ReadFile(fname, mode='rb').replace(
+          b'\x00', b'').strip().decode('utf-8')
     return ''
 
   def _ExtractFirmwareIds(self, image_file, rw_image_file=None):
@@ -731,6 +732,8 @@ class FirmwarePacker(object):
           key: String to replace.
           value: Value to replace with.
     """
+    # The template file is going to be ASCII everywhere, so we don't need to
+    # jump through binary mode hoops here.
     data = osutils.ReadFile(infile)
     rep = dict((re.escape(k), v) for k, v in replace_dict.iteritems())
     pattern = re.compile('|'.join(rep.keys()))

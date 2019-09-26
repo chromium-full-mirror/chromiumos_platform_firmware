@@ -384,9 +384,9 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
       rw_id: Read-write firmware ID to use, empty string if none.
     """
     with open(os.path.join(self.unpackdir, outfile), 'wb') as fd:
-      fd.write(ro_id + chr(0) * (256 - len(ro_id)))
-      fd.write(rw_id + chr(0) * (256 - len(rw_id)))
-      fd.write(osutils.ReadFile('functest/fmap.bin'))
+      fd.write(ro_id + b'\x00' * (256 - len(ro_id)))
+      fd.write(rw_id + b'\x00' * (256 - len(rw_id)))
+      fd.write(osutils.ReadFile('functest/fmap.bin', mode='rb'))
 
   def testRepack(self):
     """Repacking the shellball with new images should update versions."""
@@ -426,11 +426,11 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
 
     # The shellball shows files in a comment with this format:
     # 16777216 -rw-r--r-- bios.bin
-    re_files = re.compile(r'^# +[0-9]+ [-rwx]+ \(.*\)$')
-    for line in osutils.ReadFile(outfile).splitlines():
+    re_files = re.compile(br'^# +[0-9]+ [-rwx]+ \(.*\)$')
+    for line in osutils.ReadFile(outfile, mode='rb').splitlines():
       m = re_files.match(line)
       if m:
-        files.append(m.group(1))
+        files.append(m.group(1).decode('utf-8'))
     self.assertEqual(files, sorted(files))
 
   def _AssertFileEqual(self, expect_fname, fname):
@@ -442,8 +442,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
       expect_fname: File containing expected contents
       fname: File containing contents to check
     """
-    expect = osutils.ReadFile(expect_fname)
-    data = osutils.ReadFile(fname)
+    expect = osutils.ReadFile(expect_fname, mode='rb')
+    data = osutils.ReadFile(fname, mode='rb')
     if expect != data:
       self.fail("Contents of '%s' does not match '%s'" % (fname, expect_fname))
 
@@ -483,9 +483,9 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
                                 cwd=actual_dir)
       differ = []
       for expect_fname in glob.glob('%s/*' % expect_dir):
-        expect = osutils.ReadFile(expect_fname)
+        expect = osutils.ReadFile(expect_fname, mode='rb')
         basename = os.path.basename(expect_fname)
-        data = osutils.ReadFile(os.path.join(actual_dir, basename))
+        data = osutils.ReadFile(os.path.join(actual_dir, basename), mode='rb')
         if sig_id and basename in ['VBLOCK_A', 'VBLOCK_B']:
           expect = self._GetVblock(sig_id, basename[-1])
         elif expect_root_sum and basename == 'GBB':

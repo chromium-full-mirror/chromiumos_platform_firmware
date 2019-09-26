@@ -269,7 +269,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     def _SetupImage(_, **kwargs):
       destdir = kwargs['cwd']
       osutils.WriteFile(os.path.join(destdir, 'RO_FRID'),
-                        'TESTING \0\0\0', mode='wb')
+                        b'TESTING \0\0\0', mode='wb')
 
     self.packer._tmpdir = self.packer._CreateTmpDir()
     self.packer._args = self.packer.ParseArgs(['--bios_image', 'image.bin',
@@ -359,8 +359,8 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
                                     '-rw')
     self.assertEqual(os.path.basename(fname2), 'image.bin-rw')
     self.assertNotEqual(fname, fname2)
-    data = osutils.ReadFile(fname)
-    data2 = osutils.ReadFile(fname2)
+    data = osutils.ReadFile(fname, mode='rb')
+    data2 = osutils.ReadFile(fname2, mode='rb')
     self.assertNotEqual(data, data2)
 
     dirname = self.packer._CreateTmpDir()
