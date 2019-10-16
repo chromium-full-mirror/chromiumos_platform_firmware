@@ -115,34 +115,10 @@ from `emerge-${BOARD} chromeos-ec` then `/build/${BOARD}/firmware/ec.bin`.
 
 ## Technical Details
 
-### CROS_FIRMWARE_SCRIPT and packaging
+### Packaging
 The firmware updater is built by running `pack_firmware.py`, which collects
-firmware image files, and then archived by running
-[`shar`](https://www.gnu.org/software/sharutils/), with a special bootstrap
-SFX script `pack/sfx.sh`.
-
-Since the verified boot has been evolved with so much differences, we put the
-updating logic in different files according to the generation of firmware:
-`pack/dist/updater*.sh`. Most Chromebooks today should use `updater5.sh`.
-
-Usually we will increase a "logic version" when the verified boot has been
-changed so much that the updater code for previous versions would almost won't
-work. Currently we have defined these versions
-(Use [Developer Info](https://www.chromium.org/chromium-os/developer-information-for-chrome-os-devices)
- page to find the mapping from board names to product names):
-
- - Version 1: (EOL) mario (CR48), using H2C BIOS.
- - Version 2: (EOL) alex and zgb.
- - Version 3: lumpy, stumpy, butterfly, stout, parrot.
- - Version 4: Everything after version 3 until now.
- - Version 5: Was created for vboot2, but now it's merged back to Version 4.
-
-> Starting from M70, we will migrate all projects to a newly native code based
-> updater as "updater v5". After that there won't be any versions. See
-> go/updater5 for more details.
-
-This will be mapped to what you should set in the `CROS_FIRMWARE_SCRIPT` value
-in ebuild files.
+firmware image files, and then archived in ZIP format with a special bootstrap
+SFX script `pack/sfx2.sh`.
 
 For details about package format, check [pack/README.md](./pack/README.md).
 
