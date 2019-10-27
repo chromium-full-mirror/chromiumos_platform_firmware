@@ -736,7 +736,7 @@ class FirmwarePacker(object):
     # The template file is going to be ASCII everywhere, so we don't need to
     # jump through binary mode hoops here.
     data = osutils.ReadFile(infile)
-    rep = dict((re.escape(k), v) for k, v in replace_dict.iteritems())
+    rep = dict((re.escape(k), v) for k, v in replace_dict.items())
     pattern = re.compile('|'.join(rep.keys()))
     data = pattern.sub(lambda m: rep[re.escape(m.group(0))], data)
 
@@ -947,7 +947,7 @@ class FirmwarePacker(object):
     """
     with open(self._BaseDirPath('signer_config.csv'), 'w') as fd:
       print('model_name,firmware_image,key_id,ec_image', file=fd)
-      for model, details in model_details.iteritems():
+      for model, details in model_details.items():
         if not details.key_id:
           # Some models will not have a key. At present this is normally
           # just the zero-touch whitelabel devices.

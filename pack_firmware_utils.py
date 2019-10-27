@@ -29,7 +29,7 @@ def ReadManifest(folder):
   with open(os.path.join(folder, 'manifest.json')) as f:
     data = json.load(f)
   result = {}
-  for k, v in data.iteritems():
+  for k, v in data.items():
     model = {}
     model['TARGET_RO_FWID'] = v['host']['versions']['ro']
     model['TARGET_FWID'] = v['host']['versions']['rw']
@@ -57,7 +57,7 @@ def ReadVersions(fname):
   raw_data = subprocess.check_output(['sh', fname, '--manifest'])
   data = json.loads(raw_data)
   if len(data) == 1:
-    data = data.values()[0]
+    data = next(iter(data.values()))
     ro_fwid = data['host']['versions']['ro']
     rw_fwid = data['host']['versions']['rw']
     platform = ro_fwid.partition('.')[0]
