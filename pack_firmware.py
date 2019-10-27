@@ -298,8 +298,9 @@ class FirmwarePacker(object):
         key: Section name.
         value: Section() named tuple containing offset and size.
     """
-    result = cros_build_lib.RunCommand(['futility', 'dump_fmap', '-p', fname],
-                                       quiet=True, cwd=self._tmpdir)
+    result = cros_build_lib.RunCommand(
+        ['futility', 'dump_fmap', '-p', fname],
+        quiet=True, cwd=self._tmpdir, encoding='utf-8')
     sections = {}
     for line in result.output.splitlines():
       name, offset, size = line.split()
@@ -382,7 +383,7 @@ class FirmwarePacker(object):
         ['futility', 'dump_fmap', '-x', fname, fmap_area_name],
         quiet=True, cwd=self._tmpdir)
     ec_main_a = os.path.join(self._tmpdir, fmap_area_name)
-    with open(ec_main_a) as fd:
+    with open(ec_main_a, mode='rb') as fd:
       count, offset, size = struct.unpack('<III', fd.read(12))
     if count != 1 or offset != 12:
       raise PackError('Unexpected %s (%d, %d). Cannot merge EC RW' %

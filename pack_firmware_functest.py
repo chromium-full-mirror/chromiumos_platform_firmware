@@ -140,7 +140,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     cmd += ['--verbose', '--debug']
     result = cros_build_lib.RunCommand(cmd, capture_output=True,
                                        extra_env={'PATH': new_path},
-                                       print_cmd=False)
+                                       print_cmd=False, encoding='utf-8')
 
     # The stderr may contain debug messages, info, and status (>>).
     # Anything else (for instance, 'ERROR:') should be error.
@@ -357,7 +357,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
 
     cmd = [SHELL, outfile, '-V']
     result = cros_build_lib.RunCommand(cmd, capture_output=True,
-                                       print_cmd=False)
+                                       print_cmd=False, encoding='utf-8')
     check_version_lines = result.output.splitlines()
 
     version_lines = osutils.ReadFile(
@@ -384,8 +384,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
       rw_id: Read-write firmware ID to use, empty string if none.
     """
     with open(os.path.join(self.unpackdir, outfile), 'wb') as fd:
-      fd.write(ro_id + b'\x00' * (256 - len(ro_id)))
-      fd.write(rw_id + b'\x00' * (256 - len(rw_id)))
+      fd.write(ro_id.encode('utf-8') + b'\x00' * (256 - len(ro_id)))
+      fd.write(rw_id.encode('utf-8') + b'\x00' * (256 - len(rw_id)))
       fd.write(osutils.ReadFile('functest/fmap.bin', mode='rb'))
 
   def testRepack(self):
@@ -491,7 +491,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         elif expect_root_sum and basename == 'GBB':
           result = cros_build_lib.RunCommand(
               ['futility', 'show', fname], quiet=True, mute_output=True,
-              error_code_ok=True)
+              error_code_ok=True, encoding='utf-8')
           # Relevant output is:
           #   Root Key:
           #     Vboot API:           1.0
@@ -575,8 +575,9 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     shutil.copy(rootkey, keydir)
     self._CopyVblock(keydir, sig_id, 'A')
     self._CopyVblock(keydir, sig_id, 'B')
-    result = cros_build_lib.RunCommand([
-        'futility', 'show', rootkey], quiet=True, mute_output=True)
+    result = cros_build_lib.RunCommand(
+        ['futility', 'show', rootkey], quiet=True, mute_output=True,
+        encoding='utf-8')
 
     # The last output line has the following format:
     #   Key sha1sum:         ac7c01b1bea84da486f30a52bba5eb67ff45f50f
