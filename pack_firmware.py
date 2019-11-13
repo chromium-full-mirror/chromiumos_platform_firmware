@@ -319,9 +319,9 @@ class FirmwarePacker(object):
       small_offset: The offset to read in small_path.
       size: Count of bytes to read/write. None to read whole small_path.
     """
-    with open(large_path, 'r+') as output:
+    with open(large_path, 'rb+') as output:
       output.seek(large_offset)
-      with open(small_path) as source:
+      with open(small_path, 'rb') as source:
         source.seek(small_offset)
         output.write(source.read() if size is None else source.read(size))
 
