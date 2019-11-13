@@ -59,7 +59,11 @@ repack() {
   sed -i "$((cut_mark + 1)),\$d" "${dest}"
 
   local tmp="$(mktemp --tmpdir "${TMP_TEMPLATE}")"
-  (cd "${src}" && zip -r "${tmp}.zip" .) || die "Failed archiving: ${dest}"
+  # We need some extra work to get reproducible zip archives.
+  # -X: Disable extra fields (e.g. atime).  We don't need them.
+  # TZ=UTC: Force stable timezone for timestamps rather than the active one.
+  (cd "${src}" && TZ=UTC zip -r -X "${tmp}.zip" .) \
+    || die "Failed archiving: ${dest}"
   cat "${tmp}.zip" >>"${dest}"
   rm -f "${tmp}" "${tmp}.zip"
   zip -A "${dest}"
@@ -77,10 +81,11 @@ unpack() {
 
   mkdir -p "${dest}" || die "Failed to create folder: ${dest}"
   echo "Extracting to: ${dest}"
+  # Force a stable timezone rather than the active one.
   if ! has_program futility ||
-     ! futility update -a "${src}" --unpack "${dest}"; then
+     ! TZ=UTC futility update -a "${src}" --unpack "${dest}"; then
     need_program unzip
-    unzip -o "${src}" -d "${dest}"
+    TZ=UTC unzip -o "${src}" -d "${dest}"
   fi
   echo "OK: Unpacked: ${dest}"
 }
