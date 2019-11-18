@@ -138,9 +138,9 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     if mode == 'output':
       cmd += ['--model', model, '--output_dir', self.outdir]
     cmd += ['--verbose', '--debug']
-    result = cros_build_lib.RunCommand(cmd, capture_output=True,
-                                       extra_env={'PATH': new_path},
-                                       print_cmd=False, encoding='utf-8')
+    result = cros_build_lib.run(cmd, capture_output=True,
+                                extra_env={'PATH': new_path},
+                                print_cmd=False, encoding='utf-8')
 
     # The stderr may contain debug messages, info, and status (>>).
     # Anything else (for instance, 'ERROR:') should be error.
@@ -171,8 +171,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     os.environ['SYSROOT'] = 'test'
     os.environ['FILESDIR'] = 'test'
     self.packer.Start(argv)
-    cros_build_lib.RunCommand([outfile, '--unpack', self.unpackdir],
-                              quiet=True, mute_output=True)
+    cros_build_lib.run([outfile, '--unpack', self.unpackdir],
+                       quiet=True, mute_output=True)
     files = []
     for dirpath, _, fnames in os.walk(self.unpackdir):
       for fname in fnames:
@@ -356,8 +356,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     outfile, files, _ = self._RunPackFirmware(extra_args)
 
     cmd = [SHELL, outfile, '-V']
-    result = cros_build_lib.RunCommand(cmd, capture_output=True,
-                                       print_cmd=False, encoding='utf-8')
+    result = cros_build_lib.run(cmd, capture_output=True,
+                                print_cmd=False, encoding='utf-8')
     check_version_lines = result.output.splitlines()
 
     version_lines = osutils.ReadFile(
@@ -399,8 +399,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
 
     # Extract the file into a directory, then overwrite various files with new
     # images with a different IDs.
-    cros_build_lib.RunCommand([outfile, '--unpack', self.unpackdir],
-                              quiet=True, mute_output=True)
+    cros_build_lib.run([outfile, '--unpack', self.unpackdir],
+                       quiet=True, mute_output=True)
     ro_id = 'Google_Veyron_Mickey.6588.197.0'
     rw_id = 'Google_Veyron_Mickey.6588.197.1'
     ec_id = 'GoogleEC_Veyron_Mickey.6588.197.0'
@@ -411,8 +411,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     self._MakeImage('pd.bin', pd_id)
 
     # Repack the file and make sure that the versions update.
-    cros_build_lib.RunCommand([outfile, '--repack', self.unpackdir],
-                              quiet=True, mute_output=True)
+    cros_build_lib.run([outfile, '--repack', self.unpackdir],
+                       quiet=True, mute_output=True)
     versions = pack_firmware_utils.ReadVersions(outfile)
     self.assertEqual(ro_id, versions['TARGET_RO_FWID'])
     self.assertEqual(rw_id, versions['TARGET_FWID'])
@@ -475,12 +475,11 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     try:
       expect_dir = os.path.join(self.tempdir, 'expect')
       osutils.SafeMakedirs(expect_dir)
-      cros_build_lib.RunCommand(['dump_fmap', '-x', expect_fname], quiet=True,
-                                cwd=expect_dir)
+      cros_build_lib.run(['dump_fmap', '-x', expect_fname], quiet=True,
+                         cwd=expect_dir)
       actual_dir = os.path.join(self.tempdir, 'actual')
       osutils.SafeMakedirs(actual_dir)
-      cros_build_lib.RunCommand(['dump_fmap', '-x', fname], quiet=True,
-                                cwd=actual_dir)
+      cros_build_lib.run(['dump_fmap', '-x', fname], quiet=True, cwd=actual_dir)
       differ = []
       for expect_fname in glob.glob('%s/*' % expect_dir):
         expect = osutils.ReadFile(expect_fname, mode='rb')
@@ -489,9 +488,9 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         if sig_id and basename in ['VBLOCK_A', 'VBLOCK_B']:
           expect = self._GetVblock(sig_id, basename[-1])
         elif expect_root_sum and basename == 'GBB':
-          result = cros_build_lib.RunCommand(
+          result = cros_build_lib.run(
               ['futility', 'show', fname], quiet=True, mute_output=True,
-              error_code_ok=True, encoding='utf-8')
+              check=False, encoding='utf-8')
           # Relevant output is:
           #   Root Key:
           #     Vboot API:           1.0
@@ -575,7 +574,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     shutil.copy(rootkey, keydir)
     self._CopyVblock(keydir, sig_id, 'A')
     self._CopyVblock(keydir, sig_id, 'B')
-    result = cros_build_lib.RunCommand(
+    result = cros_build_lib.run(
         ['futility', 'show', rootkey], quiet=True, mute_output=True,
         encoding='utf-8')
 
@@ -614,13 +613,13 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     Returns:
       List of sums for each key in key_ids
     """
-    cros_build_lib.RunCommand([outfile, '--unpack', self.unpackdir],
-                              quiet=True, mute_output=True)
+    cros_build_lib.run([outfile, '--unpack', self.unpackdir],
+                       quiet=True, mute_output=True)
     keydir = os.path.join(self.unpackdir, 'keyset')
     osutils.SafeMakedirs(keydir)
     key_sums = [self._AddKeys(keydir, x) for x in key_ids]
-    cros_build_lib.RunCommand([outfile, '--repack', self.unpackdir],
-                              quiet=True, mute_output=True)
+    cros_build_lib.run([outfile, '--repack', self.unpackdir],
+                       quiet=True, mute_output=True)
     return key_sums
 
   def testSignedFirmwareOutput(self):

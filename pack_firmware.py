@@ -232,8 +232,8 @@ class FirmwarePacker(object):
     # Remove any file that might be in the way (if not testing).
     if not self._args.testing and os.path.exists(fname):
       os.remove(fname)
-    cros_build_lib.RunCommand(['futility', 'dump_fmap', '-x', image_file],
-                              quiet=True, cwd=self._tmpdir, error_code_ok=True)
+    cros_build_lib.run(['futility', 'dump_fmap', '-x', image_file],
+                       quiet=True, cwd=self._tmpdir, check=False)
     if os.path.exists(fname):
       return osutils.ReadFile(fname, mode='rb').replace(
           b'\x00', b'').strip().decode('utf-8')
@@ -298,7 +298,7 @@ class FirmwarePacker(object):
         key: Section name.
         value: Section() named tuple containing offset and size.
     """
-    result = cros_build_lib.RunCommand(
+    result = cros_build_lib.run(
         ['futility', 'dump_fmap', '-p', fname],
         quiet=True, cwd=self._tmpdir, encoding='utf-8')
     sections = {}
@@ -379,7 +379,7 @@ class FirmwarePacker(object):
       fmap_area_name: Name of the FMAP area which contains the EC binary.
       ecrw_fname: Filename to put EC binary into (relative or absolute path).
     """
-    cros_build_lib.RunCommand(
+    cros_build_lib.run(
         ['futility', 'dump_fmap', '-x', fname, fmap_area_name],
         quiet=True, cwd=self._tmpdir)
     ec_main_a = os.path.join(self._tmpdir, fmap_area_name)
@@ -401,7 +401,7 @@ class FirmwarePacker(object):
       cbfs_name: Name of file in CBFS which contains the EC binary.
       ecrw_fname: Filename to put EC binary into (relative or absolute path).
     """
-    cros_build_lib.RunCommand(
+    cros_build_lib.run(
         ['cbfstool', fname, 'extract', '-n', cbfs_name, '-f', ecrw_fname, '-r',
          'FW_MAIN_A'], quiet=True, cwd=self._tmpdir)
 
@@ -755,7 +755,7 @@ class FirmwarePacker(object):
     shell-ball, and display all version information.
     """
     self._CopyFile(self._sfx_file, self._args.output, mode=CHMOD_ALL_EXEC)
-    cros_build_lib.RunCommand(
+    cros_build_lib.run(
         ['sh', self._args.output, '--repack', self._basedir],
         quiet=self._args.quiet, mute_output=not self._args.quiet)
     if not self._args.quiet:
