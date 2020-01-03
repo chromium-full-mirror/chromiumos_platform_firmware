@@ -838,14 +838,14 @@ class FirmwarePacker(object):
     Returns:
       Filename of the resulting image file.
     """
-    if not uri:
-      return None
     if self._args.local:
       if not fname_template:
         return None
       # TODO(shapiroc): Remove MODEL after cros-firmware.eclass is updated
       return fname_template.replace('MODEL', build_target).replace(
           'BUILD_TARGET', build_target)
+    if not uri:
+      return None
     fname = uri.replace('bcs://', '')
     return self._UntarFile(
         os.path.join(self._args.imagedir, fname), dirname, suffix)
@@ -866,9 +866,7 @@ class FirmwarePacker(object):
                                 firmware.main_rw_image_uri, dirname, 'rw')
     ec = self._ExtractFile(firmware.ec_build_target, self._args.ec_image,
                            firmware.ec_image_uri, dirname)
-    pd = self._ExtractFile(firmware.ec_build_target, self._args.pd_image,
-                           firmware.pd_image_uri, dirname)
-    return FirmwareSource(bios, bios_rw, ec, pd)
+    return FirmwareSource(bios, bios_rw, ec, None)
 
   def _WriteFirmwareImages(self, firmware_info, devices_fw_target):
     """Extract and build all firmware images, then copy them to the shellball.
