@@ -7,6 +7,7 @@ as AP, BIOS or MAIN) and EC (Embedded Controller).
 [TOC]
 
 ## Introduction
+
 Auto update is one of the most important feature in Chrome OS. Updating
 firmware is one of the most complicated process, since all Chromebooks come
 with firmware that implemented [verified
@@ -29,15 +30,21 @@ on a Chrome OS device (or the rootfs partition of a disk image).
 
 To look at its contents (firmware images and versions) in machine friendly way:
 
-    chromeos-firmwareupdate --manifest
+```bash
+chromeos-firmwareupdate --manifest
+```
 
 Currently we also support a human readable form:
 
-    chromeos-firmwareupdate -V
+```bash
+chromeos-firmwareupdate -V
+```
 
 Usually for people who wants to "update all my firmware to right states", do:
 
-    chromeos-firmwareupdate --mode=recovery
+```bash
+chromeos-firmwareupdate --mode=recovery
+```
 
 > The `recovery` mode will try to update RO+RW if your write protection
 > is not enabled, otherwise only RW.
@@ -45,14 +52,18 @@ Usually for people who wants to "update all my firmware to right states", do:
 If your are not sure about write protection status but you only want RW to be
 updated, run:
 
-    chromeos-firmwareupdate --mode=recovery --wp=1
+```bash
+chromeos-firmwareupdate --mode=recovery --wp=1
+```
 
 > The `--wp` argument will override you real write protection status.
 
 If your want *everything* (RO and RW) to be updated and would like the updater
 to check WP state for you:
 
-    chromeos-firmwareupdate --mode=factory
+```bash
+chromeos-firmwareupdate --mode=factory
+```
 
 ### Simulating ChromeOS Auto Update
 
@@ -61,7 +72,9 @@ The ChromeOS Auto Update (`update_engine`) runs updater in a different way - a
 
 If you want to simulate and test that, do:
 
-    chromeos-firmwareupdate --mode=autoupdate --wp=1
+```bash
+chromeos-firmwareupdate --mode=autoupdate --wp=1
+```
 
 ## Building Firmware Updater
 
@@ -72,7 +85,9 @@ package in Chromium OS source tree, which will be replaced and includes the
 
 To build an updater locally, in chroot run:
 
-    emerge-${BOARD} chromeos-firmware-${BOARD}
+```bash
+emerge-${BOARD} chromeos-firmware-${BOARD}
+```
 
 If your board overlay has defined USE flags `bootimage` or `cros_ec`,
 `chromeos-firwmare-${BOARD}` package will add dependency to firmware and EC
@@ -94,6 +109,7 @@ Find a template here in [chromiumos-base/chromeos-firmware-null](https://chromiu
 Usually there are few fields you have to fill:
 
 ### CROS_FIRMWARE_MAIN_IMAGE
+
 A reference to the Main (AP) firmware image, which usually comes from
 `emerge-${BOARD} chromeos-booimage` then `/build/${BOARD}/firmware/image.bin`.
 
@@ -104,18 +120,21 @@ more information.
 > whenever you've changed the image files (`CROS_FIRMWARE_*_IMAGE`).
 
 ### CROS_FIRMWARE_MAIN_RW_IMAGE
+
 A reference to the Main (AP) firmware image and only used for RW sections.
 
 If this value is set, `CROS_FIRMWARE_MAIN_IMAGE` will be used for RO and this
 will be used for RW.
 
 ### CROS_FIRMWARE_EC_IMAGE
+
 A reference to the Embedded Controller (EC) firmware image, which usually comes
 from `emerge-${BOARD} chromeos-ec` then `/build/${BOARD}/firmware/ec.bin`.
 
 ## Technical Details
 
 ### Packaging
+
 The firmware updater is built by running `pack_firmware.py`, which collects
 firmware image files, and then archived in ZIP format with a special bootstrap
 SFX script `pack/sfx2.sh`.
@@ -123,29 +142,30 @@ SFX script `pack/sfx2.sh`.
 For details about package format, check [pack/README.md](./pack/README.md).
 
 ### Updater logic
+
 Here's a detailed list of how each updater mode works:
 
 ![Diagram](_docs/update_diagram.png)
 
  - `--mode=autoupdate`: Invoked by `update_engine` when a payload is installed.
    1. Check if WP is enabled.
-   2. If WP is enabled, update RW / inactive and exit. After system reboot.
+   1. If WP is enabled, update RW / inactive and exit. After system reboot.
       The `update_engine` will invoke `chromeos-setgoodfirmware` after 60 secs,
       which will update or mark booted RW firmware to active.
-   3. If WP is disabled, check if the RO section is same as
+   1. If WP is disabled, check if the RO section is same as
       `CROS_FIRMWARE_MAIN_IMAGE`. If yes, go 2. Otherwise, do `--mode=recovery`.
 
  - `--mode=recovery`: Invoked by recovery shim after installed.
    1. Check if WP is enabled.
-   2. If WP is enabled, update both RW/A, RW/B and exit.
-   3. If WP is disabled, update whole image except reserved sections like VPD.
+   1. If WP is enabled, update both RW/A, RW/B and exit.
+   1. If WP is disabled, update whole image except reserved sections like VPD.
       This includes RO, RW/A, and RW/B.
 > Note in `recovery` mode, the `HWID` and flags in `GBB` are both preserved.
 
  - `--mode=factory`: A special recovery mode for factory initial imaging that
    always runs as `wp=0` and *NOT* preserving GBB flags.
    1. Check if WP is enabled, and exit with failure if enabled.
-   2. Update whole image except reserved sections (GBB, VPD).
+   1. Update whole image except reserved sections (GBB, VPD).
       This includes RO, RW/A, and RW/B.
 > Note in `factory` mode, only `HWID` in `GBB` is preserved. The GBB flags will
 > be changed because in factory process we need to overwrite the flags so we can
@@ -156,5 +176,5 @@ Here's a detailed list of how each updater mode works:
 
  - `--mode=output`: A special mode for updater with multiple sets of images.
    1. Collect system information like model and white label tags.
-   2. Apply patches like signing key blocks if available.
-   3. Write images to given output folder (`--output_dir`).
+   1. Apply patches like signing key blocks if available.
+   1. Write images to given output folder (`--output_dir`).
