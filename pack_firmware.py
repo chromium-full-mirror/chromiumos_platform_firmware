@@ -840,16 +840,21 @@ class FirmwarePacker(object):
       suffix: String to append to output filename.
 
     Returns:
-      Filename of the resulting image file.
+      Filename of the resulting image file or None if the file doesn't exist.
     """
-    if not uri:
-      return None
     if self._args.local:
       if not fname_template:
         return None
       # TODO(shapiroc): Remove MODEL after cros-firmware.eclass is updated
-      return fname_template.replace('MODEL', build_target).replace(
+      real_path = fname_template.replace('MODEL', build_target).replace(
           'BUILD_TARGET', build_target)
+      if not os.path.exists(real_path):
+        real_path = None
+      return real_path
+
+    if not uri:
+      return None
+
     fname = uri.replace('bcs://', '')
     return self._UntarFile(
         os.path.join(self._args.imagedir, fname), dirname, suffix)
@@ -899,6 +904,9 @@ class FirmwarePacker(object):
       unpack_dir = self._TmpDirPath(fw_target)
       osutils.SafeMakedirs(unpack_dir)
       fw_source = self._ExtractFirmware(firmware, unpack_dir)
+
+      if not fw_source.bios and not fw_source.ec:
+        continue
 
       images[fw_target] = self._ProcessFirmware(
           fw_source, self._BaseDirPath(IMG_DIR), firmware.bios_build_target,
@@ -1009,6 +1017,12 @@ class FirmwarePacker(object):
           )
 
         images = self._WriteFirmwareImages(firmware_info, devices_fw_target)
+
+        if not images:
+          if not args.quiet:
+            print('No image created\n')
+          return
+
         for device, fw_target in devices_fw_target.items():
           fw = firmware_info[device]
           image_files = images[fw_target]

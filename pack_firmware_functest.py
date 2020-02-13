@@ -750,6 +750,20 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     """
     self._CheckZeroTouchWhitelabel('wlref', [], ['wltag1', 'wltag2'])
 
+  def testEmptyFirmwareOutput(self):
+    """Ensure no output is generated if not --local and no URIs."""
+    args = ['-c', 'test/config_no_uri.yaml', '-i', 'functest']
+
+    outfile = os.path.join(self.outdir, 'output.sh')
+    args += ['-o', outfile]
+
+    os.environ['SYSROOT'] = 'test'
+    os.environ['FILESDIR'] = 'test'
+    self.packer.Start(args)
+
+    # Check that no files were written
+    files = glob.glob('%s/*' % self.outdir)
+    self.assertListEqual(files, [], 'Expected outdir to be empty')
 
 if __name__ == '__main__':
   cros_test_lib.main(module=__name__)
