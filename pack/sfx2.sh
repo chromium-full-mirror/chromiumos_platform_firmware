@@ -114,7 +114,7 @@ report_system() {
 
   echo "
   Machine Model: ${model}
-  Write Protect: HW=$(crossystem wpsw_cur)/$(crossystem wpsw_boot) SW=${swwp}
+  Write Protect: HW=$(crossystem wpsw_cur) SW=${swwp}
   Last Boot Version: RO=$(crossystem ro_fwid) ACT/$(
                            crossystem mainfw_act)=$(crossystem fwid)
   Firmware Updater:  ${package}
