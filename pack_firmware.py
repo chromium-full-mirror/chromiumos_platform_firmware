@@ -72,7 +72,6 @@ REPLACE_VARS = [
 
 class PackError(Exception):
   """Exception returned by FirmwarePacker when something goes wrong"""
-  pass
 
 
 class FirmwarePacker(object):
@@ -757,7 +756,7 @@ class FirmwarePacker(object):
     self._CopyFile(self._sfx_file, self._args.output, mode=CHMOD_ALL_EXEC)
     cros_build_lib.run(
         ['sh', self._args.output, '--repack', self._basedir],
-        quiet=self._args.quiet, mute_output=not self._args.quiet)
+        quiet=self._args.quiet, capture_output=self._args.quiet)
     if not self._args.quiet:
       for fname in glob.glob(self._BaseDirPath('VERSION*')):
         print(osutils.ReadFile(fname))
@@ -994,7 +993,7 @@ class FirmwarePacker(object):
         image_args = [args.bios_image, args.ec_image, args.pd_image]
         if any(image_args) and not args.local:
           raise PackError('Cannot use -b/-p/-e with -m')
-        elif args.local and not any(image_args):
+        if args.local and not any(image_args):
           raise PackError('Must provide one of -b, -e, -p with -l')
         if not args.config:
           raise PackError('Missing master configuration file (use -c)')

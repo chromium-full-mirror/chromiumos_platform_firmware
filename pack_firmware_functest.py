@@ -172,7 +172,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     os.environ['FILESDIR'] = 'test'
     self.packer.Start(argv)
     cros_build_lib.run([outfile, '--unpack', self.unpackdir],
-                       quiet=True, mute_output=True)
+                       quiet=True, capture_output=True)
     files = []
     for dirpath, _, fnames in os.walk(self.unpackdir):
       for fname in fnames:
@@ -400,7 +400,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     # Extract the file into a directory, then overwrite various files with new
     # images with a different IDs.
     cros_build_lib.run([outfile, '--unpack', self.unpackdir],
-                       quiet=True, mute_output=True)
+                       quiet=True, capture_output=True)
     ro_id = 'Google_Veyron_Mickey.6588.197.0'
     rw_id = 'Google_Veyron_Mickey.6588.197.1'
     ec_id = 'GoogleEC_Veyron_Mickey.6588.197.0'
@@ -412,7 +412,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
 
     # Repack the file and make sure that the versions update.
     cros_build_lib.run([outfile, '--repack', self.unpackdir],
-                       quiet=True, mute_output=True)
+                       quiet=True, capture_output=True)
     versions = pack_firmware_utils.ReadVersions(outfile)
     self.assertEqual(ro_id, versions['TARGET_RO_FWID'])
     self.assertEqual(rw_id, versions['TARGET_FWID'])
@@ -489,7 +489,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
           expect = self._GetVblock(sig_id, basename[-1])
         elif expect_root_sum and basename == 'GBB':
           result = cros_build_lib.run(
-              ['futility', 'show', fname], quiet=True, mute_output=True,
+              ['futility', 'show', fname], quiet=True, capture_output=True,
               check=False, encoding='utf-8')
           # Relevant output is:
           #   Root Key:
@@ -575,8 +575,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     self._CopyVblock(keydir, sig_id, 'A')
     self._CopyVblock(keydir, sig_id, 'B')
     result = cros_build_lib.run(
-        ['futility', 'show', rootkey], quiet=True, mute_output=True,
-        encoding='utf-8')
+        ['futility', 'show', rootkey], quiet=True, encoding='utf-8')
 
     # The last output line has the following format:
     #   Key sha1sum:         ac7c01b1bea84da486f30a52bba5eb67ff45f50f
@@ -613,13 +612,11 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     Returns:
       List of sums for each key in key_ids
     """
-    cros_build_lib.run([outfile, '--unpack', self.unpackdir],
-                       quiet=True, mute_output=True)
+    cros_build_lib.run([outfile, '--unpack', self.unpackdir], quiet=True)
     keydir = os.path.join(self.unpackdir, 'keyset')
     osutils.SafeMakedirs(keydir)
     key_sums = [self._AddKeys(keydir, x) for x in key_ids]
-    cros_build_lib.run([outfile, '--repack', self.unpackdir],
-                       quiet=True, mute_output=True)
+    cros_build_lib.run([outfile, '--repack', self.unpackdir], quiet=True)
     return key_sums
 
   def testSignedFirmwareOutput(self):
