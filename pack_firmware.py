@@ -26,13 +26,13 @@ import tempfile
 
 from six.moves import StringIO
 
-from chromite.lib import commandline
-from chromite.lib import cros_build_lib
-from chromite.lib import osutils
-
 # pylint: disable=import-error
 from cros_config_host import libcros_config_host
 # pylint: enable=import-error
+
+from chromite.lib import commandline
+from chromite.lib import cros_build_lib
+from chromite.lib import osutils
 
 MAIN, MAIN_RW = 'BIOS', 'BIOS (RW)'
 EC = 'EC'
@@ -1025,6 +1025,19 @@ class FirmwarePacker(object):
 
         for device, fw_target in devices_fw_target.items():
           fw = firmware_info[device]
+          if fw_target not in images:
+            # It is possible that some devices have images and others do not.
+            # Do sanity checks and continue past this device.
+            assert not args.local, (
+                'Every target must have an image if args.local is set.'
+            )
+            assert not any(
+                (fw.main_image_uri, fw.main_rw_image_uri,
+                 fw.ec_image_uri, fw.pd_image_uri)
+            ), ('Expected an image for %s if any image_uri is set.' % device)
+
+            continue
+
           image_files = images[fw_target]
           model_details[device] = ModelDetails(image_files, fw.key_id)
           if not fw.have_image:

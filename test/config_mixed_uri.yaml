@@ -1,0 +1,37 @@
+base_config: &base_config
+  name: "{{$device-name}}"
+
+device_config: &device_config
+  <<: *base_config
+  identity:
+    platform-name: "{{$device-name}}"
+    smbios-name-match: "{{$device-name}}"
+
+chromeos:
+  devices:
+    - $device-name: "reef"
+      skus:
+        - config:
+            <<: *device_config
+            $build-target: "reef"
+            firmware:
+              bcs-overlay: "overlay-{{$build-target}}-private"
+              build-targets:
+                coreboot: "{{$build-target}}"
+                ec: "{{$build-target}}"
+                depthcharge: "{{$build-target}}"
+                libpayload: "{{$build-target}}"
+              ec-ro-image: "bcs://Reef_EC.9042.50.0.tbz2"
+              main-ro-image: "bcs://Reef.9042.50.0.tbz2"
+    - $device-name: "pyro"
+      skus:
+        - config:
+            <<: *device_config
+            $build-target: "pyro"
+            firmware:
+              bcs-overlay: "overlay-{{$build-target}}-private"
+              build-targets:
+                coreboot: "{{$build-target}}"
+                ec: "{{$build-target}}"
+                depthcharge: "{{$build-target}}"
+                libpayload: "{{$build-target}}"

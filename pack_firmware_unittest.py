@@ -594,6 +594,25 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
       pack_firmware.main(args)
       pack_firmware.packer._versions.getvalue().splitlines()
 
+  def testMockedRunWithUnibuildMixedUris(self):
+    """Start up with config where a subset of devices have firmware uris."""
+    args = self.SetupRunWithUnibuild('config_mixed_uri.yaml')
+    with cros_test_lib.RunCommandMock() as rc:
+      self._AddMocks(rc)
+      pack_firmware.main(args)
+      # Only reef is in the output, configs without firmware uris are skipped.
+      self.assertListEqual(
+          pack_firmware.packer._versions.getvalue().strip().splitlines(),
+          [
+              'Model:        reef',
+              'BIOS image:   99a6fc64e45596aa2c1a9911cddce952 */reef/image.bin',
+              'BIOS version: Google_Reef.9264.0.2017_02_09_1240',
+              'EC image:     60c08e5aefa3a660687c7027d1358df0 */reef/ec.bin',
+              'EC version:   Google_Reef.9264.0.2017_02_09_1240',
+              'EC (RW) version: Google_Reef.9264.0.2017_02_09_1250',
+          ]
+      )
+
   def testMockedRunWithUnibuildMerge(self):
     """Start up with a valid updater script and both RO and RW BIOS."""
 
