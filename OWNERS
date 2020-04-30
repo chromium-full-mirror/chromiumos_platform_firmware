@@ -1,5 +1,9 @@
 # For updater format, contents and logic please refer to hungte.
-# For unified build packaging please refer to sjg.
+# For unified build packaging, please use chromeos-config OWNERS.
 
 hungte@chromium.org
 sjg@chromium.org
+
+# For refactors that involve cros_config_host.  Not for anything which
+# affects the actual firmware packing.
+include chromiumos/platform2:chromeos-config/OWNERS
