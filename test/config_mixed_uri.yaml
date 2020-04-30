@@ -4,7 +4,7 @@ base_config: &base_config
 device_config: &device_config
   <<: *base_config
   identity:
-    platform-name: "{{$device-name}}"
+    platform-name: "SomePlatform"
     smbios-name-match: "{{$device-name}}"
 
 chromeos:
