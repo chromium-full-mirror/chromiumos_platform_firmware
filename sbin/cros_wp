@@ -1,0 +1,381 @@
+#!/bin/sh
+# Copyright 2020 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+#
+# Utility for Chrome OS firmware write protection.
+
+VERBOSE=
+DEBUG=
+NUMERIC=
+TEMP_FILE=
+
+# Cache of WP_RO section data
+WP_RO_START=
+WP_RO_LEN=
+
+info() {
+  if [ -n "${VERBOSE}" ]; then
+    echo "INFO: $*" >&2
+  fi
+}
+
+debug() {
+  if [ -n "${DEBUG}" ]; then
+    echo "DEBUG: $*" >&2
+  fi
+}
+
+error() {
+  echo "ERROR: $*" >&2
+}
+
+die() {
+  error "$*"
+  exit 1
+}
+
+cleanup() {
+  if [ -n "${TEMP_FILE}" ]; then
+    rm -f "${TEMP_FILE}"
+  fi
+}
+
+on_abort() {
+  trap - EXIT
+  cleanup
+  die "Abort: failed to continue."
+}
+
+has_ec() {
+  [ -e /dev/cros_ec ]
+}
+
+get_temp_file() {
+  if [ -z "${TEMP_FILE}" ]; then
+    TEMP_FILE="$(mktemp cros_wp.XXXXXXXXXX --tmpdir)"
+  fi
+}
+
+check_release_normal() {
+  if ! crossystem cros_debug?0; then
+    info "Running on a debug image - ignore and exit."
+    return 1
+  fi
+  if ! crossystem mainfw_type?normal; then
+    info "Firmware not in normal mode - ignore and exit."
+    return 1
+  fi
+
+  get_temp_file
+
+  flashrom -p host -r "${TEMP_FILE}" -i FMAP -i GBB
+  futility gbb "${TEMP_FILE}" --rootkey="${TEMP_FILE}.rk"
+  mv -f "${TEMP_FILE}.rk" "${TEMP_FILE}"
+  local data="$(futility vbutil_key --unpack "${TEMP_FILE}" | \
+    grep 'Key sha1sum')"
+  local key_hash="${data##* }"
+
+  if [ -z "${key_hash}" ]; then
+    error "Failed to parse system firmware rootkey."
+    return 2
+  fi
+
+  if [ "${key_hash}" = "b11d74edd286c144e1135b49e7f0bc20cf041f10" ]; then
+    info "Current system is using DEV key firmware - ignore and exit."
+    return 1
+  fi
+
+  return 0
+}
+
+check_hardware_write_protect() {
+  debug "checking hardware write protection: wpsw_cur=$(crossystem wpsw_cur)"
+  crossystem wpsw_cur?1
+}
+
+get_fmap_wp_ro() {
+  local target="$1"
+
+  # Create temp file for accessing FMAP from firmware on flash.
+  get_temp_file
+
+  debug "Reading ${target} firmware FMAP for WP_RO data."
+  flashrom -p "${target}" -r "${TEMP_FILE}" -i FMAP >/dev/null 2>&1
+  # Data format: WP_RO start len (decimal)
+  local wp_data="$(dump_fmap -p "${TEMP_FILE}" WP_RO | sed 's/WP_RO //')"
+  debug "WP_RO from ${target} FMAP: ${wp_data}"
+  WP_RO_START="${wp_data% *}"
+  WP_RO_LEN="${wp_data#* }"
+  if [ -z "${WP_RO_START}" ] || [ -z "${WP_RO_LEN}" ]; then
+    error "Failed to parse WP range from ${target} firmware."
+    return 2
+  fi
+
+  return 0
+}
+
+check_software_write_protect() {
+  local target="$1"
+  debug "checking software write protection for ${target}"
+
+  local wp_output="$(flashrom -p "${target}" --wp-status 2>/dev/null)"
+  # Output format: WP: write protect range: start=0x00000000, len=0x00000000
+  local wp_start="$(echo "${wp_output}" | \
+    sed -n 's/WP.*start=\(0x[a-f0-9]\+\).*/\1/p')"
+  local wp_len="$(echo "${wp_output}" | \
+    sed -n 's/WP.*, len=\(0x[a-f0-9]\+\).*/\1/p')"
+  local wp_enabled="$(echo "${wp_output}" | grep 'is enabled.')"
+  debug "flashrom wp-status for ${target}: ${wp_output}"
+
+  if [ -z "${wp_start}" ] || [ -z "${wp_len}" ]; then
+    error "Failed to parse ${target} WP range from software WP settings."
+    return 2
+  fi
+
+  if [ -z "${wp_enabled}" ]; then
+    info "SW WP is not enabled."
+    return 1
+  fi
+
+  # Convert to decimal for comparing with WP_RO_START/LEN.
+  wp_start=$((wp_start))
+  wp_len=$((wp_len))
+
+  get_fmap_wp_ro "${target}"
+  if ! [ "${WP_RO_START}" -eq "${wp_start}" ]; then
+    error "Invalid WP start (expected: ${WP_RO_START}, found: ${wp_start})"
+    return 2
+  fi
+  if ! [ "${WP_RO_LEN}" -eq "${wp_len}" ]; then
+    error "Invalid WP length (expected: ${WP_RO_LEN}, found: ${wp_len})"
+    return 2
+  fi
+  info "WP range looks good (start=${WP_RO_START}, len=${wp_len})"
+
+  return 0
+}
+
+enable_software_write_protect() {
+  local target="$1"
+  echo "Enable software write protection for ${target}"
+  get_fmap_wp_ro "${target}"
+  flashrom -p "${target}" --wp-range ${WP_RO_START} ${WP_RO_LEN} --wp-enable
+}
+
+enable_hardware_write_protect() {
+  if check_hardware_write_protect; then
+    info "HW WP already enabled."
+    return 0
+  fi
+
+  # Request to set WP mode
+  gsctool -a -w enable
+
+  # Check and ensure CCD status (CR50 factory mode).
+  # Reference: factory/py/gooftool/gsctool.py
+  if gsctool -a -I 2>/dev/null | grep -q 'Capabilities are modified'; then
+    echo "CR50 in factory mode - request to exit."
+    gsctool -a -F disable
+
+    if ! gsctool -a -I 2>/dev/null | grep -q 'Capabilities are default'; then
+      error "Failed to disable CCD and CR50 factory mode."
+      return 1
+    fi
+  fi
+
+  # TODO(hungte): This won't work if user 'reboots' device instead of 'shutdown'
+  # and we have to fix this after http://crbug.com/1121907 is implemented.
+  echo "HW WP requested - please start a cold reboot."
+  # Schedule an EC reboot
+  ectool reboot_ec cold at-shutdown
+}
+
+enable_write_protect() {
+  local target="$1"
+
+  # If host SW WP was already programmed, it will take effect immediately
+  # when HW WP changed from off to on. As a result, unless if you can be
+  # sure SW WP is not set (for example in factory), we should always
+  # configure SW WP then HW WP.
+
+  case "${target}" in
+    hw)
+      enable_hardware_write_protect
+      ;;
+    host)
+      enable_software_write_protect host
+      enable_hardware_write_protect
+      ;;
+    ec)
+      enable_software_write_protect ec
+      enable_hardware_write_protect
+      ;;
+    ""|all)
+      enable_software_write_protect host
+      if has_ec; then
+        enable_software_write_protect ec
+      fi
+      enable_hardware_write_protect
+      ;;
+    *)
+      die "Unknown target: ${target}"
+      ;;
+  esac
+  echo "Write protection settings updated. Please start a cold reboot."
+}
+
+report_write_protect() {
+  local target="$1"
+  local ret="0"
+
+  case "${target}" in
+    hw)
+      check_hardware_write_protect || ret="$?"
+      ;;
+    host)
+      check_software_write_protect "${target}" || ret="$?"
+      ;;
+    ec)
+      check_software_write_protect "${target}" || ret="$?"
+      ;;
+    "")
+      check_hardware_write_protect || ret="$?"
+      if [ "${ret}" = 0 ]; then
+        check_software_write_protect host || ret="$?"
+      fi
+      if [ "${ret}" = 0 ] && has_ec; then
+        check_software_write_protect ec || ret="$?"
+      fi
+      ;;
+    all)
+      echo "hw: $(report_write_protect hw || true)"
+      echo "host: $(report_write_protect host || true)"
+      if has_ec; then
+        echo "ec: $(report_write_protect ec || true)"
+      fi
+      return 0
+      ;;
+    *)
+      die "Unknown target: ${target}"
+      ;;
+  esac
+
+  local msg_on="on"
+  local msg_off="off"
+  local msg_error="error"
+
+  if [ -n "${NUMERIC}" ]; then
+    msg_on="1"
+    msg_off="0"
+    msg_error="-2"
+  fi
+
+  case "${ret}" in
+    0)
+      echo "${msg_on}"
+      ;;
+    1)
+      echo "${msg_off}"
+      ;;
+    *)
+      echo "${msg_error}"
+  esac
+}
+
+usage() {
+  echo "Usage: cros_wp [options] [command]
+
+  Set or get write protection status.
+
+  The 'write protection' on Chrome OS is controlled by multiple settings
+  (hardware, software <status and range>) for different targets (host=AP,
+  EC, PD, ...). And the firmware is only 'write protected' if all settings
+  are properly configured.
+
+  To get system overall status:         cros_wp
+  To get a list of individual settings: cros_wp -t all
+  To turn on ALL write protection:      cros_wp enable
+
+  Options:
+    -t: Specify target (hw, host, ec, all)
+    -n: Report status using numeric values.
+    -v: Provide verbose messages
+    -d: Print out debug messages
+    -h: Print this usage (help) information
+
+  Command:
+    enable: Turn on write protection
+    status: Prints 'on', 'off', or 'error' (1, 0, -2 in numeric mode)
+    enable_for_dogfood: Turn on write protection only for dogfood units
+            running non-dev signed firmware in release image normal mode
+
+  If no commands specified the default command is 'status'.
+  ">&2
+}
+
+main() {
+  local target=""
+
+  eval set -- $(getopt -n "$0" t:nvdh "$@")
+  if [ $? -ne 0 ]; then
+    usage
+    die "Failed parsing arguments."
+  fi
+  while true; do
+    case "$1" in
+      -t)
+        target="$2"
+        shift 2
+        ;;
+      -n)
+        NUMERIC=1
+        shift
+        ;;
+      -v)
+        VERBOSE=1
+        shift
+        ;;
+      -d)
+        DEBUG=1
+        shift
+        ;;
+      -h)
+        usage
+        exit
+        ;;
+      --)
+        shift
+        break
+        ;;
+      *)
+        die "Unexpected argument: $1"
+        ;;
+    esac
+  done
+  local command="$1"
+
+  debug "TARGET: ${target}, COMMAND: ${command}"
+  set -e
+  trap on_abort EXIT
+  case "${command}" in
+    status|"")
+      report_write_protect "${target}"
+      ;;
+    enable)
+      enable_write_protect "${target}"
+      ;;
+    enable_for_dogfood)
+      VERBOSE=1  # This is usually done inside AU and we want full logs.
+      if check_release_normal; then
+        enable_write_protect "${target}"
+      fi
+      ;;
+    *)
+      die "Unknown command: ${command}"
+      ;;
+  esac
+  trap - EXIT
+  cleanup
+}
+main "$@"
