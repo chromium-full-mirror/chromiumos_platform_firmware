@@ -158,19 +158,20 @@ Here's a detailed list of how each updater mode works:
  - `--mode=recovery`: Invoked by recovery shim after installed.
    1. Check if WP is enabled.
    1. If WP is enabled, update both RW/A, RW/B and exit.
-   1. If WP is disabled, update whole image except reserved sections like VPD.
+   1. If WP is disabled, update whole image except preserved sections like VPD.
       This includes RO, RW/A, and RW/B.
 > Note in `recovery` mode, the `HWID` and flags in `GBB` are both preserved.
 
  - `--mode=factory`: A special recovery mode for factory initial imaging that
    always runs as `wp=0` and *NOT* preserving GBB flags.
    1. Check if WP is enabled, and exit with failure if enabled.
-   1. Update whole image except reserved sections (GBB, VPD).
+   1. Update whole image except preserved sections like VPD.
       This includes RO, RW/A, and RW/B.
-> Note in `factory` mode, only `HWID` in `GBB` is preserved. The GBB flags will
-> be changed because in factory process we need to overwrite the flags so we can
-> ensure developer mode or other factory friendly settings were turned on in
-> first boot.
+> Note in `factory` mode, in addition to preserved sections, the `HWID`
+> in `GBB` will also be preserved. Other `GBB` data (root key, recovery key,
+> flags) will be changed. The `GBB` flags must be changed because in factory
+> process we need to overwrite the flags so we can ensure developer mode or
+> other factory friendly settings being turned on in the first boot.
 
  - `--mode=legacy`: A special mode that only updates `RW_LEGACY`.
 
