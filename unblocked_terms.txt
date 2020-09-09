@@ -1,0 +1,7 @@
+# See repohooks/README.md for more details.
+
+dummy
+master
+red.?line
+sanity
+white.?label
