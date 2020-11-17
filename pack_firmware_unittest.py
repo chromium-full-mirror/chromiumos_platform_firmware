@@ -444,8 +444,8 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
       for fname in ['RO_FRID', 'RW_FWID']:
         shutil.copy2(os.path.join('test', fname), destdir)
 
-    rc.AddCmdResult(partial_mock.ListRegex('file'), returncode=0,
-                    output='ELF 64-bit LSB executable, etc.\n')
+    rc.AddCmdResult(partial_mock.ListRegex(r'(?:^|\s)file(?:$|\s)'),
+                    returncode=0, output='ELF 64-bit LSB executable, etc.\n')
     rc.AddCmdResult(
         partial_mock.ListRegex('futility dump_fmap -x .*image.bin$'),
         side_effect=_CopySections, returncode=0)
