@@ -447,7 +447,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     rc.AddCmdResult(partial_mock.ListRegex(r'(?:^|\s)file(?:$|\s)'),
                     returncode=0, output='ELF 64-bit LSB executable, etc.\n')
     rc.AddCmdResult(
-        partial_mock.ListRegex('futility dump_fmap -x .*image.bin$'),
+        partial_mock.ListRegex(r'futility dump_fmap -x .*image\.bin$'),
         side_effect=_CopySections, returncode=0)
     rc.AddCmdResult(partial_mock.ListRegex('futility gbb'), returncode=0,
                     output=' - exported root_key to file: rootkey.bin')
@@ -455,9 +455,9 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         partial_mock.ListRegex('futility vbutil_firmware'),
         returncode=0, output=VBUTIL_OUTPUT)
     rc.AddCmdResult(partial_mock.ListRegex('--repack'), returncode=0)
-    rc.AddCmdResult(partial_mock.ListRegex('futility dump_fmap -x .*ec.bin'),
+    rc.AddCmdResult(partial_mock.ListRegex(r'futility dump_fmap -x .*ec\.bin'),
                     side_effect=_CopySections, returncode=0)
-    rc.AddCmdResult(partial_mock.ListRegex('futility dump_fmap -x .*pd.bin'),
+    rc.AddCmdResult(partial_mock.ListRegex(r'futility dump_fmap -x .*pd\.bin'),
                     side_effect=_CopySections, returncode=0)
 
   @staticmethod
@@ -502,27 +502,29 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
 
   @classmethod
   def _AddMergeMocks(cls, rc, mocked_dump_fmap_output):
-    rc.AddCmdResult(partial_mock.ListRegex(
-        'futility dump_fmap -x .*/images-merged/.*image_rw.bin'), returncode=0)
     rc.AddCmdResult(
         partial_mock.ListRegex(
-            'futility dump_fmap -p .*/images-merged/.*image_rw.bin'),
+            r'futility dump_fmap -x .*/images-merged/.*image_rw\.bin'),
+        returncode=0)
+    rc.AddCmdResult(
+        partial_mock.ListRegex(
+            r'futility dump_fmap -p .*/images-merged/.*image_rw\.bin'),
         returncode=0, output=mocked_dump_fmap_output)
     rc.AddCmdResult(
-        partial_mock.ListRegex('futility dump_fmap -p .*image.binrw'),
+        partial_mock.ListRegex(r'futility dump_fmap -p .*image\.binrw'),
         returncode=0, output=mocked_dump_fmap_output)
     rc.AddCmdResult(
-        partial_mock.ListRegex('futility dump_fmap -p .*image.bin'),
+        partial_mock.ListRegex(r'futility dump_fmap -p .*image\.bin'),
         returncode=0, output=mocked_dump_fmap_output)
     rc.AddCmdResult(partial_mock.Regex('extract_ecrw'), returncode=0)
-    rc.AddCmdResult(partial_mock.ListRegex('futility dump_fmap -p .*ec.bin'),
+    rc.AddCmdResult(partial_mock.ListRegex(r'futility dump_fmap -p .*ec\.bin'),
                     returncode=0, output=FMAP_OUTPUT_EC)
     rc.AddCmdResult(partial_mock.ListRegex('cbfstool'), returncode=0,
                     side_effect=cls._CreateCbfstoolFile)
-    rc.AddCmdResult(partial_mock.ListRegex('futility dump_fmap -p .*pd.bin'),
+    rc.AddCmdResult(partial_mock.ListRegex(r'futility dump_fmap -p .*pd\.bin'),
                     returncode=0, output=FMAP_OUTPUT_EC)
     rc.AddCmdResult(
-        partial_mock.ListRegex('futility dump_fmap -x .*image.bin .*_MAIN_A'),
+        partial_mock.ListRegex(r'futility dump_fmap -x .*image\.bin .*_MAIN_A'),
         returncode=0, side_effect=cls._CreateDumpfmapFile)
 
   def testMockedRun(self):
