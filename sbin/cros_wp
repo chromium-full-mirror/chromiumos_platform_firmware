@@ -160,7 +160,7 @@ enable_software_write_protect() {
   local target="$1"
   echo "Enable software write protection for ${target}"
   get_fmap_wp_ro "${target}"
-  flashrom -p "${target}" --wp-range ${WP_RO_START} ${WP_RO_LEN} --wp-enable
+  flashrom -p "${target}" --wp-range ${WP_RO_START},${WP_RO_LEN} --wp-enable
 }
 
 enable_hardware_write_protect() {
