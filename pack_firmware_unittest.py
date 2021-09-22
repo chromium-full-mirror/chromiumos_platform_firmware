@@ -17,8 +17,8 @@ import os
 import shutil
 import struct
 import sys
+from unittest import mock
 
-import mock
 from six.moves import StringIO
 
 from chromite.lib import cros_test_lib
