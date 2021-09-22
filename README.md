@@ -67,8 +67,9 @@ chromeos-firmwareupdate --mode=factory
 
 ### Simulating ChromeOS Auto Update
 
-The ChromeOS Auto Update (`update_engine`) runs updater in a different way - a
-[two-step trial process](https://www.chromium.org/chromium-os/chromiumos-design-docs/firmware-boot-and-recovery).
+The ChromeOS Auto Update
+([`update_engine`](https://chromium.googlesource.com/aosp/platform/system/update_engine/+/HEAD/README.md))
+runs updater in a different way - an A/B update.
 
 If you want to simulate and test that, do:
 
@@ -79,7 +80,7 @@ chromeos-firmwareupdate --mode=autoupdate --wp=1
 ## Building Firmware Updater
 
 The updater is provided by the
-[`virtual/chromeos-firmware`](https://chromium.googlesource.com/chromiumos/overlays/chromiumos-overlay/+/master/virtual/chromeos-firmware)
+[`virtual/chromeos-firmware`](https://chromium.googlesource.com/chromiumos/overlays/chromiumos-overlay/+/HEAD/virtual/chromeos-firmware)
 package in Chromium OS source tree, which will be replaced and includes the
 `chromeos-base/chromeos-firmware-${BOARD}` package in private board overlays.
 
@@ -104,7 +105,7 @@ images in `/build/${BOARD}/firmware/{image,ec}.bin`.
 
 The firmware updater packages lives in private board overlays:
 `src/private-overlays/overlay-${BOARD}-private/chromeos-base/chromeos-firmware-${BOARD}/chromeos-firmware-${BOARD}-9999.ebuild`.
-Find a template here in [chromiumos-base/chromeos-firmware-null](https://chromium.googlesource.com/chromiumos/overlays/chromiumos-overlay/+/master/chromeos-base/chromeos-firmware-null/chromeos-firmware-null-9999.ebuild).
+Find a template here in [chromiumos-base/chromeos-firmware-null](https://chromium.googlesource.com/chromiumos/overlays/chromiumos-overlay/+/HEAD/chromeos-base/chromeos-firmware-null/chromeos-firmware-null-9999.ebuild).
 
 Usually there are few fields you have to fill:
 
