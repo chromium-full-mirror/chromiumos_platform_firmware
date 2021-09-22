@@ -126,7 +126,7 @@ class FirmwarePacker(object):
                         action='append',
                         help='Model name to include in firmware update')
     parser.add_argument('-c', '--config', type='path',
-                        help='Filename of master configuration .dtb file')
+                        help='Filename of model configuration .json file')
     parser.add_argument(
         '-l', '--local', action='store_true',
         help='Build a local firmware image. With this option you must provide '
@@ -987,7 +987,7 @@ class FirmwarePacker(object):
       model_details = OrderedDict()
       if not args.legacy:
         # Most of the arguments are meaningless with unified builds since we
-        # get the information from the master configuration. Add checks here
+        # get the information from the model configuration. Add checks here
         # to avoid confusion. We could possibly do some of this using
         # mutual exclusivity in the argparser, but I'm not sure it is better.
         image_args = [args.bios_image, args.ec_image, args.pd_image]
@@ -996,7 +996,7 @@ class FirmwarePacker(object):
         if args.local and not any(image_args):
           raise PackError('Must provide one of -b, -e, -p with -l')
         if not args.config:
-          raise PackError('Missing master configuration file (use -c)')
+          raise PackError('Missing model configuration file (use -c)')
 
         conf = libcros_config_host.CrosConfig(args.config)
         osutils.SafeMakedirs(self._BaseDirPath(MODELS_DIR))

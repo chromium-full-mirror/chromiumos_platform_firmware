@@ -569,13 +569,13 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     args = ['.', '-m', 'reef', '-o', 'output']
     with self.assertRaises(pack_firmware.PackError) as e:
       pack_firmware.main(args)
-    self.assertIn('Missing master configuration file', str(e.exception))
+    self.assertIn('Missing model configuration file', str(e.exception))
 
   def SetupRunWithUnibuild(self, config_fname):
     """Set up to run with a valid updater script and BIOS.
 
     Args:
-      config_fname: Master configuration file to use.
+      config_fname: Model configuration file to use.
 
     Returns:
       List of arguments to pass to pack_firmware.main()
