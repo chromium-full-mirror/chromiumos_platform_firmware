@@ -127,9 +127,9 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
       List of lines output from the script
     """
     # These are used by our fake vpd/mosys programs (see functest/ directory).
-    os.environ['FAKE_BIOS_BIN'] = os.path.join(self.indir, 'image.bin')
     os.environ['FAKE_WHITELABEL_TAG'] = whitelabel_tag
     os.environ['FAKE_MODEL'] = model
+    input_path = os.path.join(self.indir, 'image.bin')
     new_path = ':'.join((os.path.join(self.basedir, 'functest/bin'),
                          os.environ.get('PATH')))
 
@@ -137,6 +137,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     cmd += ['--mode', mode]
     if mode == 'output':
       cmd += ['--model', model, '--output_dir', self.outdir]
+    cmd += ['-p', 'dummy:emulate=VARIABLE_SIZE,image=%s,size=%d' % (
+        input_path, os.stat(input_path).st_size)]
     cmd += ['--verbose', '--debug']
     result = cros_build_lib.run(cmd, capture_output=True,
                                 extra_env={'PATH': new_path},
