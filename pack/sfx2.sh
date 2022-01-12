@@ -97,7 +97,11 @@ report_system() {
     return
   fi
 
-  local model="$(mosys platform model 2>/dev/null)"
+  # The firmware manifest key in futility comes from the model name,
+  # which can be obtained via "cros_config / name".  This is given
+  # here for informational purposes.  Check the output of "crosid" for
+  # what futility uses.
+  local model="$(cros_config / name || echo unknown)"
   local manifest="$(sh "${self}" --manifest 2>/dev/null)"
   local package="$(echo "${manifest}" |
     jq -c ".${model}.host.versions" 2>/dev/null)"
