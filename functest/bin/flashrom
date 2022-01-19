@@ -1,0 +1,10 @@
+#!/bin/sh
+
+case "$1" in
+  -r)
+    cp -f "${FAKE_BIOS_BIN}" "${2}"
+    ;;
+  *)
+    echo "Unsupported: $*"
+    exit 1
+esac
