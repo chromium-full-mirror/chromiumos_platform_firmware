@@ -669,7 +669,10 @@ class FirmwarePacker(object):
       if len(members) != 1:
         raise PackError("Expected 1 member in file '%s' but found %d" %
                         (pathname, len(members)))
-      if '/' in members[0].name:
+      name = members[0].name
+      if name.startswith('./'):
+        name = name[2:]
+      if '/' in name:
         raise PackError("Tar file '%s' member '%s' should be a simple name" %
                         (pathname, members[0].name))
       tar.extractall(self._tmpdir, members)
