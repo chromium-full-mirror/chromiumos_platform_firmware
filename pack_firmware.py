@@ -1031,7 +1031,7 @@ class FirmwarePacker(object):
             # It is possible that some devices have images and others do not.
             # Do sanity checks and continue past this device.
             assert not args.local, (
-                'Every target must have an image if args.local is set.'
+                'Target %s must have an image if args.local is set.' % fw_target
             )
             assert not any(
                 (fw.main_image_uri, fw.main_rw_image_uri,
