@@ -1029,7 +1029,7 @@ class FirmwarePacker(object):
           fw = firmware_info[device]
           if fw_target not in images:
             # It is possible that some devices have images and others do not.
-            # Do sanity checks and continue past this device.
+            # Do validity checks and continue past this device.
             assert not args.local, (
                 'Target %s must have an image if args.local is set.' % fw_target
             )

@@ -203,7 +203,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     self.assertIn('Must assign at least one', str(e.exception))
 
   def testArgParse(self):
-    """Test some basic argument parsing as a sanity check."""
+    """Test some basic argument parsing as a validity check."""
     with self.assertRaises(SystemExit):
       with capture_sys_output():
         self.assertIsNone(self.packer.ParseArgs(['--invalid']))
