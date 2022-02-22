@@ -112,7 +112,7 @@ Usually there are few fields you have to fill:
 ### CROS_FIRMWARE_MAIN_IMAGE
 
 A reference to the Main (AP) firmware image, which usually comes from
-`emerge-${BOARD} chromeos-booimage` then `/build/${BOARD}/firmware/image.bin`.
+`emerge-${BOARD} chromeos-bootimage` then `/build/${BOARD}/firmware/image.bin`.
 
 Usually this implies both RO and RW. See `CROS_FIRMWARE_MAIN_RW_IMAGE` below for
 more information.
