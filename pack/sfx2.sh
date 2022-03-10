@@ -136,6 +136,7 @@ usage() {
 
 "
   if has_program futility; then
+    echo "If no options are given, prints firmware info and exits."
     echo "Other options will be passed to 'futility update' command:"
     echo ""
     exec futility update --help
@@ -201,7 +202,7 @@ main() {
       # This is what a release Chrome OS will run and can only invoke futility.
       report_system "$0"
       if [ -z "$*" ]; then
-        die "No arguments specified, abort."
+        die "When invoked as $0, you need to specify at least one mode (-m)."
       fi
       need_program futility
       exec futility update -a "$0" "$@"
