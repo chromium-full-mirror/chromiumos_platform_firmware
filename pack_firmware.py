@@ -502,12 +502,13 @@ class FirmwarePacker(object):
       "V+.V+" for local builds
       "V+.V+.V+" for official builds
 
-    Expected FW ID format is one of...
-      "Google_<board>.<version>.yyyy_mm_dd_tttt" for local builds
+    Expected FW ID format is:
+      "Google_<board>.<version>(_\w+)*" in the general case, but most commonly:
+      "Google_<board>.<version>_dyyyy_mm_dd_tttttt" for local builds
       "Google_<board>.<version>" for official builds
 
     For example...
-      "Google_Reef.9264.0.2017_02_09_1240" becomes "9264-0"
+      "Google_Reef.9264.0.1_d2017_02_09_124025" becomes "9264-0-1"
       "Google_Reef.9264.0.1" becomes "9264-0-1"
 
     Args:
@@ -516,12 +517,10 @@ class FirmwarePacker(object):
     Returns:
       The version number.
     """
-    matched_version = re.search(r'(\d+\.\d+)(\.\d+$|\.\d{4}_)', fw_id)
+    matched_version = re.search(r'(\d+\.\d+\.\d+)', fw_id)
     if not matched_version:
       raise PackError('Malformed coreboot firmware ID: %s' % fw_id)
     version = matched_version.group(1)
-    if '_' not in matched_version.group(2):
-      version += matched_version.group(2)
     return version.replace('.', '-')
 
   def _FirmwareImageOutput(self, tag, build_target=None, fw_ids=None,

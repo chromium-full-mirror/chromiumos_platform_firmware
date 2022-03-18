@@ -34,8 +34,8 @@ import pack_firmware_utils
 # Pre-set ID expected for test/image.bin. Note the 'R' in the first is a 'W'
 # in the second. It is confusing but this is how the firmware images are
 # currently created.
-RO_FRID = 'Google_Reef.9264.0.2017_02_09_1240'
-RW_FWID = 'Google_Reef.9264.0.2017_02_09_1250'
+RO_FRID = 'Google_Reef.9264.0.0_d2017_02_09_1240'
+RW_FWID = 'Google_Reef.9264.0.0_d2017_02_09_1250'
 NO_TIMESTAMP_RO_FRID = 'Google_Reef.9264.0.1'
 EC_RO_FRID = 'reef_v1.1.5857-77f6ed7'
 EC_RW_FWID = 'reef_v1.1.5858-77f6ed7'
@@ -289,8 +289,8 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
 
   def testExtractMainVersion(self):
     """Check extracting version from firmware ID."""
-    self.assertEqual(self.packer._ExtractMainVersion(RO_FRID), '9264-0')
-    self.assertEqual(self.packer._ExtractMainVersion(RW_FWID), '9264-0')
+    self.assertEqual(self.packer._ExtractMainVersion(RO_FRID), '9264-0-0')
+    self.assertEqual(self.packer._ExtractMainVersion(RW_FWID), '9264-0-0')
     self.assertEqual(self.packer._ExtractMainVersion(NO_TIMESTAMP_RO_FRID),
                      '9264-0-1')
     with self.assertRaises(pack_firmware.PackError) as e:
@@ -608,10 +608,10 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
           [
               'Model:        reef',
               'BIOS image:   99a6fc64e45596aa2c1a9911cddce952 */reef/image.bin',
-              'BIOS version: Google_Reef.9264.0.2017_02_09_1240',
+              'BIOS version: Google_Reef.9264.0.0_d2017_02_09_1240',
               'EC image:     60c08e5aefa3a660687c7027d1358df0 */reef/ec.bin',
-              'EC version:   Google_Reef.9264.0.2017_02_09_1240',
-              'EC (RW) version: Google_Reef.9264.0.2017_02_09_1250',
+              'EC version:   Google_Reef.9264.0.0_d2017_02_09_1240',
+              'EC (RW) version: Google_Reef.9264.0.0_d2017_02_09_1250',
           ]
       )
 
