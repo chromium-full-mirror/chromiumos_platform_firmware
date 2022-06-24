@@ -183,6 +183,9 @@ main() {
     --repack)
       repack "$0" "$2"
       ;;
+    --repack=*)
+      repack "$0" "${1##*=}"
+      ;;
 
     # Legacy options.
     --sb_extract)
