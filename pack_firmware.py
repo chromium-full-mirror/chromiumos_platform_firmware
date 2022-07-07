@@ -301,7 +301,7 @@ class FirmwarePacker(object):
         ['futility', 'dump_fmap', '-p', fname],
         quiet=True, cwd=self._tmpdir, encoding='utf-8')
     sections = {}
-    for line in result.output.splitlines():
+    for line in result.stdout.splitlines():
       name, offset, size = line.split()
       sections[name] = Section(int(offset), int(size))
     return sections

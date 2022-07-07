@@ -146,11 +146,11 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
 
     # The stderr may contain debug messages, info, and status (>>).
     # Anything else (for instance, 'ERROR:') should be error.
-    errors = [line for line in result.error.splitlines()
+    errors = [line for line in result.stderr.splitlines()
               if line.split() and line.split()[0] not in
               ['(DEBUG)', 'DEBUG:', '>>', 'INFO:']]
     self.assertEqual(errors, [])
-    return result.output.splitlines()
+    return result.stdout.splitlines()
 
   def _RunPackFirmware(self, extra_args):
     """Run the FirmwarePacker process and read the resulting shellball.
@@ -360,7 +360,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     cmd = [SHELL, outfile, '-V']
     result = cros_build_lib.run(cmd, capture_output=True,
                                 print_cmd=False, encoding='utf-8')
-    check_version_lines = result.output.splitlines()
+    check_version_lines = result.stdout.splitlines()
 
     version_lines = osutils.ReadFile(
         os.path.join(self.unpackdir, 'VERSION')).splitlines()
@@ -499,7 +499,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
           #     Algorithm:           11 RSA8192 SHA512
           #     Key Version:         1
           #     Key sha1sum:         ac7c01b1bea84da486f30a52bba5eb67ff45f50f
-          lines = result.output.splitlines()
+          lines = result.stdout.splitlines()
           filtered_lines = [line for line in lines if 'sha1sum' in line]
           data = re.match(' *Key sha1sum: *(.*)$', filtered_lines[0]).group(1)
           expect = expect_root_sum
@@ -581,7 +581,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
 
     # The last output line has the following format:
     #   Key sha1sum:         ac7c01b1bea84da486f30a52bba5eb67ff45f50f
-    return result.output.splitlines()[-1].split()[2]
+    return result.stdout.splitlines()[-1].split()[2]
 
   def _CheckOutput(self, outfile, model, rootkey_sum, signature_id='',
                    whitelabel_tag=''):

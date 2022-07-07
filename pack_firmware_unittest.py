@@ -445,15 +445,15 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         shutil.copy2(os.path.join('test', fname), destdir)
 
     rc.AddCmdResult(partial_mock.ListRegex(r'(?:^|\s)file(?:$|\s)'),
-                    returncode=0, output='ELF 64-bit LSB executable, etc.\n')
+                    returncode=0, stdout='ELF 64-bit LSB executable, etc.\n')
     rc.AddCmdResult(
         partial_mock.ListRegex(r'futility dump_fmap -x .*image\.bin$'),
         side_effect=_CopySections, returncode=0)
     rc.AddCmdResult(partial_mock.ListRegex('futility gbb'), returncode=0,
-                    output=' - exported root_key to file: rootkey.bin')
+                    stdout=' - exported root_key to file: rootkey.bin')
     rc.AddCmdResult(
         partial_mock.ListRegex('futility vbutil_firmware'),
-        returncode=0, output=VBUTIL_OUTPUT)
+        returncode=0, stdout=VBUTIL_OUTPUT)
     rc.AddCmdResult(partial_mock.ListRegex('--repack'), returncode=0)
     rc.AddCmdResult(partial_mock.ListRegex(r'futility dump_fmap -x .*ec\.bin'),
                     side_effect=_CopySections, returncode=0)
@@ -509,20 +509,20 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     rc.AddCmdResult(
         partial_mock.ListRegex(
             r'futility dump_fmap -p .*/images-merged/.*image_rw\.bin'),
-        returncode=0, output=mocked_dump_fmap_output)
+        returncode=0, stdout=mocked_dump_fmap_output)
     rc.AddCmdResult(
         partial_mock.ListRegex(r'futility dump_fmap -p .*image\.binrw'),
-        returncode=0, output=mocked_dump_fmap_output)
+        returncode=0, stdout=mocked_dump_fmap_output)
     rc.AddCmdResult(
         partial_mock.ListRegex(r'futility dump_fmap -p .*image\.bin'),
-        returncode=0, output=mocked_dump_fmap_output)
+        returncode=0, stdout=mocked_dump_fmap_output)
     rc.AddCmdResult(partial_mock.Regex('extract_ecrw'), returncode=0)
     rc.AddCmdResult(partial_mock.ListRegex(r'futility dump_fmap -p .*ec\.bin'),
-                    returncode=0, output=FMAP_OUTPUT_EC)
+                    returncode=0, stdout=FMAP_OUTPUT_EC)
     rc.AddCmdResult(partial_mock.ListRegex('cbfstool'), returncode=0,
                     side_effect=cls._CreateCbfstoolFile)
     rc.AddCmdResult(partial_mock.ListRegex(r'futility dump_fmap -p .*pd\.bin'),
-                    returncode=0, output=FMAP_OUTPUT_EC)
+                    returncode=0, stdout=FMAP_OUTPUT_EC)
     rc.AddCmdResult(
         partial_mock.ListRegex(r'futility dump_fmap -x .*image\.bin .*_MAIN_A'),
         returncode=0, side_effect=cls._CreateDumpfmapFile)
