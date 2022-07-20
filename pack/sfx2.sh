@@ -170,7 +170,7 @@ main() {
       fi
       ;;
     --manifest)
-      if has_program futility && futility update -a "$0" --manifest; then
+      if has_program futility && futility update -a "$0" "$@"; then
         return 0
       fi
       need_program unzip
