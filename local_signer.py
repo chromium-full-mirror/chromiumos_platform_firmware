@@ -65,17 +65,12 @@ class LocalSignerConfig(object):
       ec_target = dev_info.ec_build_target
       key_id = dev_info.key_id
       ap_image = f'image-{ap_target}.bin'
-      cros_ec_image = f'{ec_target}/ec.bin'
-      zephyr_ec_image = f'{ec_target}/zephyr.bin'
+      ec_image = f'{ec_target}/ec.bin'
 
       if not os.path.exists(os.path.join(fw_dir, ap_image)):
         print(f'Missing AP image file {ap_image} for {device}', file=stderr)
         continue
-      for image_file in (zephyr_ec_image, cros_ec_image):
-        if os.path.exists(os.path.join(fw_dir, image_file)):
-          ec_image = image_file
-          break
-      else:
+      if not os.path.exists(os.path.join(fw_dir, ec_image)):
         ec_image = ''
       print(f'{device},{ap_image},{key_id},{ec_image}', file=fd)
 
