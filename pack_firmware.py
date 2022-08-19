@@ -231,8 +231,8 @@ class FirmwarePacker(object):
     # Remove any file that might be in the way (if not testing).
     if not self._args.testing and os.path.exists(fname):
       os.remove(fname)
-    cros_build_lib.run(['futility', 'dump_fmap', '-x', image_file],
-                       quiet=True, cwd=self._tmpdir, check=False)
+    cros_build_lib.dbg_run(['futility', 'dump_fmap', '-x', image_file],
+                           capture_output=True, cwd=self._tmpdir, check=False)
     if os.path.exists(fname):
       return osutils.ReadFile(fname, mode='rb').replace(
           b'\x00', b'').strip().decode('utf-8')
@@ -297,9 +297,9 @@ class FirmwarePacker(object):
         key: Section name.
         value: Section() named tuple containing offset and size.
     """
-    result = cros_build_lib.run(
+    result = cros_build_lib.dbg_run(
         ['futility', 'dump_fmap', '-p', fname],
-        quiet=True, cwd=self._tmpdir, encoding='utf-8')
+        capture_output=True, cwd=self._tmpdir, encoding='utf-8')
     sections = {}
     for line in result.stdout.splitlines():
       name, offset, size = line.split()
@@ -378,9 +378,9 @@ class FirmwarePacker(object):
       fmap_area_name: Name of the FMAP area which contains the EC binary.
       ecrw_fname: Filename to put EC binary into (relative or absolute path).
     """
-    cros_build_lib.run(
+    cros_build_lib.dbg_run(
         ['futility', 'dump_fmap', '-x', fname, fmap_area_name],
-        quiet=True, cwd=self._tmpdir)
+        capture_output=True, cwd=self._tmpdir)
     ec_main_a = os.path.join(self._tmpdir, fmap_area_name)
     with open(ec_main_a, mode='rb') as fd:
       count, offset, size = struct.unpack('<III', fd.read(12))
@@ -400,9 +400,9 @@ class FirmwarePacker(object):
       cbfs_name: Name of file in CBFS which contains the EC binary.
       ecrw_fname: Filename to put EC binary into (relative or absolute path).
     """
-    cros_build_lib.run(
+    cros_build_lib.dbg_run(
         ['cbfstool', fname, 'extract', '-n', cbfs_name, '-f', ecrw_fname, '-r',
-         'FW_MAIN_A'], quiet=True, cwd=self._tmpdir)
+         'FW_MAIN_A'], capture_output=True, cwd=self._tmpdir)
 
   def _ExtractEcRw(self, fname, fmap_area_name, cbfs_name, ecrw_fname):
     """Obtain the RW EC binary.
@@ -758,7 +758,7 @@ class FirmwarePacker(object):
     self._CopyFile(self._sfx_file, self._args.output, mode=CHMOD_ALL_EXEC)
     cros_build_lib.run(
         ['sh', self._args.output, '--repack', self._basedir],
-        quiet=self._args.quiet, capture_output=self._args.quiet)
+        print_cmd=self._args.quiet, capture_output=self._args.quiet)
     if not self._args.quiet:
       for fname in glob.glob(self._BaseDirPath('VERSION*')):
         print(osutils.ReadFile(fname))
