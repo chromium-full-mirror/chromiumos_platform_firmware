@@ -278,8 +278,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     """
     fw_target = fw_target or model
     key_id = key_id or model.upper()
-    return '%s,images/%s,%s,images/%s' % (model, BIOS_IMAGES[fw_target],
-                                          key_id, EC_IMAGES[fw_target])
+    return '%s,images/%s,%s,images/%s,REEF' % (model, BIOS_IMAGES[fw_target],
+                                               key_id, EC_IMAGES[fw_target])
 
   def testFirmwareUpdateUnibuild(self):
     """Run the firmware packer, unpack the result and check it."""
@@ -345,7 +345,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
 
     lines = osutils.ReadFile(
         os.path.join(self.unpackdir, 'signer_config.csv')).splitlines()
-    self.assertEqual('model_name,firmware_image,key_id,ec_image', lines[0])
+    self.assertEqual('model_name,firmware_image,key_id,ec_image,brand_code',
+                     lines[0])
     self.assertEqual(self._CreateSignerLine('reef'), lines[1])
     self.assertEqual(self._CreateSignerLine('pyro'), lines[2])
     self.assertEqual(self._CreateSignerLine('sand'), lines[3])

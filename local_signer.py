@@ -54,7 +54,7 @@ class LocalSignerConfig(object):
 
   def GenerateSignerConfig(self, fd, stderr):
     """Scans build files and generate the signer config."""
-    print('model_name,firmware_image,key_id,ec_image', file=fd)
+    print('model_name,firmware_image,key_id,ec_image,brand_code', file=fd)
 
     fw_dir = os.path.join(self._args.sysroot, 'firmware')
     fw_info = self._conf.GetFirmwareInfo()
@@ -66,13 +66,14 @@ class LocalSignerConfig(object):
       key_id = dev_info.key_id
       ap_image = f'image-{ap_target}.bin'
       ec_image = f'{ec_target}/ec.bin'
+      brand_code = dev_info.brand_code
 
       if not os.path.exists(os.path.join(fw_dir, ap_image)):
         print(f'Missing AP image file {ap_image} for {device}', file=stderr)
         continue
       if not os.path.exists(os.path.join(fw_dir, ec_image)):
         ec_image = ''
-      print(f'{device},{ap_image},{key_id},{ec_image}', file=fd)
+      print(f'{device},{ap_image},{key_id},{ec_image},{brand_code}', file=fd)
 
   def Start(self, argv):
     self._args = self.ParseArgs(argv)

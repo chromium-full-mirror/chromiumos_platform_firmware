@@ -1,5 +1,6 @@
 firmware_common: &firmware_common
   $build-target: "reef"
+  $brand-code: "REEF"
   $fw-name: "Reef"
   $ro-rev: "9042.50"
   $ec-rev: "{{$ro-rev}}"
@@ -35,6 +36,7 @@ firmwares:
 
 
 base_config: &base_config
+  brand-code: "{{$brand-code}}"
   name: "{{$device-name}}"
 
 device_config: &device_config

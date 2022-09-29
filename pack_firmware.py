@@ -52,7 +52,9 @@ FirmwareSource = namedtuple('FirmwareSource', ['bios', 'bios_rw', 'ec', 'pd'])
 #   key: Image name (e.g. 'BIOS (RW)' or 'EC').
 #   value: ImageFile, containing filename and version.
 # key_id: key ID to use to sign the image for this model
-ModelDetails = namedtuple('ModelDetails', ['image_files', 'key_id'])
+ModelDetails = namedtuple('ModelDetails', ['image_files',
+                                           'key_id',
+                                           'brand_code'])
 
 # File execution permissions. We could use state.S_... but that's confusing.
 CHMOD_ALL_READ = 0o444
@@ -955,7 +957,7 @@ class FirmwarePacker(object):
           value: ModelDetails object for that model.
     """
     with open(self._BaseDirPath('signer_config.csv'), 'w') as fd:
-      print('model_name,firmware_image,key_id,ec_image', file=fd)
+      print('model_name,firmware_image,key_id,ec_image,brand_code', file=fd)
       for model, details in model_details.items():
         if not details.key_id:
           # Some models will not have a key. At present this is normally
@@ -966,8 +968,8 @@ class FirmwarePacker(object):
           ec_fname = self._EcImageOutput(details.image_files[EC], IMG_DIR)
         else:
           ec_fname = ''
-        print(','.join((model, image_fname, details.key_id, ec_fname)), file=fd)
-
+        print(','.join((model, image_fname, details.key_id,
+                        ec_fname,details.brand_code)), file=fd)
   def Start(self, argv, remove_tmpdirs=True):
     """Handle the creation of a firmware shell-ball.
 
@@ -1040,7 +1042,9 @@ class FirmwarePacker(object):
             continue
 
           image_files = images[fw_target]
-          model_details[device] = ModelDetails(image_files, fw.key_id)
+          model_details[device] = ModelDetails(image_files,
+                                               fw.key_id,
+                                               fw.brand_code)
           if not fw.have_image:
             continue
           self._WriteVersions(device, image_files)
