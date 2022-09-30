@@ -13,13 +13,12 @@ from __future__ import print_function
 
 from contextlib import contextmanager
 import glob
+import io
 import os
 import shutil
 import struct
 import sys
 from unittest import mock
-
-from six.moves import StringIO
 
 from chromite.lib import cros_test_lib
 from chromite.lib import osutils
@@ -159,7 +158,7 @@ _COMMON_FLAGS = [
 #   ...do something...
 @contextmanager
 def capture_sys_output():
-  capture_out, capture_err = StringIO(), StringIO()
+  capture_out, capture_err = io.StringIO(), io.StringIO()
   old_out, old_err = sys.stdout, sys.stderr
   try:
     sys.stdout, sys.stderr = capture_out, capture_err

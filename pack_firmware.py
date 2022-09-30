@@ -16,6 +16,7 @@ from __future__ import print_function
 from collections import namedtuple, OrderedDict
 import glob
 import hashlib
+import io
 import os
 import re
 import shutil
@@ -23,8 +24,6 @@ import struct
 import sys
 import tarfile
 import tempfile
-
-from six.moves import StringIO
 
 # pylint: disable=import-error
 from cros_config_host import libcros_config_host
@@ -105,7 +104,7 @@ class FirmwarePacker(object):
     self._basedir = None
     self._tmpdir = None
     self._tmp_dirs = []
-    self._versions = StringIO()
+    self._versions = io.StringIO()
     self._force_dash = False
 
   @staticmethod
