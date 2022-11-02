@@ -39,7 +39,7 @@ device_config: &device_config
   <<: *base_config
   identity:
     platform-name: "SomePlatform"
-    smbios-name-match: "{{$device-name}}"
+    frid: "Google_{{$device-name}}"
   firmware-signing:
     key-id: "{{$key-id}}"
     signature-id: "{{$device-name}}"
@@ -49,7 +49,7 @@ wl_device_config: &wl_device_config
   $signature-id: "{{$device-name}}-{{$whitelabel-tag}}"
   identity:
     platform-name: "SomePlatform"
-    smbios-name-match: "{{$device-name}}"
+    frid: "Google_{{$device-name}}"
     whitelabel-tag: "{{$whitelabel-tag}}"
   firmware-signing:
     key-id: "{{$key-id}}"

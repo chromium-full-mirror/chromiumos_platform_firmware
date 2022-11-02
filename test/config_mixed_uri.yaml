@@ -5,7 +5,7 @@ device_config: &device_config
   <<: *base_config
   identity:
     platform-name: "SomePlatform"
-    smbios-name-match: "{{$device-name}}"
+    frid: "Google_{{$device-name}}"
 
 chromeos:
   devices:
