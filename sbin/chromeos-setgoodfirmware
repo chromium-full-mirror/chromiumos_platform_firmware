@@ -6,8 +6,6 @@
 # This script is expected to run by update_engine on each reboot (usually after
 # 60s) via chromeos-setgoodkernel. Same as chromeos-setgoodkernel, this script
 # will mark active firmware as the "good one".
-# For vboot1 systems always taking RW_SECTION_A as default firmware, this must
-# be done by "cloning active to the other RW section".
 # For vboot2 systems, just set fw_result to success and zero fw_try_count.
 
 COMPLETE_EVENT="chromeos-setgoodfirmware"
@@ -22,64 +20,6 @@ die() {
 
 info() {
   echo "INFO: $0: $*"
-}
-
-# Clones an AP firmware slot to another one using flashrom.
-# Usage: clone_firmware <from_slot> <to_slot>
-clone_firmware() {
-  local from="$1" to="$2"
-  local image rw_section
-  image="$(mktemp)"
-  rw_section="$(mktemp)"
-  # shellcheck disable=SC2064
-  trap "rm -f ${image} ${rw_section}" EXIT
-
-  echo "Cloning firmware ${from} to ${to}..."
-  flashrom -p host -r "${image}" -i FMAP \
-    -i "RW_SECTION_${from}:${rw_section}" 2>&1 || \
-    die "Fail to read RW firmware slot ${from}."
-  flashrom -p host -w "${image}" --noverify \
-    -i "RW_SECTION_${to}:${rw_section}" 2>&1 || \
-    die "Fail to write RW firmware slot ${to}."
-
-  # The main script may do "exec ${BOARD_SCRIPT} so trap of EXIT may not work
-  # outside this function.
-  trap - EXIT
-  rm -f "${image}" "${rw_section}"
-}
-
-# Checks if the system has EC. crbug.com/733014: `crossystem ecfw_act` will
-# return 'RO' on x86 Chromeboxes so we have to check EC availability again
-# before starting the update plan.
-has_ec() {
-  mosys ec info -s name >/dev/null 2>&1
-}
-
-# Clones "good" (active) firmware to other slot.
-# Usage: clone_good_firmware
-clone_good_firmware() {
-  local mainfw_act
-  mainfw_act="$(crossystem mainfw_act)"
-  case "${mainfw_act}" in
-    A)
-      clone_firmware A B
-      ;;
-    B)
-      clone_firmware B A
-      ;;
-    *)
-      die "Abnormal active firmware: ${mainfw_act}."
-      ;;
-  esac
-
-  if [ "$(crossystem ecfw_act || true)" = "RO" ] && has_ec; then
-    # TODO(hungte) We need to handle one special case in future: user boot with
-    # recovery button pressed and then never hard-reset device, and then EC will
-    # always be in RO until we rewrite the EC firmware (i.e., next startup
-    # update).
-    echo "EC was boot by RO and may need an update/recovery."
-    crossystem fwupdate_tries=6
-  fi
 }
 
 # Notifies Upstart jobs that we have finished setting a good firmware.
@@ -99,11 +39,7 @@ main() {
       ;;
 
     0)
-      # Vboot1, copy main firmware to the spare slot.
-      clone_good_firmware
-      crossystem fwb_tries=0
-      emit_complete_event
-      info "Active vboot1 firmware set as good firmware."
+      die "vboot1 is no longer supported."
       ;;
 
     *)
