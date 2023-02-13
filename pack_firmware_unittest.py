@@ -20,12 +20,14 @@ import struct
 import sys
 from unittest import mock
 
+import pack_firmware
+import pack_firmware_utils
+
 from chromite.lib import cros_test_lib
 from chromite.lib import osutils
 from chromite.lib import partial_mock
 from chromite.signing.lib import firmware_unittest
-import pack_firmware
-import pack_firmware_utils
+
 
 # We need to poke around in internal members of PackFirmware.
 # pylint: disable=W0212
@@ -33,11 +35,11 @@ import pack_firmware_utils
 # Pre-set ID expected for test/image.bin. Note the 'R' in the first is a 'W'
 # in the second. It is confusing but this is how the firmware images are
 # currently created.
-RO_FRID = 'Google_Reef.9264.0.0_d2017_02_09_1240'
-RW_FWID = 'Google_Reef.9264.0.0_d2017_02_09_1250'
-NO_TIMESTAMP_RO_FRID = 'Google_Reef.9264.0.1'
-EC_RO_FRID = 'reef_v1.1.5857-77f6ed7'
-EC_RW_FWID = 'reef_v1.1.5858-77f6ed7'
+RO_FRID = "Google_Reef.9264.0.0_d2017_02_09_1240"
+RW_FWID = "Google_Reef.9264.0.0_d2017_02_09_1250"
+NO_TIMESTAMP_RO_FRID = "Google_Reef.9264.0.1"
+EC_RO_FRID = "reef_v1.1.5857-77f6ed7"
+EC_RW_FWID = "reef_v1.1.5858-77f6ed7"
 
 # Expected output from vbutil.
 VBUTIL_OUTPUT = """Key block:
@@ -149,7 +151,10 @@ RW_FWID 262468 32
 
 # Common flags that we use in several tests.
 _COMMON_FLAGS = [
-    '-b', 'test/image.bin', '-q', '-o',
+    "-b",
+    "test/image.bin",
+    "-q",
+    "-o",
 ]
 
 
@@ -158,501 +163,601 @@ _COMMON_FLAGS = [
 #   ...do something...
 @contextmanager
 def capture_sys_output():
-  capture_out, capture_err = io.StringIO(), io.StringIO()
-  old_out, old_err = sys.stdout, sys.stderr
-  try:
-    sys.stdout, sys.stderr = capture_out, capture_err
-    yield capture_out, capture_err
-  finally:
-    sys.stdout, sys.stderr = old_out, old_err
+    capture_out, capture_err = io.StringIO(), io.StringIO()
+    old_out, old_err = sys.stdout, sys.stderr
+    try:
+        sys.stdout, sys.stderr = capture_out, capture_err
+        yield capture_out, capture_err
+    finally:
+        sys.stdout, sys.stderr = old_out, old_err
 
 
 class TestUnit(cros_test_lib.MockTempDirTestCase):
-  """Test cases for common program flows."""
-  def setUp(self):
-    self.output = os.path.join(self.tempdir, 'out')
-    self.common_flags = _COMMON_FLAGS + [self.output]
-
-    pack_firmware_utils.MakeTestFiles()
-    self.packer = pack_firmware.FirmwarePacker('.')
-    self._ExtractFrid = pack_firmware.FirmwarePacker._ExtractFrid
-
-  def tearDown(self):
-    pack_firmware.FirmwarePacker._ExtractFrid = self._ExtractFrid
-
-  def testBadStartup(self):
-    """Test various bad start-up conditions"""
-    # Starting up in another directory (without required files) should fail.
-    with self.assertRaises(pack_firmware.PackError) as e:
-      pack_firmware.main(['/'])
-    self.assertIn("'/pack/sfx2.sh'", str(e.exception))
-
-    # Should check for 'zip' tool.
-    with mock.patch.object(osutils, 'Which', return_value=None):
-      with self.assertRaises(pack_firmware.PackError) as e:
-        pack_firmware.main(['.'])
-      self.assertIn("'zip'", str(e.exception))
-
-    # Should complain if we don't provide at least one image.
-    with self.assertRaises(pack_firmware.PackError) as e:
-      args = ['.', '-L', '-o', 'out']
-      pack_firmware.main(args)
-    self.assertIn('Must assign at least one', str(e.exception))
-
-  def testArgParse(self):
-    """Test some basic argument parsing as a validity check."""
-    with self.assertRaises(SystemExit):
-      with capture_sys_output():
-        self.assertIsNone(self.packer.ParseArgs(['--invalid']))
-
-    self.assertIsNone(self.packer.ParseArgs([]).bios_image)
-    self.assertEqual('/bios.bin',
-                     self.packer.ParseArgs(['-b', '/bios.bin']).bios_image)
-
-  def testEnsureCommand(self):
-    """Check that we detect a missing command."""
-    self.packer._EnsureCommand('ls', 'sample-package')
-    with self.assertRaises(pack_firmware.PackError) as e:
-      self.packer._EnsureCommand('does-not-exist', 'sample-package')
-    self.assertIn("You need 'does-not-exist'", str(e.exception))
-
-  def testTmpdirs(self):
-    """Check creation and removal of temporary directories."""
-    dir1 = self.packer._CreateTmpDir()
-    dir2 = self.packer._CreateTmpDir()
-    self.assertExists(dir1)
-    self.assertExists(dir2)
-    self.packer._RemoveTmpdirs()
-    self.assertNotExists(dir1)
-    self.assertNotExists(dir2)
-
-  def testAddVersionInfoMissingFile(self):
-    """Trying to add version info for a missing file should be detected."""
-    with self.assertRaises(IOError) as e:
-      self.packer._AddVersionInfo('BIOS', 'missing-file', 'v123')
-    self.assertIn("'missing-file'", str(e.exception))
-
-  def testAddVersionInfoNoFile(self):
-    """Check adding version info with no filename."""
-    self.packer._AddVersionInfo('BIOS', '', 'v123')
-    self.assertEqual('BIOS version: v123\n', self.packer._versions.getvalue())
-
-  def testAddVersionNoVersion(self):
-    """Check adding version info with no version."""
-    self.packer._AddVersionInfo('BIOS', 'test/image.bin', '')
-    self.assertEqual('BIOS image:   8ce05b02847603aef6cfa01f1bab73d0 '
-                     '*test/image.bin\n',
-                     self.packer._versions.getvalue())
-
-  def testAddVersionInfo(self):
-    """Check adding version info with both a filename and version."""
-    self.packer._AddVersionInfo('BIOS', 'test/image.bin', 'v123')
-    self.assertEqual('BIOS image:   8ce05b02847603aef6cfa01f1bab73d0 '
-                     '*test/image.bin\nBIOS version: v123\n',
-                     self.packer._versions.getvalue())
-
-  def testExtractFrid(self):
-    """Check extracting the firmware ID from a bios image."""
-    self.packer._tmpdir = 'test'
-    self.packer._args = self.packer.ParseArgs(['--bios_image', 'image.bin',
-                                               '-t'])
-    with cros_test_lib.RunCommandMock() as rc:
-      rc.AddCmdResult(partial_mock.ListRegex('futility dump_fmap'),
-                      returncode=0)
-      self.assertEqual(RO_FRID, self.packer._ExtractFrid('image.bin'))
-
-  def testExtractFridTrailingSpace(self):
-    """Check extracting a firmware ID with a trailing space."""
-    def _SetupImage(_, **kwargs):
-      destdir = kwargs['cwd']
-      osutils.WriteFile(os.path.join(destdir, 'RO_FRID'),
-                        b'TESTING \0\0\0', mode='wb')
-
-    self.packer._tmpdir = self.packer._CreateTmpDir()
-    self.packer._args = self.packer.ParseArgs(['--bios_image', 'image.bin',
-                                               '-t'])
-    with cros_test_lib.RunCommandMock() as rc:
-      rc.AddCmdResult(partial_mock.ListRegex('futility dump_fmap'),
-                      returncode=0, side_effect=_SetupImage)
-      self.assertEqual('TESTING', self.packer._ExtractFrid('image.bin'))
-    self.packer._RemoveTmpdirs()
-
-  def testExtractEcVersion(self):
-    """Check extracting version from firmware ID."""
-    self.assertEqual(self.packer._ExtractEcVersion(EC_RO_FRID), '1-1-5857')
-    with self.assertRaises(pack_firmware.PackError) as e:
-      self.assertEqual(self.packer._ExtractEcVersion('a_bad_id'), '')
-    self.assertIn('Malformed EC firmware ID', str(e.exception))
-
-  def testExtractMainVersion(self):
-    """Check extracting version from firmware ID."""
-    self.assertEqual(self.packer._ExtractMainVersion(RO_FRID), '9264-0-0')
-    self.assertEqual(self.packer._ExtractMainVersion(RW_FWID), '9264-0-0')
-    self.assertEqual(self.packer._ExtractMainVersion(NO_TIMESTAMP_RO_FRID),
-                     '9264-0-1')
-    with self.assertRaises(pack_firmware.PackError) as e:
-      self.assertEqual(self.packer._ExtractMainVersion('a_bad_id'), '')
-    self.assertIn('Malformed coreboot firmware ID', str(e.exception))
-
-  def testFirmwareImageOutput(self):
-    """Check firmware image output name."""
-    self.packer._args = self.packer.ParseArgs([])
-    self.packer._tmpdir = self.packer._CreateTmpDir()
-
-    tag = 'ec'
-    target = 'reef'
-    fw_ids = pack_firmware.FirmwareIds(EC_RO_FRID, EC_RW_FWID)
-    bad_fw_ids = pack_firmware.FirmwareIds(EC_RO_FRID, None)
-    version_fn = lambda fwid: '1-1-5857' if fwid == EC_RO_FRID else '1-1-5858'
-    self.assertEqual(self.packer._FirmwareImageOutput(tag), '')
-    self.assertEqual(
-        self.packer._FirmwareImageOutput(tag, fw_ids=fw_ids,
-                                         extract_version=version_fn),
-        '')
-    self.assertEqual(
-        self.packer._FirmwareImageOutput(tag, target, fw_ids), '')
-    self.assertEqual(
-        self.packer._FirmwareImageOutput(tag, target,
-                                         extract_version=version_fn),
-        '')
-    self.assertEqual(
-        self.packer._FirmwareImageOutput(tag, target, bad_fw_ids, version_fn),
-        '')
-
-    expected_fname = 'ec-reef.ro-1-1-5857.rw-1-1-5858.bin'
-    self.assertEqual(
-        self.packer._FirmwareImageOutput(tag, target, fw_ids, version_fn),
-        expected_fname)
-    self.assertEqual(
-        self.packer._FirmwareImageOutput(tag, target, fw_ids, version_fn,
-                                         self.packer._tmpdir),
-        os.path.join(self.packer._tmpdir, expected_fname))
-
-    self.packer._RemoveTmpdirs()
-
-  def testFirmwareImageOutputLegacy(self):
-    """Check firmware image output name when legacy is set."""
-    self.packer._args = self.packer.ParseArgs(['-L'])
-    self.packer._tmpdir = self.packer._CreateTmpDir()
-    self.assertEqual(self.packer._FirmwareImageOutput('bios'), 'bios.bin')
-    self.assertEqual(self.packer._FirmwareImageOutput('bios', 'reef'),
-                     'bios.bin')
-    self.assertEqual(
-        self.packer._FirmwareImageOutput(tag='bios',
-                                         target_dir=self.packer._tmpdir),
-        os.path.join(self.packer._tmpdir, 'bios.bin'))
-    self.packer._RemoveTmpdirs()
-
-  def testUntarFile(self):
-    """Test operation of the tar file unpacker."""
-    self.packer._tmpdir = self.packer._CreateTmpDir()
-    dirname = self.packer._CreateTmpDir()
-    fname = self.packer._UntarFile('functest/Reef.9042.50.0.tbz2', dirname)
-    self.assertEqual(os.path.basename(fname), 'image.bin')
-
-    # Unpack again with a different suffix. We should get a different filename
-    # and the file contents should be different.
-    fname2 = self.packer._UntarFile('functest/Reef.9000.0.0.tbz2', dirname,
-                                    '-rw')
-    self.assertEqual(os.path.basename(fname2), 'image.bin-rw')
-    self.assertNotEqual(fname, fname2)
-    data = osutils.ReadFile(fname, mode='rb')
-    data2 = osutils.ReadFile(fname2, mode='rb')
-    self.assertNotEqual(data, data2)
-
-    dirname = self.packer._CreateTmpDir()
-    fname = self.packer._UntarFile('functest/Reef.9042.50.0.tbz2', dirname)
-    self.assertEqual(os.path.basename(fname), 'image.bin')
-
-    # This tar file has two files in it.
-    # -rw-r----- sjg/eng          64 2017-03-03 16:12 RO_FRID
-    # -rw-r----- sjg/eng          64 2017-03-15 13:38 RW_FRID
-    with self.assertRaises(pack_firmware.PackError) as e:
-      fname = self.packer._UntarFile('test/two_files.tbz2', dirname)
-    self.assertIn('Expected 1 member', str(e.exception))
-
-    # This tar file has as directory name in its member's filename.
-    # -rw-r----- sjg/eng          64 2017-03-03 16:12 test/RO_FRID
-    with self.assertRaises(pack_firmware.PackError) as e:
-      fname = self.packer._UntarFile('test/path.tbz2', dirname)
-    self.assertIn('should be a simple name', str(e.exception))
-
-    self.packer._RemoveTmpdirs()
-
-  @staticmethod
-  def _FilesInDir(dirname):
-    """Get a list of files in a directory.
-
-    Args:
-      dirname: Directory name to check.
-
-    Returns:
-      List of files in that directory (basename only). Any subdirectories are
-          ignored.
-    """
-    return sorted([os.path.basename(fname)
-                   for fname in glob.glob(os.path.join(dirname, '*'))
-                   if not os.path.isdir(fname)])
-
-  def testBaseDirPath(self):
-    """Check that _BaseDirPath() works as expected."""
-    self.packer._basedir = 'base'
-    self.assertEqual('base/fred', self.packer._BaseDirPath('fred'))
-
-  def _GetFakeReefFirmware(self):
-    """Get the fake reef firmware config
-
-    Returns:
-      Dict of the reef firmware config
-    """
-    return {
-        'ec-ro-image': 'bcs://Reef_EC.9042.50.0.tbz2',
-        'extra': [
-            '${FILESDIR}/extra',
-            '${SYSROOT}/usr/sbin/ectool',
-            'bcs://Reef.9000.0.0.tbz2'
-        ],
-        'main-ro-image': 'bcs://Reef.9042.50.0.tbz2',
-    }
-
-  def testExtractFileBcs(self):
-    """Test handling file extraction based on a configuration property,"""
-    self.packer._tmpdir = self.packer._CreateTmpDir()
-    self.packer._args = self.packer.ParseArgs(['--imagedir', 'functest'])
-    dirname = self.packer._CreateTmpDir()
-    fake_fw = self._GetFakeReefFirmware()
-
-    # This should look up main-ro-image, find that file in functest/, copy it to
-    # our directory and return its filename.
-    main_image = fake_fw['main-ro-image']
-    self.assertEqual(
-        self.packer._ExtractFile(None, None, main_image, dirname),
-        os.path.join(dirname, 'image.bin'))
-    ec_image = fake_fw['ec-ro-image']
-    self.assertEqual(
-        self.packer._ExtractFile(None, None, ec_image, dirname),
-        os.path.join(dirname, 'ec.bin'))
-    self.packer._RemoveTmpdirs()
-
-  @staticmethod
-  def _AddMocks(rc):
-    def _CopySections(_, **kwargs):
-      destdir = kwargs['cwd']
-      for fname in ['RO_FRID', 'RW_FWID']:
-        shutil.copy2(os.path.join('test', fname), destdir)
-
-    rc.AddCmdResult(partial_mock.ListRegex(r'(?:^|\s)file(?:$|\s)'),
-                    returncode=0, stdout='ELF 64-bit LSB executable, etc.\n')
-    rc.AddCmdResult(
-        partial_mock.ListRegex(r'futility dump_fmap -x .*image\.bin$'),
-        side_effect=_CopySections, returncode=0)
-    rc.AddCmdResult(partial_mock.ListRegex('futility gbb'), returncode=0,
-                    stdout=' - exported root_key to file: rootkey.bin')
-    rc.AddCmdResult(
-        partial_mock.ListRegex('futility vbutil_firmware'),
-        returncode=0, stdout=VBUTIL_OUTPUT)
-    rc.AddCmdResult(partial_mock.ListRegex('--repack'), returncode=0)
-    rc.AddCmdResult(partial_mock.ListRegex(r'futility dump_fmap -x .*ec\.bin'),
-                    side_effect=_CopySections, returncode=0)
-    rc.AddCmdResult(partial_mock.ListRegex(r'futility dump_fmap -x .*pd\.bin'),
-                    side_effect=_CopySections, returncode=0)
-
-  @staticmethod
-  def _CreateCbfstoolFile(cmd, **_kwargs):
-    """Called as a side effect to emulate the effect of cbfstool.
-
-    This handles the 'cbfstool...extract' command which is supposed to
-    extract a particular 'file' from inside the CBFS archive. We deal with
-    this by creating a zero-filled file with the correct name and size.
-    See _ExtractEcRwUsingCbfs() for where this command is generated.
-
-    Args:
-      cmd: Arguments, of the form:
-          ['cbfstool.sh', ..., '-f', <filename>, ...]
-          See _SetPreambleFlags() for where this is generated.
-    """
-    file_arg = cmd.index('-f')
-    fname = cmd[file_arg + 1]
-    with open(fname, 'wb') as fd:
-      fd.truncate(ECRW_SIZE)
-
-  @staticmethod
-  def _CreateDumpfmapFile(cmd, **_kwargs):
-    """Called as a side effect to emulate the effect of dump_fmap.
-
-    This handles the 'dump_fmap -x' command which is supposed to
-    extract a particular region from a file with an FMAP descriptor.
-    See _ExtractEcRwUsingFMAP() for where this command is generated.
-
-    Args:
-      cmd: Arguments, of the form:
-          ['dump_fmap', '-x', <filename>, <region>]
-          <region> specifies the region to extract from <filename>, which
-          will be extracted to cwd in a file named <region>.
-          See _ExtractEcRwUsingFMAP() for where this is generated.
-    """
-    fname = os.path.join(_kwargs['cwd'], cmd.pop())
-    with open(fname, 'wb') as fd:
-      # Write a dummy header with image size = ECRW_SIZE, and payload of zeros
-      fd.write(struct.pack('<III', 1, 12, ECRW_SIZE))
-      fd.truncate(ECRW_SIZE + 12)
-
-  @classmethod
-  def _AddMergeMocks(cls, rc, mocked_dump_fmap_output):
-    rc.AddCmdResult(
-        partial_mock.ListRegex(
-            r'futility dump_fmap -x .*/images-merged/.*image_rw\.bin'),
-        returncode=0)
-    rc.AddCmdResult(
-        partial_mock.ListRegex(
-            r'futility dump_fmap -p .*/images-merged/.*image_rw\.bin'),
-        returncode=0, stdout=mocked_dump_fmap_output)
-    rc.AddCmdResult(
-        partial_mock.ListRegex(r'futility dump_fmap -p .*image\.binrw'),
-        returncode=0, stdout=mocked_dump_fmap_output)
-    rc.AddCmdResult(
-        partial_mock.ListRegex(r'futility dump_fmap -p .*image\.bin'),
-        returncode=0, stdout=mocked_dump_fmap_output)
-    rc.AddCmdResult(partial_mock.Regex('extract_ecrw'), returncode=0)
-    rc.AddCmdResult(partial_mock.ListRegex(r'futility dump_fmap -p .*ec\.bin'),
-                    returncode=0, stdout=FMAP_OUTPUT_EC)
-    rc.AddCmdResult(partial_mock.ListRegex('cbfstool'), returncode=0,
-                    side_effect=cls._CreateCbfstoolFile)
-    rc.AddCmdResult(partial_mock.ListRegex(r'futility dump_fmap -p .*pd\.bin'),
-                    returncode=0, stdout=FMAP_OUTPUT_EC)
-    rc.AddCmdResult(
-        partial_mock.ListRegex(r'futility dump_fmap -x .*image\.bin .*_MAIN_A'),
-        returncode=0, side_effect=cls._CreateDumpfmapFile)
-
-  def testMockedRun(self):
-    """Start up with a valid updater script and BIOS."""
-    args = ['.', '-L', '-e', 'test/ec.bin'] + self.common_flags
-    with cros_test_lib.RunCommandMock() as rc:
-      self._AddMocks(rc)
-      firmware_unittest.MockFirmwareSigner(rc)
-      pack_firmware.main(args)
-      pack_firmware.packer._versions.getvalue().splitlines()
-
-  def _testMockedRunWithMerge(self, mocked_dump_fmap_output):
-    args = ['--bios_rw_image', 'test/image_rw.bin', '-L',
-            '-e', 'test/ec.bin', '-p', 'test/pd.bin'] + self.common_flags
-    with cros_test_lib.RunCommandMock() as rc:
-      self._AddMocks(rc)
-      self._AddMergeMocks(rc, mocked_dump_fmap_output)
-      self.packer.Start(args, remove_tmpdirs=False)
-    result = self.packer._versions.getvalue().splitlines()
-    self.assertEqual(11, len(result))
-    self.assertIn(RO_FRID, self._FindLineInList(result, 'EC version'))
-    self.assertIn(RW_FWID, self._FindLineInList(result, 'EC (RW) version'))
-    rw_fname = self.packer._BaseDirPath('ec.bin')
-    self.assertAlmostEqual(os.stat(rw_fname).st_mtime,
-                           os.stat('test/image_rw.bin').st_mtime)
-    ec_fname = self.packer._BaseDirPath('ec.bin')
-    self.assertAlmostEqual(os.stat(ec_fname).st_mtime,
-                           os.stat('test/image_rw.bin').st_mtime)
-    self.packer._RemoveTmpdirs()
-
-  def testMockedRunWithMerge(self):
-    """Start up with a valid updater script and merge the RW BIOS."""
-    self._testMockedRunWithMerge(FMAP_OUTPUT)
-
-  def testMockedRunWithMergeLegacyFmap(self):
-    """Repeat merge test with alternate FMAP used on legacy devices."""
-    self._testMockedRunWithMerge(FMAP_OUTPUT_LEGACY)
-
-  def testMockedRunUnibuildBad(self):
-    """Try unified build options with invalid arguments."""
-
-    args = ['.', '-m', 'reef', '-o', 'output']
-    with self.assertRaises(pack_firmware.PackError) as e:
-      pack_firmware.main(args)
-    self.assertIn('Missing model configuration file', str(e.exception))
-
-  def SetupRunWithUnibuild(self, config_fname):
-    """Set up to run with a valid updater script and BIOS.
-
-    Args:
-      config_fname: Model configuration file to use.
-
-    Returns:
-      List of arguments to pass to pack_firmware.main()
-    """
-
-    args = ['.', '-m', 'reef', '-m', 'pyro', '-q', '-o', self.output,
-            '-c', 'test/%s' % config_fname, '-i', 'functest', '-t']
-
-    os.environ['SYSROOT'] = 'test'
-    os.environ['FILESDIR'] = 'test'
-    return args
-
-  def testMockedRunWithUnibuild(self):
-    """Start up with a valid updater script and BIOS."""
-    args = self.SetupRunWithUnibuild('config.yaml')
-    with cros_test_lib.RunCommandMock() as rc:
-      self._AddMocks(rc)
-      pack_firmware.main(args)
-      pack_firmware.packer._versions.getvalue().splitlines()
-
-  def testMockedRunWithUnibuildMixedUris(self):
-    """Start up with config where a subset of devices have firmware uris."""
-    args = self.SetupRunWithUnibuild('config_mixed_uri.yaml')
-    with cros_test_lib.RunCommandMock() as rc:
-      self._AddMocks(rc)
-      pack_firmware.main(args)
-      # Only reef is in the output, configs without firmware uris are skipped.
-      self.assertListEqual(
-          pack_firmware.packer._versions.getvalue().strip().splitlines(),
-          [
-              'Model:        reef',
-              'BIOS image:   99a6fc64e45596aa2c1a9911cddce952 */reef/image.bin',
-              'BIOS version: Google_Reef.9264.0.0_d2017_02_09_1240',
-              'EC image:     60c08e5aefa3a660687c7027d1358df0 */reef/ec.bin',
-              'EC version:   Google_Reef.9264.0.0_d2017_02_09_1240',
-              'EC (RW) version: Google_Reef.9264.0.0_d2017_02_09_1250',
-          ]
-      )
-
-  def testMockedRunWithUnibuildMerge(self):
-    """Start up with a valid updater script and both RO and RW BIOS."""
-
-    # Due to a bug in the DT impl, the RW firmware image was never actually
-    # present.
-    # TODO(sjg): Change this to config_rw.json once the RW merge case if
-    # correctly supported.
-    args = self.SetupRunWithUnibuild('config.yaml')
-    with cros_test_lib.RunCommandMock() as rc:
-      self._AddMocks(rc)
-      self._AddMergeMocks(rc, FMAP_OUTPUT)
-      pack_firmware.main(args)
-      pack_firmware.packer._versions.getvalue().splitlines()
-
-  def _FindLineInList(self, lines, start_text):
-    """Helper to find a single line starting with the given text and return it.
-
-    Args:
-      lines: List of lines to check.
-      start_text: Text to find.
-
-    Returns:
-      Line found, as a string (or assertion failure if exactly one matching
-        line was not found).
-    """
-    found = [line for line in lines if line.strip().startswith(start_text)]
-    self.assertEqual(len(found), 1)
-    return found[0]
-
-  def testNoECFirmware(self):
-    """Simple test of creating firmware without an EC image."""
-    args = self.common_flags + ['-L']
-    with cros_test_lib.RunCommandMock() as rc:
-      self._AddMocks(rc)
-      self.packer.Start(args)
-
-    # There should be no EC version in the VERSION file.
-    result = self.packer._versions.getvalue()
-    self.assertNotIn('EC version', result)
-    self.assertEqual(4, len(result.splitlines()))
-
-
-if __name__ == '__main__':
-  cros_test_lib.main(module=__name__)
+    """Test cases for common program flows."""
+
+    def setUp(self):
+        self.output = os.path.join(self.tempdir, "out")
+        self.common_flags = _COMMON_FLAGS + [self.output]
+
+        pack_firmware_utils.MakeTestFiles()
+        self.packer = pack_firmware.FirmwarePacker(".")
+        self._ExtractFrid = pack_firmware.FirmwarePacker._ExtractFrid
+
+    def tearDown(self):
+        pack_firmware.FirmwarePacker._ExtractFrid = self._ExtractFrid
+
+    def testBadStartup(self):
+        """Test various bad start-up conditions"""
+        # Starting up in another directory (without required files) should fail.
+        with self.assertRaises(pack_firmware.PackError) as e:
+            pack_firmware.main(["/"])
+        self.assertIn("'/pack/sfx2.sh'", str(e.exception))
+
+        # Should check for 'zip' tool.
+        with mock.patch.object(osutils, "Which", return_value=None):
+            with self.assertRaises(pack_firmware.PackError) as e:
+                pack_firmware.main(["."])
+            self.assertIn("'zip'", str(e.exception))
+
+        # Should complain if we don't provide at least one image.
+        with self.assertRaises(pack_firmware.PackError) as e:
+            args = [".", "-L", "-o", "out"]
+            pack_firmware.main(args)
+        self.assertIn("Must assign at least one", str(e.exception))
+
+    def testArgParse(self):
+        """Test some basic argument parsing as a validity check."""
+        with self.assertRaises(SystemExit):
+            with capture_sys_output():
+                self.assertIsNone(self.packer.ParseArgs(["--invalid"]))
+
+        self.assertIsNone(self.packer.ParseArgs([]).bios_image)
+        self.assertEqual(
+            "/bios.bin", self.packer.ParseArgs(["-b", "/bios.bin"]).bios_image
+        )
+
+    def testEnsureCommand(self):
+        """Check that we detect a missing command."""
+        self.packer._EnsureCommand("ls", "sample-package")
+        with self.assertRaises(pack_firmware.PackError) as e:
+            self.packer._EnsureCommand("does-not-exist", "sample-package")
+        self.assertIn("You need 'does-not-exist'", str(e.exception))
+
+    def testTmpdirs(self):
+        """Check creation and removal of temporary directories."""
+        dir1 = self.packer._CreateTmpDir()
+        dir2 = self.packer._CreateTmpDir()
+        self.assertExists(dir1)
+        self.assertExists(dir2)
+        self.packer._RemoveTmpdirs()
+        self.assertNotExists(dir1)
+        self.assertNotExists(dir2)
+
+    def testAddVersionInfoMissingFile(self):
+        """Trying to add version info for a missing file should be detected."""
+        with self.assertRaises(IOError) as e:
+            self.packer._AddVersionInfo("BIOS", "missing-file", "v123")
+        self.assertIn("'missing-file'", str(e.exception))
+
+    def testAddVersionInfoNoFile(self):
+        """Check adding version info with no filename."""
+        self.packer._AddVersionInfo("BIOS", "", "v123")
+        self.assertEqual(
+            "BIOS version: v123\n", self.packer._versions.getvalue()
+        )
+
+    def testAddVersionNoVersion(self):
+        """Check adding version info with no version."""
+        self.packer._AddVersionInfo("BIOS", "test/image.bin", "")
+        self.assertEqual(
+            "BIOS image:   8ce05b02847603aef6cfa01f1bab73d0 "
+            "*test/image.bin\n",
+            self.packer._versions.getvalue(),
+        )
+
+    def testAddVersionInfo(self):
+        """Check adding version info with both a filename and version."""
+        self.packer._AddVersionInfo("BIOS", "test/image.bin", "v123")
+        self.assertEqual(
+            "BIOS image:   8ce05b02847603aef6cfa01f1bab73d0 "
+            "*test/image.bin\nBIOS version: v123\n",
+            self.packer._versions.getvalue(),
+        )
+
+    def testExtractFrid(self):
+        """Check extracting the firmware ID from a bios image."""
+        self.packer._tmpdir = "test"
+        self.packer._args = self.packer.ParseArgs(
+            ["--bios_image", "image.bin", "-t"]
+        )
+        with cros_test_lib.RunCommandMock() as rc:
+            rc.AddCmdResult(
+                partial_mock.ListRegex("futility dump_fmap"), returncode=0
+            )
+            self.assertEqual(RO_FRID, self.packer._ExtractFrid("image.bin"))
+
+    def testExtractFridTrailingSpace(self):
+        """Check extracting a firmware ID with a trailing space."""
+
+        def _SetupImage(_, **kwargs):
+            destdir = kwargs["cwd"]
+            osutils.WriteFile(
+                os.path.join(destdir, "RO_FRID"), b"TESTING \0\0\0", mode="wb"
+            )
+
+        self.packer._tmpdir = self.packer._CreateTmpDir()
+        self.packer._args = self.packer.ParseArgs(
+            ["--bios_image", "image.bin", "-t"]
+        )
+        with cros_test_lib.RunCommandMock() as rc:
+            rc.AddCmdResult(
+                partial_mock.ListRegex("futility dump_fmap"),
+                returncode=0,
+                side_effect=_SetupImage,
+            )
+            self.assertEqual("TESTING", self.packer._ExtractFrid("image.bin"))
+        self.packer._RemoveTmpdirs()
+
+    def testExtractEcVersion(self):
+        """Check extracting version from firmware ID."""
+        self.assertEqual(self.packer._ExtractEcVersion(EC_RO_FRID), "1-1-5857")
+        with self.assertRaises(pack_firmware.PackError) as e:
+            self.assertEqual(self.packer._ExtractEcVersion("a_bad_id"), "")
+        self.assertIn("Malformed EC firmware ID", str(e.exception))
+
+    def testExtractMainVersion(self):
+        """Check extracting version from firmware ID."""
+        self.assertEqual(self.packer._ExtractMainVersion(RO_FRID), "9264-0-0")
+        self.assertEqual(self.packer._ExtractMainVersion(RW_FWID), "9264-0-0")
+        self.assertEqual(
+            self.packer._ExtractMainVersion(NO_TIMESTAMP_RO_FRID), "9264-0-1"
+        )
+        with self.assertRaises(pack_firmware.PackError) as e:
+            self.assertEqual(self.packer._ExtractMainVersion("a_bad_id"), "")
+        self.assertIn("Malformed coreboot firmware ID", str(e.exception))
+
+    def testFirmwareImageOutput(self):
+        """Check firmware image output name."""
+        self.packer._args = self.packer.ParseArgs([])
+        self.packer._tmpdir = self.packer._CreateTmpDir()
+
+        tag = "ec"
+        target = "reef"
+        fw_ids = pack_firmware.FirmwareIds(EC_RO_FRID, EC_RW_FWID)
+        bad_fw_ids = pack_firmware.FirmwareIds(EC_RO_FRID, None)
+        version_fn = (
+            lambda fwid: "1-1-5857" if fwid == EC_RO_FRID else "1-1-5858"
+        )
+        self.assertEqual(self.packer._FirmwareImageOutput(tag), "")
+        self.assertEqual(
+            self.packer._FirmwareImageOutput(
+                tag, fw_ids=fw_ids, extract_version=version_fn
+            ),
+            "",
+        )
+        self.assertEqual(
+            self.packer._FirmwareImageOutput(tag, target, fw_ids), ""
+        )
+        self.assertEqual(
+            self.packer._FirmwareImageOutput(
+                tag, target, extract_version=version_fn
+            ),
+            "",
+        )
+        self.assertEqual(
+            self.packer._FirmwareImageOutput(
+                tag, target, bad_fw_ids, version_fn
+            ),
+            "",
+        )
+
+        expected_fname = "ec-reef.ro-1-1-5857.rw-1-1-5858.bin"
+        self.assertEqual(
+            self.packer._FirmwareImageOutput(tag, target, fw_ids, version_fn),
+            expected_fname,
+        )
+        self.assertEqual(
+            self.packer._FirmwareImageOutput(
+                tag, target, fw_ids, version_fn, self.packer._tmpdir
+            ),
+            os.path.join(self.packer._tmpdir, expected_fname),
+        )
+
+        self.packer._RemoveTmpdirs()
+
+    def testFirmwareImageOutputLegacy(self):
+        """Check firmware image output name when legacy is set."""
+        self.packer._args = self.packer.ParseArgs(["-L"])
+        self.packer._tmpdir = self.packer._CreateTmpDir()
+        self.assertEqual(self.packer._FirmwareImageOutput("bios"), "bios.bin")
+        self.assertEqual(
+            self.packer._FirmwareImageOutput("bios", "reef"), "bios.bin"
+        )
+        self.assertEqual(
+            self.packer._FirmwareImageOutput(
+                tag="bios", target_dir=self.packer._tmpdir
+            ),
+            os.path.join(self.packer._tmpdir, "bios.bin"),
+        )
+        self.packer._RemoveTmpdirs()
+
+    def testUntarFile(self):
+        """Test operation of the tar file unpacker."""
+        self.packer._tmpdir = self.packer._CreateTmpDir()
+        dirname = self.packer._CreateTmpDir()
+        fname = self.packer._UntarFile("functest/Reef.9042.50.0.tbz2", dirname)
+        self.assertEqual(os.path.basename(fname), "image.bin")
+
+        # Unpack again with a different suffix. We should get a different filename
+        # and the file contents should be different.
+        fname2 = self.packer._UntarFile(
+            "functest/Reef.9000.0.0.tbz2", dirname, "-rw"
+        )
+        self.assertEqual(os.path.basename(fname2), "image.bin-rw")
+        self.assertNotEqual(fname, fname2)
+        data = osutils.ReadFile(fname, mode="rb")
+        data2 = osutils.ReadFile(fname2, mode="rb")
+        self.assertNotEqual(data, data2)
+
+        dirname = self.packer._CreateTmpDir()
+        fname = self.packer._UntarFile("functest/Reef.9042.50.0.tbz2", dirname)
+        self.assertEqual(os.path.basename(fname), "image.bin")
+
+        # This tar file has two files in it.
+        # -rw-r----- sjg/eng          64 2017-03-03 16:12 RO_FRID
+        # -rw-r----- sjg/eng          64 2017-03-15 13:38 RW_FRID
+        with self.assertRaises(pack_firmware.PackError) as e:
+            fname = self.packer._UntarFile("test/two_files.tbz2", dirname)
+        self.assertIn("Expected 1 member", str(e.exception))
+
+        # This tar file has as directory name in its member's filename.
+        # -rw-r----- sjg/eng          64 2017-03-03 16:12 test/RO_FRID
+        with self.assertRaises(pack_firmware.PackError) as e:
+            fname = self.packer._UntarFile("test/path.tbz2", dirname)
+        self.assertIn("should be a simple name", str(e.exception))
+
+        self.packer._RemoveTmpdirs()
+
+    @staticmethod
+    def _FilesInDir(dirname):
+        """Get a list of files in a directory.
+
+        Args:
+          dirname: Directory name to check.
+
+        Returns:
+          List of files in that directory (basename only). Any subdirectories are
+              ignored.
+        """
+        return sorted(
+            [
+                os.path.basename(fname)
+                for fname in glob.glob(os.path.join(dirname, "*"))
+                if not os.path.isdir(fname)
+            ]
+        )
+
+    def testBaseDirPath(self):
+        """Check that _BaseDirPath() works as expected."""
+        self.packer._basedir = "base"
+        self.assertEqual("base/fred", self.packer._BaseDirPath("fred"))
+
+    def _GetFakeReefFirmware(self):
+        """Get the fake reef firmware config
+
+        Returns:
+          Dict of the reef firmware config
+        """
+        return {
+            "ec-ro-image": "bcs://Reef_EC.9042.50.0.tbz2",
+            "extra": [
+                "${FILESDIR}/extra",
+                "${SYSROOT}/usr/sbin/ectool",
+                "bcs://Reef.9000.0.0.tbz2",
+            ],
+            "main-ro-image": "bcs://Reef.9042.50.0.tbz2",
+        }
+
+    def testExtractFileBcs(self):
+        """Test handling file extraction based on a configuration property,"""
+        self.packer._tmpdir = self.packer._CreateTmpDir()
+        self.packer._args = self.packer.ParseArgs(["--imagedir", "functest"])
+        dirname = self.packer._CreateTmpDir()
+        fake_fw = self._GetFakeReefFirmware()
+
+        # This should look up main-ro-image, find that file in functest/, copy it to
+        # our directory and return its filename.
+        main_image = fake_fw["main-ro-image"]
+        self.assertEqual(
+            self.packer._ExtractFile(None, None, main_image, dirname),
+            os.path.join(dirname, "image.bin"),
+        )
+        ec_image = fake_fw["ec-ro-image"]
+        self.assertEqual(
+            self.packer._ExtractFile(None, None, ec_image, dirname),
+            os.path.join(dirname, "ec.bin"),
+        )
+        self.packer._RemoveTmpdirs()
+
+    @staticmethod
+    def _AddMocks(rc):
+        def _CopySections(_, **kwargs):
+            destdir = kwargs["cwd"]
+            for fname in ["RO_FRID", "RW_FWID"]:
+                shutil.copy2(os.path.join("test", fname), destdir)
+
+        rc.AddCmdResult(
+            partial_mock.ListRegex(r"(?:^|\s)file(?:$|\s)"),
+            returncode=0,
+            stdout="ELF 64-bit LSB executable, etc.\n",
+        )
+        rc.AddCmdResult(
+            partial_mock.ListRegex(r"futility dump_fmap -x .*image\.bin$"),
+            side_effect=_CopySections,
+            returncode=0,
+        )
+        rc.AddCmdResult(
+            partial_mock.ListRegex("futility gbb"),
+            returncode=0,
+            stdout=" - exported root_key to file: rootkey.bin",
+        )
+        rc.AddCmdResult(
+            partial_mock.ListRegex("futility vbutil_firmware"),
+            returncode=0,
+            stdout=VBUTIL_OUTPUT,
+        )
+        rc.AddCmdResult(partial_mock.ListRegex("--repack"), returncode=0)
+        rc.AddCmdResult(
+            partial_mock.ListRegex(r"futility dump_fmap -x .*ec\.bin"),
+            side_effect=_CopySections,
+            returncode=0,
+        )
+        rc.AddCmdResult(
+            partial_mock.ListRegex(r"futility dump_fmap -x .*pd\.bin"),
+            side_effect=_CopySections,
+            returncode=0,
+        )
+
+    @staticmethod
+    def _CreateCbfstoolFile(cmd, **_kwargs):
+        """Called as a side effect to emulate the effect of cbfstool.
+
+        This handles the 'cbfstool...extract' command which is supposed to
+        extract a particular 'file' from inside the CBFS archive. We deal with
+        this by creating a zero-filled file with the correct name and size.
+        See _ExtractEcRwUsingCbfs() for where this command is generated.
+
+        Args:
+          cmd: Arguments, of the form:
+              ['cbfstool.sh', ..., '-f', <filename>, ...]
+              See _SetPreambleFlags() for where this is generated.
+        """
+        file_arg = cmd.index("-f")
+        fname = cmd[file_arg + 1]
+        with open(fname, "wb") as fd:
+            fd.truncate(ECRW_SIZE)
+
+    @staticmethod
+    def _CreateDumpfmapFile(cmd, **_kwargs):
+        """Called as a side effect to emulate the effect of dump_fmap.
+
+        This handles the 'dump_fmap -x' command which is supposed to
+        extract a particular region from a file with an FMAP descriptor.
+        See _ExtractEcRwUsingFMAP() for where this command is generated.
+
+        Args:
+          cmd: Arguments, of the form:
+              ['dump_fmap', '-x', <filename>, <region>]
+              <region> specifies the region to extract from <filename>, which
+              will be extracted to cwd in a file named <region>.
+              See _ExtractEcRwUsingFMAP() for where this is generated.
+        """
+        fname = os.path.join(_kwargs["cwd"], cmd.pop())
+        with open(fname, "wb") as fd:
+            # Write a dummy header with image size = ECRW_SIZE, and payload of zeros
+            fd.write(struct.pack("<III", 1, 12, ECRW_SIZE))
+            fd.truncate(ECRW_SIZE + 12)
+
+    @classmethod
+    def _AddMergeMocks(cls, rc, mocked_dump_fmap_output):
+        rc.AddCmdResult(
+            partial_mock.ListRegex(
+                r"futility dump_fmap -x .*/images-merged/.*image_rw\.bin"
+            ),
+            returncode=0,
+        )
+        rc.AddCmdResult(
+            partial_mock.ListRegex(
+                r"futility dump_fmap -p .*/images-merged/.*image_rw\.bin"
+            ),
+            returncode=0,
+            stdout=mocked_dump_fmap_output,
+        )
+        rc.AddCmdResult(
+            partial_mock.ListRegex(r"futility dump_fmap -p .*image\.binrw"),
+            returncode=0,
+            stdout=mocked_dump_fmap_output,
+        )
+        rc.AddCmdResult(
+            partial_mock.ListRegex(r"futility dump_fmap -p .*image\.bin"),
+            returncode=0,
+            stdout=mocked_dump_fmap_output,
+        )
+        rc.AddCmdResult(partial_mock.Regex("extract_ecrw"), returncode=0)
+        rc.AddCmdResult(
+            partial_mock.ListRegex(r"futility dump_fmap -p .*ec\.bin"),
+            returncode=0,
+            stdout=FMAP_OUTPUT_EC,
+        )
+        rc.AddCmdResult(
+            partial_mock.ListRegex("cbfstool"),
+            returncode=0,
+            side_effect=cls._CreateCbfstoolFile,
+        )
+        rc.AddCmdResult(
+            partial_mock.ListRegex(r"futility dump_fmap -p .*pd\.bin"),
+            returncode=0,
+            stdout=FMAP_OUTPUT_EC,
+        )
+        rc.AddCmdResult(
+            partial_mock.ListRegex(
+                r"futility dump_fmap -x .*image\.bin .*_MAIN_A"
+            ),
+            returncode=0,
+            side_effect=cls._CreateDumpfmapFile,
+        )
+
+    def testMockedRun(self):
+        """Start up with a valid updater script and BIOS."""
+        args = [".", "-L", "-e", "test/ec.bin"] + self.common_flags
+        with cros_test_lib.RunCommandMock() as rc:
+            self._AddMocks(rc)
+            firmware_unittest.MockFirmwareSigner(rc)
+            pack_firmware.main(args)
+            pack_firmware.packer._versions.getvalue().splitlines()
+
+    def _testMockedRunWithMerge(self, mocked_dump_fmap_output):
+        args = [
+            "--bios_rw_image",
+            "test/image_rw.bin",
+            "-L",
+            "-e",
+            "test/ec.bin",
+            "-p",
+            "test/pd.bin",
+        ] + self.common_flags
+        with cros_test_lib.RunCommandMock() as rc:
+            self._AddMocks(rc)
+            self._AddMergeMocks(rc, mocked_dump_fmap_output)
+            self.packer.Start(args, remove_tmpdirs=False)
+        result = self.packer._versions.getvalue().splitlines()
+        self.assertEqual(11, len(result))
+        self.assertIn(RO_FRID, self._FindLineInList(result, "EC version"))
+        self.assertIn(RW_FWID, self._FindLineInList(result, "EC (RW) version"))
+        rw_fname = self.packer._BaseDirPath("ec.bin")
+        self.assertAlmostEqual(
+            os.stat(rw_fname).st_mtime, os.stat("test/image_rw.bin").st_mtime
+        )
+        ec_fname = self.packer._BaseDirPath("ec.bin")
+        self.assertAlmostEqual(
+            os.stat(ec_fname).st_mtime, os.stat("test/image_rw.bin").st_mtime
+        )
+        self.packer._RemoveTmpdirs()
+
+    def testMockedRunWithMerge(self):
+        """Start up with a valid updater script and merge the RW BIOS."""
+        self._testMockedRunWithMerge(FMAP_OUTPUT)
+
+    def testMockedRunWithMergeLegacyFmap(self):
+        """Repeat merge test with alternate FMAP used on legacy devices."""
+        self._testMockedRunWithMerge(FMAP_OUTPUT_LEGACY)
+
+    def testMockedRunUnibuildBad(self):
+        """Try unified build options with invalid arguments."""
+
+        args = [".", "-m", "reef", "-o", "output"]
+        with self.assertRaises(pack_firmware.PackError) as e:
+            pack_firmware.main(args)
+        self.assertIn("Missing model configuration file", str(e.exception))
+
+    def SetupRunWithUnibuild(self, config_fname):
+        """Set up to run with a valid updater script and BIOS.
+
+        Args:
+          config_fname: Model configuration file to use.
+
+        Returns:
+          List of arguments to pass to pack_firmware.main()
+        """
+
+        args = [
+            ".",
+            "-m",
+            "reef",
+            "-m",
+            "pyro",
+            "-q",
+            "-o",
+            self.output,
+            "-c",
+            "test/%s" % config_fname,
+            "-i",
+            "functest",
+            "-t",
+        ]
+
+        os.environ["SYSROOT"] = "test"
+        os.environ["FILESDIR"] = "test"
+        return args
+
+    def testMockedRunWithUnibuild(self):
+        """Start up with a valid updater script and BIOS."""
+        args = self.SetupRunWithUnibuild("config.yaml")
+        with cros_test_lib.RunCommandMock() as rc:
+            self._AddMocks(rc)
+            pack_firmware.main(args)
+            pack_firmware.packer._versions.getvalue().splitlines()
+
+    def testMockedRunWithUnibuildMixedUris(self):
+        """Start up with config where a subset of devices have firmware uris."""
+        args = self.SetupRunWithUnibuild("config_mixed_uri.yaml")
+        with cros_test_lib.RunCommandMock() as rc:
+            self._AddMocks(rc)
+            pack_firmware.main(args)
+            # Only reef is in the output, configs without firmware uris are skipped.
+            self.assertListEqual(
+                pack_firmware.packer._versions.getvalue().strip().splitlines(),
+                [
+                    "Model:        reef",
+                    "BIOS image:   99a6fc64e45596aa2c1a9911cddce952 */reef/image.bin",
+                    "BIOS version: Google_Reef.9264.0.0_d2017_02_09_1240",
+                    "EC image:     60c08e5aefa3a660687c7027d1358df0 */reef/ec.bin",
+                    "EC version:   Google_Reef.9264.0.0_d2017_02_09_1240",
+                    "EC (RW) version: Google_Reef.9264.0.0_d2017_02_09_1250",
+                ],
+            )
+
+    def testMockedRunWithUnibuildMerge(self):
+        """Start up with a valid updater script and both RO and RW BIOS."""
+
+        # Due to a bug in the DT impl, the RW firmware image was never actually
+        # present.
+        # TODO(sjg): Change this to config_rw.json once the RW merge case if
+        # correctly supported.
+        args = self.SetupRunWithUnibuild("config.yaml")
+        with cros_test_lib.RunCommandMock() as rc:
+            self._AddMocks(rc)
+            self._AddMergeMocks(rc, FMAP_OUTPUT)
+            pack_firmware.main(args)
+            pack_firmware.packer._versions.getvalue().splitlines()
+
+    def _FindLineInList(self, lines, start_text):
+        """Helper to find a single line starting with the given text and return it.
+
+        Args:
+          lines: List of lines to check.
+          start_text: Text to find.
+
+        Returns:
+          Line found, as a string (or assertion failure if exactly one matching
+            line was not found).
+        """
+        found = [line for line in lines if line.strip().startswith(start_text)]
+        self.assertEqual(len(found), 1)
+        return found[0]
+
+    def testNoECFirmware(self):
+        """Simple test of creating firmware without an EC image."""
+        args = self.common_flags + ["-L"]
+        with cros_test_lib.RunCommandMock() as rc:
+            self._AddMocks(rc)
+            self.packer.Start(args)
+
+        # There should be no EC version in the VERSION file.
+        result = self.packer._versions.getvalue()
+        self.assertNotIn("EC version", result)
+        self.assertEqual(4, len(result.splitlines()))
+
+
+if __name__ == "__main__":
+    cros_test_lib.main(module=__name__)
