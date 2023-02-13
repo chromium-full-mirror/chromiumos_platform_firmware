@@ -175,8 +175,6 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
 
     pack_firmware_utils.MakeTestFiles()
     self.packer = pack_firmware.FirmwarePacker('.')
-    # Limit the resolution of timestamps to aid comparison.
-    os.stat_float_times(False)
     self._ExtractFrid = pack_firmware.FirmwarePacker._ExtractFrid
 
   def tearDown(self):
@@ -547,11 +545,11 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     self.assertIn(RO_FRID, self._FindLineInList(result, 'EC version'))
     self.assertIn(RW_FWID, self._FindLineInList(result, 'EC (RW) version'))
     rw_fname = self.packer._BaseDirPath('ec.bin')
-    self.assertEqual(os.stat(rw_fname).st_mtime,
-                     os.stat('test/image_rw.bin').st_mtime)
+    self.assertAlmostEqual(os.stat(rw_fname).st_mtime,
+                           os.stat('test/image_rw.bin').st_mtime)
     ec_fname = self.packer._BaseDirPath('ec.bin')
-    self.assertEqual(os.stat(ec_fname).st_mtime,
-                     os.stat('test/image_rw.bin').st_mtime)
+    self.assertAlmostEqual(os.stat(ec_fname).st_mtime,
+                           os.stat('test/image_rw.bin').st_mtime)
     self.packer._RemoveTmpdirs()
 
   def testMockedRunWithMerge(self):
