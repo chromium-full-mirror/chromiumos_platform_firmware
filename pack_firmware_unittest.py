@@ -489,7 +489,9 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             stdout="ELF 64-bit LSB executable, etc.\n",
         )
         rc.AddCmdResult(
-            partial_mock.ListRegex(r"futility dump_fmap -x .*image\.bin$"),
+            partial_mock.ListRegex(
+                r"futility dump_fmap -x .*image\.bin (?:RO_FRID|RW_FWID)$"
+            ),
             side_effect=_CopySections,
             returncode=0,
         )

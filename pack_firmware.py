@@ -36,8 +36,10 @@ from chromite.lib import osutils
 # pylint: enable=import-error
 
 
-MAIN, MAIN_RW = "BIOS", "BIOS (RW)"
+MAIN = "BIOS"
+MAIN_RW = "BIOS (RW)"
 EC = "EC"
+EC_RW = "EC (RW)"
 EC_RW_FMAP_SECTION_NAME = "EC_MAIN_A"
 EC_RW_CBFS_NAME = "ecrw"
 MODELS_DIR = "models"
@@ -49,7 +51,9 @@ ImageFile = namedtuple(
 FirmwareIds = namedtuple("FirmwareIds", ["ro_id", "rw_id"])
 
 # Source locations for all firmware images.
-FirmwareSource = namedtuple("FirmwareSource", ["bios", "bios_rw", "ec"])
+FirmwareSource = namedtuple(
+    "FirmwareSource", ["bios", "bios_rw", "ec", "ec_rw"]
+)
 
 # image_files:  Dict containing information on the output image files for this
 #     model:
@@ -182,6 +186,11 @@ class FirmwarePacker(object):
             help="Path of input Embedded Controller firmware image",
         )
         parser.add_argument(
+            "--ec_rw_image",
+            type="path",
+            help="Path of input Embedded Controller RW firmware image",
+        )
+        parser.add_argument(
             "-o", "--output", type="path", help="Path of output filename"
         )
         parser.add_argument(
@@ -273,6 +282,37 @@ class FirmwarePacker(object):
                 file=self._versions,
             )
 
+    def _ExtractFMAPSection(self, image_file, section_name, output=None):
+        """Extract FMAP section `section_name` from `image_file`.
+
+        Args:
+            image_file: File to process.
+            section_name: Name of the section to be extracted.
+            output: The file name for the section to be saved to. If not
+                specified, a default name will be used.
+
+        Returns:
+            The output file name.
+        """
+        # `futility dump_fmap -x` produces a file named by the section name
+        default_output = os.path.join(self._tmpdir, section_name)
+
+        # Remove any file that might be in the way (if not testing).
+        if not self._args.testing and os.path.exists(default_output):
+            os.remove(default_output)
+        cros_build_lib.dbg_run(
+            ["futility", "dump_fmap", "-x", image_file, section_name],
+            capture_output=True,
+            cwd=self._tmpdir,
+            check=False,
+        )
+
+        if output:
+            os.rename(default_output, output)
+        else:
+            output = default_output
+        return output
+
     def _ExtractFrid(self, image_file, section_name="RO_FRID"):
         """Extracts the firmware ID from an image file.
 
@@ -284,17 +324,7 @@ class FirmwarePacker(object):
         Returns:
             Firmware ID as a string, if found, else ''
         """
-        fname = os.path.join(self._tmpdir, section_name)
-
-        # Remove any file that might be in the way (if not testing).
-        if not self._args.testing and os.path.exists(fname):
-            os.remove(fname)
-        cros_build_lib.dbg_run(
-            ["futility", "dump_fmap", "-x", image_file],
-            capture_output=True,
-            cwd=self._tmpdir,
-            check=False,
-        )
+        fname = self._ExtractFMAPSection(image_file, section_name)
         if os.path.exists(fname):
             return (
                 osutils.ReadFile(fname, mode="rb")
@@ -528,16 +558,41 @@ class FirmwarePacker(object):
         else:
             self._ExtractEcRwUsingCBFS(fname, EC_RW_CBFS_NAME, ecrw_fname)
 
-    def _MergeRwEcFirmware(self, ec_fname, rw_fname):
+    def _MergeRwEcFirmware(self, ec_fname, ec_fname_for_rw, bios_fname):
         """Merge EC firmware from an image into a copy of the given file.
 
         Args:
-            ec_fname: Filename to merge RW EC binary into (relative or absolute
-                path).
-            rw_fname: Filename of firmware image (relative or absolute path).
+            ec_fname: Filename of EC image to merge EC RW binary into (relative
+                or absolute path).
+            ec_fname_for_rw: Filename of EC image, whose RW will be merged into
+                `ec_fname`. If not specified, the RW EC extracted from
+                `bios_fname` will be used.
+            bios_fname: Filename of BIOS image to extract EC RW from, if
+                `ec_fname_for_rw` is not specified.
         """
-        ecrw_fname = os.path.join(self._tmpdir, "ecrw")
-        self._ExtractEcRwFromBIOS(rw_fname, ecrw_fname)
+        ecrw_in_bios_fname = os.path.join(self._tmpdir, "ecrw_from_bios")
+        self._ExtractEcRwFromBIOS(bios_fname, ecrw_in_bios_fname)
+        if ec_fname_for_rw:
+            ecrw_fname = os.path.join(self._tmpdir, "ecrw")
+            self._ExtractFMAPSection(ec_fname_for_rw, "EC_RW", ecrw_fname)
+            # For legacy CrOS EC (pre-zephyr EC), the EC_RW section contains
+            # 0xff paddings. However the "ecrw" in BIOS doesn't contain those
+            # paddings (at least not all of them). Therefore we cannot simply
+            # compare ecrw_in_bios_fname with ecrw_fname.
+            ecrw = osutils.ReadFile(ecrw_fname, mode="rb")
+            ecrw_in_bios = osutils.ReadFile(ecrw_in_bios_fname, mode="rb")
+            if len(ecrw_in_bios) > len(ecrw):
+                raise PackError(
+                    "EC RW extracted from BIOS is larger than provided EC RW"
+                )
+            if ecrw_in_bios != ecrw[: len(ecrw_in_bios)] or not all(
+                x == ord(b"\xff") for x in ecrw[len(ecrw_in_bios) :]
+            ):
+                raise PackError(
+                    "EC RW extracted from BIOS differs from the provided EC RW"
+                )
+        else:
+            ecrw_fname = ecrw_in_bios_fname
         section = self._GetFMAP(ec_fname)["EC_RW"]
         ecrw_size = os.stat(ecrw_fname).st_size
         if section.size < ecrw_size:
@@ -546,7 +601,7 @@ class FirmwarePacker(object):
                 "section %#x, cannot merge" % (ecrw_size, section.size)
             )
         self._MergeFile(ec_fname, ecrw_fname, section.offset)
-        self._CopyTimestamp(rw_fname, ec_fname)
+        self._CopyTimestamp(bios_fname, ec_fname)
 
     def _MergeRwFirmware(self, fw_source, merge_dir):
         """Merge all RW firmware into corresponding RO images.
@@ -562,14 +617,14 @@ class FirmwarePacker(object):
         """
         if not fw_source.bios:
             raise PackError("Need main (RO) firmware image to merge RW image.")
-        bios, bios_rw, ec = [
+        bios, bios_rw, ec, ec_rw = [
             fw and self._CopyFile(fw, merge_dir, preserve_path=True)
             for fw in fw_source
         ]
         self._MergeRwMainFirmware(bios, bios_rw)
         if ec:
-            self._MergeRwEcFirmware(ec, bios)
-        return FirmwareSource(bios, bios_rw, ec)
+            self._MergeRwEcFirmware(ec, ec_rw, bios)
+        return FirmwareSource(bios, bios_rw, ec, ec_rw)
 
     @staticmethod
     def _ExtractEcVersion(fw_id):
@@ -939,6 +994,7 @@ class FirmwarePacker(object):
         )
         self._AddImageFile(image_files, MAIN_RW, main_target, fw_source.bios_rw)
         self._AddImageFile(image_files, EC, ec_target, fw_source.ec)
+        self._AddImageFile(image_files, EC_RW, ec_target, fw_source.ec_rw)
         self._CopyFirmwareFiles(image_files, target_dir)
         return image_files
 
@@ -1018,7 +1074,13 @@ class FirmwarePacker(object):
             firmware.ec_image_uri,
             dirname,
         )
-        return FirmwareSource(bios, bios_rw, ec)
+        ec_rw = self._ExtractFile(
+            firmware.ec_build_target,
+            self._args.ec_rw_image,
+            firmware.ec_rw_image_uri,
+            dirname,
+        )
+        return FirmwareSource(bios, bios_rw, ec, ec_rw)
 
     def _WriteFirmwareImages(self, firmware_info, devices_fw_target):
         """Extract and build all firmware images, then copy to the shellball.
@@ -1231,6 +1293,7 @@ class FirmwarePacker(object):
                         args.bios_image,
                         args.bios_rw_image,
                         args.ec_image,
+                        args.ec_rw_image,
                     ),
                     self._basedir,
                 )
