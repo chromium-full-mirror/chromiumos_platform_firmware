@@ -98,7 +98,7 @@ UNUSED_HOLE 16773120 4096
 """
 
 # Expected output from 'futility dump_fmap -p' for alternate main image.
-# This FMAP contains EC_MAIN_A and PD_MAIN_A sections, which will alter
+# This FMAP contains EC_MAIN_A sections, which will alter
 # the behavior of repack. A similar FMAP is used on some legacy Chrome OS
 # devices.
 FMAP_OUTPUT_LEGACY = """SI_ALL 0 2097152
@@ -108,13 +108,11 @@ SI_BIOS 2097152 6291456
 RW_SECTION_A 2097152 983040
 VBLOCK_A 2097152 65536
 FW_MAIN_A 2162688 720896
-PD_MAIN_A 2883584 65536
 EC_MAIN_A 2949120 131008
 RW_FWID_A 3080128 64
 RW_SECTION_B 3080192 983040
 VBLOCK_B 3080192 65536
 FW_MAIN_B 3145728 720896
-PD_MAIN_B 3866624 65536
 EC_MAIN_B 3932160 131008
 RW_FWID_B 4063168 64
 RW_MRC_CACHE 4063232 65536
@@ -512,11 +510,6 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             side_effect=_CopySections,
             returncode=0,
         )
-        rc.AddCmdResult(
-            partial_mock.ListRegex(r"futility dump_fmap -x .*pd\.bin"),
-            side_effect=_CopySections,
-            returncode=0,
-        )
 
     @staticmethod
     def _CreateCbfstoolFile(cmd, **_kwargs):
@@ -595,11 +588,6 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             side_effect=cls._CreateCbfstoolFile,
         )
         rc.AddCmdResult(
-            partial_mock.ListRegex(r"futility dump_fmap -p .*pd\.bin"),
-            returncode=0,
-            stdout=FMAP_OUTPUT_EC,
-        )
-        rc.AddCmdResult(
             partial_mock.ListRegex(
                 r"futility dump_fmap -x .*image\.bin .*_MAIN_A"
             ),
@@ -623,15 +611,13 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             "-L",
             "-e",
             "test/ec.bin",
-            "-p",
-            "test/pd.bin",
         ] + self.common_flags
         with cros_test_lib.RunCommandMock() as rc:
             self._AddMocks(rc)
             self._AddMergeMocks(rc, mocked_dump_fmap_output)
             self.packer.Start(args, remove_tmpdirs=False)
         result = self.packer._versions.getvalue().splitlines()
-        self.assertEqual(11, len(result))
+        self.assertEqual(8, len(result))
         self.assertIn(RO_FRID, self._FindLineInList(result, "EC version"))
         self.assertIn(RW_FWID, self._FindLineInList(result, "EC (RW) version"))
         rw_fname = self.packer._BaseDirPath("ec.bin")

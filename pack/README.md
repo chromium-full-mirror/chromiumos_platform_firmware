@@ -18,14 +18,12 @@ The SFX stub program is [sfx2.sh](./sfx2.sh).
     all firmware images should be put in top level, named as:
     -   `bios.bin`: AP (host) firmware image
     -   `ec.bin`: Embedded Controller firmware image
-    -   `pd.bin`: CrOS PD (running CrOS EC software) firmware image
 -   For package with multiple target platforms (i.e., Unified Build),
     each platform will have its definition file `setvars.sh` (see
     [setvars.template](./setvars.template)) in `models/${MODEL}` folder,
     with at least following fields:
     -   `IMAGE_MAIN`: Path to AP (host) firmware image
     -   `IMAGE_EC`: Path to Embedded Controller firmware image
-    -   `IMAGE_PD`: Path to CrOS PD firmware image
     -   `SIGNATURE_ID`: Signing key name for this model, just put model name.
 -   For platforms that supports White Label (LOEM), the keys for each LOEM
     must be put in `keyset` folder, with a `whitelabel_tag` as suffix

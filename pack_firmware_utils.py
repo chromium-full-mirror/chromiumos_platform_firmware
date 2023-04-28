@@ -34,11 +34,9 @@ def ReadManifest(folder):
         model["TARGET_RO_FWID"] = v["host"]["versions"]["ro"]
         model["TARGET_FWID"] = v["host"]["versions"]["rw"]
         model["TARGET_ECID"] = v.get("ec", {}).get("versions", {}).get("ro", "")
-        model["TARGET_PDID"] = v.get("pd", {}).get("versions", {}).get("ro", "")
         model["TARGET_PLATFORM"] = v["host"]["versions"]["ro"].partition(".")[0]
         model["IMAGE_MAIN"] = v["host"]["image"]
         model["IMAGE_EC"] = v.get("ec", {}).get("image", "")
-        model["IMAGE_PD"] = v.get("pd", {}).get("image", "")
         model["SIGNATURE_ID"] = v.get("signature_id", k or "")
         result[k] = model
     return result
@@ -63,15 +61,13 @@ def ReadVersions(fname):
         rw_fwid = data["host"]["versions"]["rw"]
         platform = ro_fwid.partition(".")[0]
         ec_id = data["ec"]["versions"]["ro"] if "ec" in data else ""
-        pd_id = data["pd"]["versions"]["ro"] if "pd" in data else ""
     else:
-        ro_fwid = rw_fwid = platform = ec_id = pd_id = ""
+        ro_fwid = rw_fwid = platform = ec_id = ""
 
     versions = {
         "TARGET_RO_FWID": ro_fwid,
         "TARGET_FWID": rw_fwid,
         "TARGET_ECID": ec_id,
-        "TARGET_PDID": pd_id,
         "TARGET_PLATFORM": platform,
     }
     return versions

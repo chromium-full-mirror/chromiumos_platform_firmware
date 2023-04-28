@@ -39,7 +39,6 @@ from chromite.lib import osutils
 
 MAIN, MAIN_RW = "BIOS", "BIOS (RW)"
 EC = "EC"
-PD = "PD"
 MODELS_DIR = "models"
 IMG_DIR = "images"
 Section = namedtuple("Section", ["offset", "size"])
@@ -49,7 +48,7 @@ ImageFile = namedtuple(
 FirmwareIds = namedtuple("FirmwareIds", ["ro_id", "rw_id"])
 
 # Source locations for all firmware images.
-FirmwareSource = namedtuple("FirmwareSource", ["bios", "bios_rw", "ec", "pd"])
+FirmwareSource = namedtuple("FirmwareSource", ["bios", "bios_rw", "ec"])
 
 # image_files:  Dict containing information on the output image files for this
 #     model:
@@ -72,7 +71,6 @@ REPLACE_VARS = [
     "TARGET_RO_FWID",
     "TARGET_FWID",
     "TARGET_ECID",
-    "TARGET_PDID",
     "TARGET_PLATFORM",
 ]
 
@@ -181,12 +179,6 @@ class FirmwarePacker(object):
             "--ec_image",
             type="path",
             help="Path of input Embedded Controller firmware image",
-        )
-        parser.add_argument(
-            "-p",
-            "--pd_image",
-            type="path",
-            help="Path of input Power Delivery firmware image",
         )
         parser.add_argument(
             "-o", "--output", type="path", help="Path of output filename"
@@ -566,16 +558,14 @@ class FirmwarePacker(object):
         """
         if not fw_source.bios:
             raise PackError("Need main (RO) firmware image to merge RW image.")
-        bios, bios_rw, ec, pd = [
+        bios, bios_rw, ec = [
             fw and self._CopyFile(fw, merge_dir, preserve_path=True)
             for fw in fw_source
         ]
         self._MergeRwMainFirmware(bios, bios_rw)
         if ec:
             self._MergeRwEcFirmware(ec, bios, "EC_MAIN_A", "ecrw")
-        if pd:
-            self._MergeRwEcFirmware(pd, bios, "PD_MAIN_A", "pdrw")
-        return FirmwareSource(bios, bios_rw, ec, pd)
+        return FirmwareSource(bios, bios_rw, ec)
 
     @staticmethod
     def _ExtractEcVersion(fw_id):
@@ -678,24 +668,6 @@ class FirmwarePacker(object):
         )
         return os.path.join(target_dir, fname) if target_dir else fname
 
-    def _PdImageOutput(self, image_file=None, target_dir=None):
-        """Creates output file name for given PD image.
-
-        Args:
-          image_file: The input firmware image (ImageFile object).
-          target_dir: Target directory to be prepended to filename.
-
-        Returns:
-          Filename of the output image.
-        """
-        return self._FirmwareImageOutput(
-            tag="pd",
-            build_target=image_file.build_target,
-            fw_ids=image_file.firmware_ids,
-            extract_version=self._ExtractEcVersion,
-            target_dir=target_dir,
-        )
-
     def _EcImageOutput(self, image_file=None, target_dir=None):
         """Creates output file name for given EC image.
 
@@ -743,18 +715,16 @@ class FirmwarePacker(object):
 
         Returns:
           Dict containing information on the output image files:
-            key: Name, one of BIOS, BIOS (RW), EC, EC (RW), PD, PD (RW).
+            key: Name, one of BIOS, BIOS (RW), EC, EC (RW).
             value: ImageFile, containing filename and version.
         """
-        bios, ec, pd = [
-            image_files.get(label, None) for label in [MAIN, EC, PD]
+        bios, ec = [
+            image_files.get(label, None) for label in [MAIN, EC]
         ]
         if bios:
             shutil.copy2(bios.filename, self._MainImageOutput(bios, target_dir))
         if ec:
             shutil.copy2(ec.filename, self._EcImageOutput(ec, target_dir))
-        if pd:
-            shutil.copy2(pd.filename, self._PdImageOutput(pd, target_dir))
 
     def _WriteVersions(self, model, image_files):
         """Write version information for all image files into the version file.
@@ -851,15 +821,14 @@ class FirmwarePacker(object):
               value: Value to replace with.
         """
         empty = ImageFile("", "", FirmwareIds("", ""))
-        bios, ec, pd = [
-            image_files.get(label, empty) for label in [MAIN, EC, PD]
+        bios, ec = [
+            image_files.get(label, empty) for label in [MAIN, EC]
         ]
         return {
             "REPLACE_TARGET_IMAGE_RO_MAIN": self._MainImageOutput(
                 bios, IMG_DIR
             ),
             "REPLACE_TARGET_IMAGE_EC": self._EcImageOutput(ec, IMG_DIR),
-            "REPLACE_TARGET_IMAGE_PD": self._PdImageOutput(pd, IMG_DIR),
         }
 
     @staticmethod
@@ -950,10 +919,9 @@ class FirmwarePacker(object):
             key: Type of firmware (e.g. 'BIOS')
             value: Corresponding ImageFile object.
         """
-        if not fw_source.bios and not fw_source.ec and not fw_source.pd:
+        if not fw_source.bios and not fw_source.ec:
             raise PackError(
-                "Target '%s': Must assign at least one of BIOS or EC "
-                "or PD image" % fw_name
+                "Target '%s': Must assign at least one of BIOS or EC " % fw_name
             )
         if fw_source.bios_rw:
             merge_dir = self._TmpDirPath("%s-merged" % (fw_name or "images"))
@@ -968,7 +936,6 @@ class FirmwarePacker(object):
         )
         self._AddImageFile(image_files, MAIN_RW, main_target, fw_source.bios_rw)
         self._AddImageFile(image_files, EC, ec_target, fw_source.ec)
-        self._AddImageFile(image_files, PD, ec_target, fw_source.pd)
         self._CopyFirmwareFiles(image_files, target_dir)
         return image_files
 
@@ -1046,13 +1013,7 @@ class FirmwarePacker(object):
             firmware.ec_image_uri,
             dirname,
         )
-        pd = self._ExtractFile(
-            firmware.ec_build_target,
-            self._args.pd_image,
-            firmware.pd_image_uri,
-            dirname,
-        )
-        return FirmwareSource(bios, bios_rw, ec, pd)
+        return FirmwareSource(bios, bios_rw, ec)
 
     def _WriteFirmwareImages(self, firmware_info, devices_fw_target):
         """Extract and build all firmware images, then copy them to the shellball.
@@ -1189,7 +1150,7 @@ class FirmwarePacker(object):
                 # get the information from the model configuration. Add checks here
                 # to avoid confusion. We could possibly do some of this using
                 # mutual exclusivity in the argparser, but I'm not sure it is better.
-                image_args = [args.bios_image, args.ec_image, args.pd_image]
+                image_args = [args.bios_image, args.ec_image]
                 if any(image_args) and not args.local:
                     raise PackError("Cannot use -b/-p/-e with -m")
                 if args.local and not any(image_args):
@@ -1238,7 +1199,6 @@ class FirmwarePacker(object):
                                 fw.main_image_uri,
                                 fw.main_rw_image_uri,
                                 fw.ec_image_uri,
-                                fw.pd_image_uri,
                             )
                         ), (
                             "Expected an image for %s if any image_uri is set."
@@ -1261,7 +1221,6 @@ class FirmwarePacker(object):
                         args.bios_image,
                         args.bios_rw_image,
                         args.ec_image,
-                        args.pd_image,
                     ),
                     self._basedir,
                 )

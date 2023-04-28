@@ -223,7 +223,6 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.assertEqual("Google_Reef.9042.50.0", versions["TARGET_RO_FWID"])
         self.assertEqual("Google_Reef.9042.50.0", versions["TARGET_FWID"])
         self.assertEqual("", versions["TARGET_ECID"])
-        self.assertEqual("", versions["TARGET_PDID"])
         self.assertEqual("Google_Reef", versions["TARGET_PLATFORM"])
 
     def _CheckVersionsReef(self, versions):
@@ -237,7 +236,6 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.assertEqual("Google_Reef.9042.50.0", versions["TARGET_FWID"])
         self.assertEqual("Google_Reef.9042.50.0", versions["TARGET_RO_FWID"])
         self.assertEqual("reef_v1.1.5857-77f6ed7", versions["TARGET_ECID"])
-        self.assertEqual("", versions["TARGET_PDID"])
         self.assertEqual("Google_Reef", versions["TARGET_PLATFORM"])
 
     def _CheckVars(self, model, versions, signature_id):
@@ -446,7 +444,6 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.assertEqual("Google_Reef.9042.50.0", versions["TARGET_RO_FWID"])
         self.assertEqual("Google_Reef.9042.50.0", versions["TARGET_FWID"])
         self.assertEqual("", versions["TARGET_ECID"])
-        self.assertEqual("", versions["TARGET_PDID"])
 
         # Extract the file into a directory, then overwrite various files with new
         # images with a different IDs.
@@ -456,11 +453,9 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         ro_id = "Google_Veyron_Mickey.6588.197.0"
         rw_id = "Google_Veyron_Mickey.6588.197.1"
         ec_id = "GoogleEC_Veyron_Mickey.6588.197.0"
-        pd_id = "GooglePD_Veyron_Mickey.6588.197.0"
 
         self._MakeImage("bios.bin", ro_id, rw_id)
         self._MakeImage("ec.bin", ec_id)
-        self._MakeImage("pd.bin", pd_id)
 
         # Repack the file and make sure that the versions update.
         cros_build_lib.dbg_run(
@@ -470,7 +465,6 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.assertEqual(ro_id, versions["TARGET_RO_FWID"])
         self.assertEqual(rw_id, versions["TARGET_FWID"])
         self.assertEqual(ec_id, versions["TARGET_ECID"])
-        self.assertEqual(pd_id, versions["TARGET_PDID"])
 
     def testFilesSorted(self):
         """Files in the shellball should be sorted by filename."""
