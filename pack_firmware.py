@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 # Copyright 2017 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -86,20 +85,20 @@ class FirmwarePacker(object):
     RunCommandError if an executed tool fails, or PackError on some other error.
 
     Private members:
-      _args: Parsed arguments.
-      _script_base: Base directory with useful files (src/platform/firmware).
-      _sfx_file: Path to the SFX program (pack/sfx?.sh).
-      _basedir: Base temporary directory.
-      _tmpdir: Temporary directory for use for running tools.
-      _tmp_dirs: List of temporary directories created.
-      _versions: Collected version information (StringIO).
-      _force_dash: Replace the /bin/sh shebang at the top of all scripts with
-          /bin/dash. This is only used for testing.
+        _args: Parsed arguments.
+        _script_base: Base directory with useful files (src/platform/firmware).
+        _sfx_file: Path to the SFX program (pack/sfx?.sh).
+        _basedir: Base temporary directory.
+        _tmpdir: Temporary directory for use for running tools.
+        _tmp_dirs: List of temporary directories created.
+        _versions: Collected version information (StringIO).
+        _force_dash: Replace the /bin/sh shebang at the top of all scripts with
+            /bin/dash. This is only used for testing.
     """
 
     def __init__(self, progname):
-        # This may or may not provide the full path to the script, but in any case
-        # we can access the script files using the same path as the script.
+        # This may or may not provide the full path to the script, but in any
+        # case we can access the script files using the same path as the script.
         self._script_base = os.path.dirname(progname)
         self._args = None
         self._sfx_file = os.path.join(self._script_base, "pack", "sfx2.sh")
@@ -119,10 +118,10 @@ class FirmwarePacker(object):
         Invalid arguments or -h cause this function to print a message and exit.
 
         Args:
-          argv: List of string arguments (excluding program name / argv[0])
+            argv: List of string arguments (excluding program name / argv[0])
 
         Returns:
-          argparse.Namespace object containing the attributes.
+            argparse.Namespace object containing the attributes.
         """
         parser = commandline.ArgumentParser(description=__doc__)
         parser.add_argument(
@@ -149,10 +148,10 @@ class FirmwarePacker(object):
             "-l",
             "--local",
             action="store_true",
-            help="Build a local firmware image. With this option you must provide "
-            "-b, -e and -p flags to indicate where to find the images for "
-            "each model. You can use MODEL in the filenames as a placeholder "
-            "for the model name. For example "
+            help="Build a local firmware image. With this option you must "
+            "provide -b, -e and -p flags to indicate where to find the images "
+            "for each model. You can use MODEL in the filenames as a "
+            "placeholder for the model name. For example "
             '-b "${root}/firmware/image-BUILD_TARGET.bin"',
         )
         parser.add_argument(
@@ -206,8 +205,8 @@ class FirmwarePacker(object):
         """Ensure that a command is available, raising an exception if not.
 
         Args:
-          cmd: Command to check (just the name, not the full path).
-          package: Name of package to install to obtain this tool.
+            cmd: Command to check (just the name, not the full path).
+            package: Name of package to install to obtain this tool.
         """
         if not osutils.Which(cmd):
             raise PackError("You need '%s' (package '%s')" % (cmd, package))
@@ -216,7 +215,7 @@ class FirmwarePacker(object):
         """Create a temporary directory, and remember it for later removal.
 
         Returns:
-          Path name of temporary directory.
+            Path name of temporary directory.
         """
         fname = tempfile.mkdtemp(".pack_firmware-%d" % os.getpid())
         self._tmp_dirs.append(fname)
@@ -235,17 +234,18 @@ class FirmwarePacker(object):
         into the collection of version information.
 
         Args:
-          name: User-readable name of the file (e.g. 'BIOS').
-          fname: Filename to read.
-          version: Version string (e.g. 'Google_Reef.9042.40.0').
+            name: User-readable name of the file (e.g. 'BIOS').
+            fname: Filename to read.
+            version: Version string (e.g. 'Google_Reef.9042.40.0').
         """
         if fname:
             digest = hashlib.md5()
             digest.update(osutils.ReadFile(fname, mode="rb"))
 
-            # Modify the filename to replace any use of our base directory with a
-            # constant string, so we produce the same output on each run. Also drop
-            # any build and temp directies since they are not useful to the user.
+            # Modify the filename to replace any use of our base directory with
+            # a constant string, so we produce the same output on each run. Also
+            # drop any build and temp directies since they are not useful to the
+            # user.
             short_fname = fname
             if self._basedir:
                 short_fname = short_fname.replace(
@@ -275,12 +275,12 @@ class FirmwarePacker(object):
         """Extracts the firmware ID from an image file.
 
         Args:
-          image_file: File to process.
-          section_name: Name of the section of image_file which contains the
-              firmware ID.
+            image_file: File to process.
+            section_name: Name of the section of image_file which contains the
+                firmware ID.
 
         Returns:
-          Firmware ID as a string, if found, else ''
+            Firmware ID as a string, if found, else ''
         """
         fname = os.path.join(self._tmpdir, section_name)
 
@@ -306,12 +306,12 @@ class FirmwarePacker(object):
         """Extracts the RO/RW firmware IDs from image files.
 
         Args:
-          image_file: File to process.
-          rw_image_file: RW image file, if separate.
+            image_file: File to process.
+            rw_image_file: RW image file, if separate.
 
         Returns:
-          FirmwareIds object containing RO and RW firmware IDs.
-          If RW ID not found, RO ID is used in its place.
+            FirmwareIds object containing RO and RW firmware IDs.
+            If RW ID not found, RO ID is used in its place.
         """
         ro_id = self._ExtractFrid(image_file)
         rw_id = (
@@ -325,10 +325,10 @@ class FirmwarePacker(object):
         """Build a filename in the temporary base directory.
 
         Args:
-          basename: Leafname (with no directory) of file to build.
+            basename: Leafname (with no directory) of file to build.
 
         Returns:
-          New filename within the self._basedir directory.
+            New filename within the self._basedir directory.
         """
         return os.path.join(self._basedir, basename)
 
@@ -336,10 +336,10 @@ class FirmwarePacker(object):
         """Build a filename in the temporary directory.
 
         Args:
-          basename: Leafname (with no directory) of file to build.
+            basename: Leafname (with no directory) of file to build.
 
         Returns:
-          New filename within the self._tmpdir directory.
+            New filename within the self._tmpdir directory.
         """
         return os.path.join(self._tmpdir, basename)
 
@@ -357,12 +357,12 @@ class FirmwarePacker(object):
         """Get the FMAP (flash map) from a firmware image.
 
         Args:
-          fname: Filename of firmware image.
+            fname: Filename of firmware image.
 
         Returns:
-          A dict comprising:
-            key: Section name.
-            value: Section() named tuple containing offset and size.
+            A dict comprising:
+                key: Section name.
+                value: Section() named tuple containing offset and size.
         """
         result = cros_build_lib.dbg_run(
             ["futility", "dump_fmap", "-p", fname],
@@ -383,11 +383,11 @@ class FirmwarePacker(object):
         """Merges file in small_path to large_path in given offset.
 
         Args:
-          large_path: A string for path of the file to merged to.
-          small_path: A string for path of the file to merge from.
-          large_offset: The offset to write in large_path.
-          small_offset: The offset to read in small_path.
-          size: Count of bytes to read/write. None to read whole small_path.
+            large_path: A string for path of the file to merged to.
+            small_path: A string for path of the file to merge from.
+            large_offset: The offset to write in large_path.
+            small_offset: The offset to read in small_path.
+            size: Count of bytes to read/write. None to read whole small_path.
         """
         with open(large_path, "rb+") as output:
             output.seek(large_offset)
@@ -401,10 +401,10 @@ class FirmwarePacker(object):
         """Clone a section in one file from another.
 
         Args:
-          dst: Destination file (relative or absolute path).
-          src: Source file (relative or absolute path).
-          section: Section to clone.
-          optional: Ignore if the section does not exist.
+            dst: Destination file (relative or absolute path).
+            src: Source file (relative or absolute path).
+            section: Section to clone.
+            optional: Ignore if the section does not exist.
         """
         src_section = self._GetFMAP(src).get(section, None)
         dst_section = self._GetFMAP(dst).get(section, None)
@@ -412,8 +412,8 @@ class FirmwarePacker(object):
         if src_section is None and dst_section is None and optional:
             if not self._args.quiet:
                 print(
-                    "Ignored nonexistent optional section '%s' in RW firmware image"
-                    % section
+                    "Ignored nonexistent optional section '%s' in RW firmware "
+                    "image" % section
                 )
             return
         if src_section is None or dst_section is None:
@@ -441,8 +441,8 @@ class FirmwarePacker(object):
         is merged.
 
         Args:
-          ro_fname: RO firmware image file (relative or absolute path).
-          rw_fname: RW firmware image file (relative or absolute path).
+            ro_fname: RO firmware image file (relative or absolute path).
+            rw_fname: RW firmware image file (relative or absolute path).
         """
         self._CloneFirmwareSection(ro_fname, rw_fname, "RW_SECTION_A")
         self._CloneFirmwareSection(ro_fname, rw_fname, "RW_SECTION_B")
@@ -453,12 +453,13 @@ class FirmwarePacker(object):
         self._CopyTimestamp(rw_fname, ro_fname)
 
     def _ExtractEcRwUsingFMAP(self, fname, fmap_area_name, ecrw_fname):
-        """Use the FMAP to extract fmap_area_name section containing an EC binary.
+        """Use FMAP to extract fmap_area_name section containing an EC binary.
 
         Args:
-          fname: Filename of firmware image (relative or absolute path).
-          fmap_area_name: Name of the FMAP area which contains the EC binary.
-          ecrw_fname: Filename to put EC binary into (relative or absolute path).
+            fname: Filename of firmware image (relative or absolute path).
+            fmap_area_name: Name of the FMAP area which contains the EC binary.
+            ecrw_fname: Filename to put EC binary into (relative or absolute
+                path).
         """
         cros_build_lib.dbg_run(
             ["futility", "dump_fmap", "-x", fname, fmap_area_name],
@@ -482,9 +483,10 @@ class FirmwarePacker(object):
         """Extract an EC binary from a CBFS image.
 
         Args:
-          fname: Filename of firmware image (relative or absolute path).
-          cbfs_name: Name of file in CBFS which contains the EC binary.
-          ecrw_fname: Filename to put EC binary into (relative or absolute path).
+            fname: Filename of firmware image (relative or absolute path).
+            cbfs_name: Name of file in CBFS which contains the EC binary.
+            ecrw_fname: Filename to put EC binary into (relative or absolute
+                path).
         """
         cros_build_lib.dbg_run(
             [
@@ -506,15 +508,16 @@ class FirmwarePacker(object):
         """Obtain the RW EC binary.
 
         Args:
-          fname: Filename of firmware image (relative or absolute path).
-          fmap_area_name: Name of the section in FMAP which contains the EC
-              binary, will fall-back to CBFS if not present.
-          cbfs_name: Name of file in CBFS which contains the EC binary, if the
-              image does not have an fmap_area_name section.
-          ecrw_fname: Filename to put EC binary into (relative or absolute path).
+            fname: Filename of firmware image (relative or absolute path).
+            fmap_area_name: Name of the section in FMAP which contains the EC
+                binary, will fall-back to CBFS if not present.
+            cbfs_name: Name of file in CBFS which contains the EC binary, if the
+                image does not have an fmap_area_name section.
+            ecrw_fname: Filename to put EC binary into (relative or absolute
+                path).
 
         Raises:
-          PackError or RunCommandError if an error occurs.
+            PackError or RunCommandError if an error occurs.
         """
         if fmap_area_name in self._GetFMAP(fname):
             self._ExtractEcRwUsingFMAP(fname, fmap_area_name, ecrw_fname)
@@ -525,12 +528,13 @@ class FirmwarePacker(object):
         """Merge EC firmware from an image into a copy of the given file.
 
         Args:
-          ec_fname: Filename to merge RW EC binary into (relative or absolute path).
-          rw_fname: Filename of firmware image (relative or absolute path).
-          fmap_area_name: Name of the section in FMAP which contains the EC
-              binary, will fall-back to CBFS if not present.
-          cbfs_name: Name of file in CBFS which contains the EC binary, if the
-              image does not have an fmap_area_name section.
+            ec_fname: Filename to merge RW EC binary into (relative or absolute
+                path).
+            rw_fname: Filename of firmware image (relative or absolute path).
+            fmap_area_name: Name of the section in FMAP which contains the EC
+                binary, will fall-back to CBFS if not present.
+            cbfs_name: Name of file in CBFS which contains the EC binary, if the
+                image does not have an fmap_area_name section.
         """
         ecrw_fname = os.path.join(self._tmpdir, cbfs_name)
         self._ExtractEcRw(rw_fname, fmap_area_name, cbfs_name, ecrw_fname)
@@ -550,11 +554,11 @@ class FirmwarePacker(object):
         RO images are cloned to a given directory before being modified.
 
         Args:
-          fw_source: Locations of original images.
-          merge_dir: Directory in which to perform the merge.
+            fw_source: Locations of original images.
+            merge_dir: Directory in which to perform the merge.
 
         Returns:
-          FirmwareSource with locations of merged firmware.
+            FirmwareSource with locations of merged firmware.
         """
         if not fw_source.bios:
             raise PackError("Need main (RO) firmware image to merge RW image.")
@@ -579,10 +583,10 @@ class FirmwarePacker(object):
         For example, "reef_v1.1.5857-77f6ed7" becomes "1-1-5857"
 
         Args:
-          fw_id: The firmware ID providing version information.
+            fw_id: The firmware ID providing version information.
 
         Returns:
-          The version number.
+            The version number.
         """
         matched_version = re.search(r"((\d+\.){2}\d+)(-\S+)", fw_id)
         if not matched_version:
@@ -598,23 +602,24 @@ class FirmwarePacker(object):
         or malformed.
 
         Letting V denote [0-9], the expected version regex is...
-          "V+.V+" for local builds
-          "V+.V+.V+" for official builds
+            "V+.V+" for local builds
+            "V+.V+.V+" for official builds
 
         Expected FW ID format is:
-          "Google_<board>.<version>(_\w+)*" in the general case, but most commonly:
-          "Google_<board>.<version>_dyyyy_mm_dd_tttttt" for local builds
-          "Google_<board>.<version>" for official builds
+            "Google_<board>.<version>(_\\w+)*" in the general case, but most
+            commonly:
+            "Google_<board>.<version>_dyyyy_mm_dd_tttttt" for local builds
+            "Google_<board>.<version>" for official builds
 
         For example...
-          "Google_Reef.9264.0.1_d2017_02_09_124025" becomes "9264-0-1"
-          "Google_Reef.9264.0.1" becomes "9264-0-1"
+            "Google_Reef.9264.0.1_d2017_02_09_124025" becomes "9264-0-1"
+            "Google_Reef.9264.0.1" becomes "9264-0-1"
 
         Args:
-          fw_id: The firmware ID providing version information.
+            fw_id: The firmware ID providing version information.
 
         Returns:
-          The version number.
+            The version number.
         """
         matched_version = re.search(r"(\d+\.\d+\.\d+)", fw_id)
         if not matched_version:
@@ -633,21 +638,22 @@ class FirmwarePacker(object):
         """Creates output file name for some firmware image.
 
         Filename will have the form...
-          "<target_dir>/<tag>.<ro_version>.<rw_version>.bin",
+            "<target_dir>/<tag>.<ro_version>.<rw_version>.bin",
 
         If versions or model are not provided, returns empty string.
         If legacy or testing is set, returns a generic name of the form
         <target_dir>/<tag>.bin.
 
         Args:
-          tag: Type of image (e.g, "bios").
-          build_target: The build target for this image.
-          fw_ids: The firmware IDs for this image.
-          extract_version: Function extracting image version from a firmware ID.
-          target_dir: Target directory to be prepended to filename.
+            tag: Type of image (e.g, "bios").
+            build_target: The build target for this image.
+            fw_ids: The firmware IDs for this image.
+            extract_version: Function extracting image version from a firmware
+                ID.
+            target_dir: Target directory to be prepended to filename.
 
         Returns:
-          Filename of the output image.
+            Filename of the output image.
         """
         use_generic = self._args.legacy or self._args.testing
         has_required_fields = fw_ids and all(
@@ -672,11 +678,11 @@ class FirmwarePacker(object):
         """Creates output file name for given EC image.
 
         Args:
-          image_file: The input firmware image (ImageFile object).
-          target_dir: Target directory to be prepended to filename.
+            image_file: The input firmware image (ImageFile object).
+            target_dir: Target directory to be prepended to filename.
 
         Returns:
-          Filename of the output image.
+            Filename of the output image.
         """
         return self._FirmwareImageOutput(
             tag="ec",
@@ -690,11 +696,11 @@ class FirmwarePacker(object):
         """Creates output file name for given main image.
 
         Args:
-          image_file: The input firmware image (ImageFile object).
-          target_dir: Target directory to be prepended to filename.
+            image_file: The input firmware image (ImageFile object).
+            target_dir: Target directory to be prepended to filename.
 
         Returns:
-          Filename of the output image.
+            Filename of the output image.
         """
         return self._FirmwareImageOutput(
             tag="bios",
@@ -708,19 +714,17 @@ class FirmwarePacker(object):
         """Process firmware files and copy them into the working directory.
 
         Args:
-          image_files: Dict:
-            key: Type of image (e.g. 'BIOS')
-            value: Corresponding ImageFile object.
-          target_dir: Target directory for output images.
+            image_files: Dict:
+                key: Type of image (e.g. 'BIOS')
+                value: Corresponding ImageFile object.
+            target_dir: Target directory for output images.
 
         Returns:
-          Dict containing information on the output image files:
-            key: Name, one of BIOS, BIOS (RW), EC, EC (RW).
-            value: ImageFile, containing filename and version.
+            Dict containing information on the output image files:
+                key: Name, one of BIOS, BIOS (RW), EC, EC (RW).
+                value: ImageFile, containing filename and version.
         """
-        bios, ec = [
-            image_files.get(label, None) for label in [MAIN, EC]
-        ]
+        bios, ec = [image_files.get(label, None) for label in [MAIN, EC]]
         if bios:
             shutil.copy2(bios.filename, self._MainImageOutput(bios, target_dir))
         if ec:
@@ -730,10 +734,10 @@ class FirmwarePacker(object):
         """Write version information for all image files into the version file.
 
         Args:
-          model: Name of model these image files are for (or '' if none).
-          image_files: Dict with:
-            key: Image type (e.g. 'BIOS').
-            value: ImageFile object containing filename and version.
+            model: Name of model these image files are for (or '' if none).
+            image_files: Dict with:
+                key: Image type (e.g. 'BIOS').
+                value: ImageFile object containing filename and version.
         """
         print(file=self._versions)  # Blank line.
         if model:
@@ -750,16 +754,16 @@ class FirmwarePacker(object):
     def _UntarFile(self, pathname, dst_dirname, suffix=""):
         """Unpack the only item in a tar file.
 
-        Read a file from a tar file. It must contain just a single member and its
-        filename may not include a path.
+        Read a file from a tar file. It must contain just a single member and
+        its filename may not include a path.
 
         Args:
-          pathname: Pathname of tar file to unpack.
-          dst_dirname: Destination directory to place the unpacked file.
-          suffix: String to append to output filename.
+            pathname: Pathname of tar file to unpack.
+            dst_dirname: Destination directory to place the unpacked file.
+            suffix: String to append to output filename.
 
         Returns:
-          Pathname of unpacked file.
+            Pathname of unpacked file.
         """
         with tarfile.open(pathname) as tar:
             members = tar.getmembers()
@@ -788,13 +792,13 @@ class FirmwarePacker(object):
         Fails if src/dst do not exist.
 
         Args:
-          src: Source filename (relative or absolute path).
-          dst: Destination filename or directory (relative or absolute path).
-          mode: File mode to OR with the existing mode.
-          preserve_path: Whether or not to preserve src's path inside dst.
+            src: Source filename (relative or absolute path).
+            dst: Destination filename or directory (relative or absolute path).
+            mode: File mode to OR with the existing mode.
+            preserve_path: Whether or not to preserve src's path inside dst.
 
         Returns:
-          Full pathname of the new file.
+            Full pathname of the new file.
         """
         if os.path.isdir(dst):
             dst = os.path.join(
@@ -808,22 +812,20 @@ class FirmwarePacker(object):
         return dst
 
     def _GetReplaceDict(self, image_files):
-        """Build a dictionary of string replacements for use with the update script.
+        """Build a dict of string replacements for use with the update script.
 
         Args:
-          image_files: Dict with:
-              key: Image type (e.g. 'BIOS').
+            image_files: Dict with:
+                key: Image type (e.g. 'BIOS').
               value: ImageFile object containing filename and version.
 
         Returns:
-          Dict with:
-              key: String to replace.
-              value: Value to replace with.
+            Dict with:
+                key: String to replace.
+                value: Value to replace with.
         """
         empty = ImageFile("", "", FirmwareIds("", ""))
-        bios, ec = [
-            image_files.get(label, empty) for label in [MAIN, EC]
-        ]
+        bios, ec = [image_files.get(label, empty) for label in [MAIN, EC]]
         return {
             "REPLACE_TARGET_IMAGE_RO_MAIN": self._MainImageOutput(
                 bios, IMG_DIR
@@ -836,11 +838,11 @@ class FirmwarePacker(object):
         """Create a new file based on a template and some string replacements.
 
         Args:
-          infile: Input file (the template).
-          outfile: Output file.
-          replace_dict: Dict with:
-              key: String to replace.
-              value: Value to replace with.
+            infile: Input file (the template).
+            outfile: Output file.
+            replace_dict: Dict with:
+                key: String to replace.
+                value: Value to replace with.
         """
         # The template file is going to be ASCII everywhere, so we don't need to
         # jump through binary mode hoops here.
@@ -883,11 +885,11 @@ class FirmwarePacker(object):
         Does nothing in ro_image not provided.
 
         Args:
-          image_files: Dictionary in which to insert ImageFile.
-          key: Dictionary key for the new ImageFile.
-          build_target: The firmware build target.
-          ro_image: Path to the RO image.
-          rw_image: Path to the RW image, if any.
+            image_files: Dictionary in which to insert ImageFile.
+            key: Dictionary key for the new ImageFile.
+            build_target: The firmware build target.
+            ro_image: Path to the RO image.
+            rw_image: Path to the RW image, if any.
         """
         if not ro_image:
             return
@@ -908,16 +910,16 @@ class FirmwarePacker(object):
         In particular, merges the RW firmware if it is provided.
 
         Args:
-          fw_source: Locations of original images.
-          target_dir: Output location for firmware images.
-          main_target: The build target for main firmware, if available.
-          ec_target: The build target for ec firmware, if available.
-          fw_name: Name for this firmware.
+            fw_source: Locations of original images.
+            target_dir: Output location for firmware images.
+            main_target: The build target for main firmware, if available.
+            ec_target: The build target for ec firmware, if available.
+            fw_name: Name for this firmware.
 
         Returns:
-          Dict:
-            key: Type of firmware (e.g. 'BIOS')
-            value: Corresponding ImageFile object.
+            Dict:
+                key: Type of firmware (e.g. 'BIOS')
+                value: Corresponding ImageFile object.
         """
         if not fw_source.bios and not fw_source.ec:
             raise PackError(
@@ -926,8 +928,9 @@ class FirmwarePacker(object):
         if fw_source.bios_rw:
             merge_dir = self._TmpDirPath("%s-merged" % (fw_name or "images"))
             # We use os.mkdir instead of osutils.SafeMakedirs because merge_dir
-            # should not exist. If it does, something is broken and we want to know.
-            # This prevents FirmwarePacker from silently reusing dirty images.
+            # should not exist. If it does, something is broken and we want to
+            # know. This prevents FirmwarePacker from silently reusing dirty
+            # images.
             os.mkdir(merge_dir)
             fw_source = self._MergeRwFirmware(fw_source, merge_dir)
         image_files = {}
@@ -946,24 +949,26 @@ class FirmwarePacker(object):
 
         This obtains the file in one of two ways:
           - if we are building local firmware, it creates a filename using the
-              provided template, with MODEL replaced with the current model. This
-              is used to build a firmware update from the firmware ebuilds. The
-              file is only used if there is a valid property value, since that is
-              what indicates that the file is needed in the update.
-          - otherwise it finds a tar file, unpacks it and returns the filename of
-              the resulting unpacked file. There is only one file in the archive.
-              This is used to build a firmware update from the configured firmware
-              versions, downloaded from BCS.
+              provided template, with MODEL replaced with the current model.
+              This is used to build a firmware update from the firmware ebuilds.
+              The file is only used if there is a valid property value, since
+              that is what indicates that the file is needed in the update.
+          - otherwise it finds a tar file, unpacks it and returns the filename
+              of the resulting unpacked file. There is only one file in the
+              archive. This is used to build a firmware update from the
+              configured firmware versions, downloaded from BCS.
 
         Args:
-          build_target: The name of the build target uses, driving the file output.
-          fname_template: Filename template to use in local model.
-          uri: URI containing the file
-          dirname: Output directory where the unpacked file should be placed.
-          suffix: String to append to output filename.
+            build_target: The name of the build target uses, driving the file
+                output.
+            fname_template: Filename template to use in local model.
+            uri: URI containing the file
+            dirname: Output directory where the unpacked file should be placed.
+            suffix: String to append to output filename.
 
         Returns:
-          Filename of the resulting image file or None if the file doesn't exist.
+            Filename of the resulting image file or None if the file doesn't
+                exist.
         """
         if self._args.local:
             if not fname_template:
@@ -988,11 +993,11 @@ class FirmwarePacker(object):
         """Extract all firmware images to a temporary directory.
 
         Args:
-          firmware: FirmwareInfo object, describing what firmware to extract.
-          dirname: Destination for extracted firmware.
+            firmware: FirmwareInfo object, describing what firmware to extract.
+            dirname: Destination for extracted firmware.
 
         Returns:
-          FirmwareSource object containing filenames of extracted images.
+            FirmwareSource object containing filenames of extracted images.
         """
         bios = self._ExtractFile(
             firmware.bios_build_target,
@@ -1016,20 +1021,20 @@ class FirmwarePacker(object):
         return FirmwareSource(bios, bios_rw, ec)
 
     def _WriteFirmwareImages(self, firmware_info, devices_fw_target):
-        """Extract and build all firmware images, then copy them to the shellball.
+        """Extract and build all firmware images, then copy to the shellball.
 
         Args:
-          firmware_info: Dict:
-            key: Model name.
-            value: FirmwareInfo object for that model.
-          devices_fw_target: Dict:
-            key: Device name.
-            value: Firmware target name.
+            firmware_info: Dict:
+                key: Model name.
+                value: FirmwareInfo object for that model.
+            devices_fw_target: Dict:
+                key: Device name.
+                value: Firmware target name.
 
         Returns:
-          Dict:
-            key: Target name.
-            value: Firmware files for that model (ImageFiles object).
+            Dict:
+                key: Target name.
+                value: Firmware files for that model (ImageFiles object).
         """
         images = {}
         for device, fw_target in devices_fw_target.items():
@@ -1057,10 +1062,10 @@ class FirmwarePacker(object):
         """Generate the setvars.sh script for a single model.
 
         Args:
-          firmware: Firmware information to process (FirmwareInfo object)
-          image_files: Dict:
-              key: Image type (e.g. BIOS).
-              value: ImageFile object for that image.
+            firmware: Firmware information to process (FirmwareInfo object)
+            image_files: Dict:
+                key: Image type (e.g. BIOS).
+                value: ImageFile object for that image.
         """
         setvars_dirname = self._BaseDirPath(
             os.path.join(MODELS_DIR, firmware.model)
@@ -1081,28 +1086,31 @@ class FirmwarePacker(object):
     def _WriteSignerInstructions(self, model_details):
         """Write the signer instructions file.
 
-        This file tells the signer the mapping between models and their images and
-        key IDs. The signer uses this to work out which images to sign, the key to
-        use to sign each image and the model name to use in the vblock filename.
+        This file tells the signer the mapping between models and their images
+        and key IDs. The signer uses this to work out which images to sign, the
+        key to use to sign each image and the model name to use in the vblock
+        filename.
 
         Note that a change with the format can break the code which has already
         been released. Update all the consumers first so that they can handle
         old and new formats, then push the change here.
 
         Args:
-          model_details: OrderedDict:
-              key: Model name (in the order that information is wanted in the
-                  instruction file).
-              value: ModelDetails object for that model.
+            model_details: OrderedDict:
+                key: Model name (in the order that information is wanted in the
+                    instruction file).
+                value: ModelDetails object for that model.
         """
-        with open(self._BaseDirPath("signer_config.csv"), "w") as fd:
+        with open(
+            self._BaseDirPath("signer_config.csv"), "w", encoding="utf-8"
+        ) as fd:
             print(
                 "model_name,firmware_image,key_id,ec_image,brand_code", file=fd
             )
             for model, details in model_details.items():
                 if not details.key_id:
-                    # Some models will not have a key. At present this is normally
-                    # just the zero-touch whitelabel devices.
+                    # Some models will not have a key. At present this is
+                    # normally just the zero-touch whitelabel devices.
                     continue
                 image_fname = self._MainImageOutput(
                     details.image_files[MAIN], IMG_DIR
@@ -1132,7 +1140,7 @@ class FirmwarePacker(object):
         argv: List of arguments (excluding the program name/argv[0]).
 
         Raises:
-          PackError if any error occurs.
+            PackError if any error occurs.
         """
         args = self._args = self.ParseArgs(argv)
 
@@ -1146,10 +1154,11 @@ class FirmwarePacker(object):
             self._tmpdir = self._CreateTmpDir()
             model_details = OrderedDict()
             if not args.legacy:
-                # Most of the arguments are meaningless with unified builds since we
-                # get the information from the model configuration. Add checks here
-                # to avoid confusion. We could possibly do some of this using
-                # mutual exclusivity in the argparser, but I'm not sure it is better.
+                # Most of the arguments are meaningless with unified builds
+                # since we get the information from the model configuration.
+                # Add checks here to avoid confusion. We could possibly do some
+                # of this using mutual exclusivity in the argparser, but I'm not
+                # sure it is better.
                 image_args = [args.bios_image, args.ec_image]
                 if any(image_args) and not args.local:
                     raise PackError("Cannot use -b/-p/-e with -m")
@@ -1167,8 +1176,8 @@ class FirmwarePacker(object):
                 # TODO(yshaul): delete this once the api migration is complete.
                 firmware_info = conf.GetFirmwareInfo()
                 # TODO: Ignore the passed-in model list and use the list from
-                # libcros_config_host always. For now the passed-in list is used for
-                # testing.
+                # libcros_config_host always. For now the passed-in list is used
+                # for testing.
                 if args.models:
                     # tests depend on exact ordering
                     devices_fw_target = OrderedDict(
@@ -1188,8 +1197,9 @@ class FirmwarePacker(object):
                 for device, fw_target in devices_fw_target.items():
                     fw = firmware_info[device]
                     if fw_target not in images:
-                        # It is possible that some devices have images and others do not.
-                        # Do validity checks and continue past this device.
+                        # It is possible that some devices have images and
+                        # others do not. Do validity checks and continue past
+                        # this device.
                         assert not args.local, (
                             "Target %s must have an image if args.local is set."
                             % fw_target
