@@ -38,6 +38,8 @@ from chromite.lib import osutils
 
 MAIN, MAIN_RW = "BIOS", "BIOS (RW)"
 EC = "EC"
+EC_RW_FMAP_SECTION_NAME = "EC_MAIN_A"
+EC_RW_CBFS_NAME = "ecrw"
 MODELS_DIR = "models"
 IMG_DIR = "images"
 Section = namedtuple("Section", ["offset", "size"])
@@ -452,27 +454,27 @@ class FirmwarePacker(object):
         self._CloneFirmwareSection(ro_fname, rw_fname, "RW_MISC", optional=True)
         self._CopyTimestamp(rw_fname, ro_fname)
 
-    def _ExtractEcRwUsingFMAP(self, fname, fmap_area_name, ecrw_fname):
-        """Use FMAP to extract fmap_area_name section containing an EC binary.
+    def _ExtractEcRwUsingFMAP(self, fname, section_name, ecrw_fname):
+        """Use FMAP to extract section_name section containing an EC binary.
 
         Args:
             fname: Filename of firmware image (relative or absolute path).
-            fmap_area_name: Name of the FMAP area which contains the EC binary.
+            section_name: Name of the FMAP section which contains the EC binary.
             ecrw_fname: Filename to put EC binary into (relative or absolute
                 path).
         """
         cros_build_lib.dbg_run(
-            ["futility", "dump_fmap", "-x", fname, fmap_area_name],
+            ["futility", "dump_fmap", "-x", fname, section_name],
             capture_output=True,
             cwd=self._tmpdir,
         )
-        ec_main_a = os.path.join(self._tmpdir, fmap_area_name)
+        ec_main_a = os.path.join(self._tmpdir, section_name)
         with open(ec_main_a, mode="rb") as fd:
             count, offset, size = struct.unpack("<III", fd.read(12))
         if count != 1 or offset != 12:
             raise PackError(
                 "Unexpected %s (%d, %d). Cannot merge EC RW"
-                % (fmap_area_name, count, offset)
+                % (section_name, count, offset)
             )
         # To make sure files to be merged are both prepared, _MergeFile will
         # only accept existing files, so we have to create ecrw now.
@@ -504,40 +506,38 @@ class FirmwarePacker(object):
             cwd=self._tmpdir,
         )
 
-    def _ExtractEcRw(self, fname, fmap_area_name, cbfs_name, ecrw_fname):
-        """Obtain the RW EC binary.
+    def _ExtractEcRwFromBIOS(self, fname, ecrw_fname):
+        """Extract the EC RW binary from BIOS image.
+
+        If the BIOS image contains an FMAP section "EC_MAIN_A", then the EC
+        RW will be extracted from it. Otherwise, the EC RW is assumed to be
+        stored as a CBFS file "ecrw".
 
         Args:
-            fname: Filename of firmware image (relative or absolute path).
-            fmap_area_name: Name of the section in FMAP which contains the EC
-                binary, will fall-back to CBFS if not present.
-            cbfs_name: Name of file in CBFS which contains the EC binary, if the
-                image does not have an fmap_area_name section.
+            fname: Filename of BIOS image (relative or absolute path).
             ecrw_fname: Filename to put EC binary into (relative or absolute
                 path).
 
         Raises:
             PackError or RunCommandError if an error occurs.
         """
-        if fmap_area_name in self._GetFMAP(fname):
-            self._ExtractEcRwUsingFMAP(fname, fmap_area_name, ecrw_fname)
+        if EC_RW_FMAP_SECTION_NAME in self._GetFMAP(fname):
+            self._ExtractEcRwUsingFMAP(
+                fname, EC_RW_FMAP_SECTION_NAME, ecrw_fname
+            )
         else:
-            self._ExtractEcRwUsingCBFS(fname, cbfs_name, ecrw_fname)
+            self._ExtractEcRwUsingCBFS(fname, EC_RW_CBFS_NAME, ecrw_fname)
 
-    def _MergeRwEcFirmware(self, ec_fname, rw_fname, fmap_area_name, cbfs_name):
+    def _MergeRwEcFirmware(self, ec_fname, rw_fname):
         """Merge EC firmware from an image into a copy of the given file.
 
         Args:
             ec_fname: Filename to merge RW EC binary into (relative or absolute
                 path).
             rw_fname: Filename of firmware image (relative or absolute path).
-            fmap_area_name: Name of the section in FMAP which contains the EC
-                binary, will fall-back to CBFS if not present.
-            cbfs_name: Name of file in CBFS which contains the EC binary, if the
-                image does not have an fmap_area_name section.
         """
-        ecrw_fname = os.path.join(self._tmpdir, cbfs_name)
-        self._ExtractEcRw(rw_fname, fmap_area_name, cbfs_name, ecrw_fname)
+        ecrw_fname = os.path.join(self._tmpdir, "ecrw")
+        self._ExtractEcRwFromBIOS(rw_fname, ecrw_fname)
         section = self._GetFMAP(ec_fname)["EC_RW"]
         ecrw_size = os.stat(ecrw_fname).st_size
         if section.size < ecrw_size:
@@ -568,7 +568,7 @@ class FirmwarePacker(object):
         ]
         self._MergeRwMainFirmware(bios, bios_rw)
         if ec:
-            self._MergeRwEcFirmware(ec, bios, "EC_MAIN_A", "ecrw")
+            self._MergeRwEcFirmware(ec, bios)
         return FirmwareSource(bios, bios_rw, ec)
 
     @staticmethod
