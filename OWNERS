@@ -3,6 +3,7 @@
 
 hungte@chromium.org
 sjg@chromium.org
+yupingso@chromium.org
 
 # For refactors that involve cros_config_host.  Not for anything which
 # affects the actual firmware packing.
