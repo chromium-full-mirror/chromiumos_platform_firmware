@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 # Copyright 2017 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-
 """Functional test for pack_firmware.py.
 
 This runs a basic scenario and checks the output by running the update script
@@ -66,12 +64,13 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     make sure to not pick a path already used by one of the other members (see
     the code below for actual paths).
 
-    Members:
-      indir: Directory which contains the input firmware files (e.g. image.bin).
-      basedir: Directory containing this script.
-      outdir: Directory to place output shellball.
-      tempdir: Temporary directory to use as our base for other temp dirs.
-      unpackdir: Directory used to unpack shellball into.
+    Attributes:
+        indir: Directory which contains the input firmware files (e.g.
+            image.bin).
+        basedir: Directory containing this script.
+        outdir: Directory to place output shellball.
+        tempdir: Temporary directory to use as our base for other temp dirs.
+        unpackdir: Directory used to unpack shellball into.
     """
 
     def setUp(self):
@@ -99,11 +98,11 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         """Get a sorted list of files that we expect to see in the shellball.
 
         Args:
-          extra_files: A list of extra files to include.
-          models: A list of models whose files need to be included.
+            extra_files: A list of extra files to include.
+            models: A list of models whose files need to be included.
 
         Returns:
-          A sorted list of files to expect.
+            A sorted list of files to expect.
         """
         expected_files = set(["manifest.json", "VERSION"] + extra_files)
         for model in models:
@@ -119,15 +118,16 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         environment variables set here.
 
         Args:
-          outfile: Shellball output file to test.
-          model: Model name to provide when the script asks for it.
-          mode: Execution mode (can be 'autoupdate' or 'output')
-          whitelabel_tag: Value to return for whitelabel_tag from the fake vpd
+            outfile: Shellball output file to test.
+            model: Model name to provide when the script asks for it.
+            mode: Execution mode (can be 'autoupdate' or 'output')
+            whitelabel_tag: Value to return for whitelabel_tag from the fake vpd
 
         Returns:
-          List of lines output from the script
+            List of lines output from the script
         """
-        # These are used by our fake vpd/mosys programs (see functest/ directory).
+        # These are used by our fake vpd/mosys programs (see functest/
+        # directory).
         os.environ["FAKE_WHITELABEL_TAG"] = whitelabel_tag
         os.environ["FAKE_MODEL"] = model
         input_path = os.path.join(self.indir, "image.bin")
@@ -168,15 +168,15 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         """Run the FirmwarePacker process and read the resulting shellball.
 
         Args:
-          extra_args: Extra arguments to pass to FirmwarePacker.
+            extra_args: Extra arguments to pass to FirmwarePacker.
 
         Returns:
-          Tuple containing:
-            Path to output shellball.
-            Sorted list of files in the shellball.
-            Dict containing the version information, with each entry being:
-              key: shell variable (e.g. TARGET_FWID).
-              value: value of that variable.
+            Tuple containing:
+                Path to output shellball.
+                Sorted list of files in the shellball.
+                Dict containing the version information, with each entry being:
+                    key: shell variable (e.g. TARGET_FWID).
+                    value: value of that variable.
         """
         outfile = os.path.join(self.outdir, "output.sh")
         argv = extra_args + ["-o", outfile, "-q"]
@@ -208,7 +208,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.assertEqual(3, len(files))
         self.assertEqual(self._ExpectedFiles(["bios.bin"]), files)
 
-        # Comb through the VERSION file and check that everything is as expected.
+        # Comb through the VERSION file and check that everything is as
+        # expected.
         lines = osutils.ReadFile(
             os.path.join(self.unpackdir, "VERSION")
         ).splitlines()
@@ -229,9 +230,9 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         """Check the versions match expectations for reef.
 
         Args:
-          versions: Dict of version information:
-            key: Shell variable name..
-            value: Value of that variable.
+            versions: Dict of version information:
+                key: Shell variable name..
+                value: Value of that variable.
         """
         self.assertEqual("Google_Reef.9042.50.0", versions["TARGET_FWID"])
         self.assertEqual("Google_Reef.9042.50.0", versions["TARGET_RO_FWID"])
@@ -242,11 +243,11 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         """Check the versions match expectations.
 
         Args:
-          model: The model considered.
-          versions: Dict of version information:
-            key: Shell variable name..
-            value: Value of that variable.
-          signature_id: Expected signature ID.
+            model: The model considered.
+            versions: Dict of version information:
+                key: Shell variable name..
+                value: Value of that variable.
+            signature_id: Expected signature ID.
         """
         base = "images/%s"
         self.assertEqual(base % BIOS_IMAGES[model], versions["IMAGE_MAIN"])
@@ -254,17 +255,17 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.assertEqual(signature_id, versions["SIGNATURE_ID"])
 
     def _SetupArgs(self, extra_models=None):
-        """Set up the arguments to execute a functional test
+        """Set up the arguments to execute a functional test.
 
         This is a convenience function to hold common code.
 
         Args:
-          extra_models: List of extra models to generate firmware for, or None
+            extra_models: List of extra models to generate firmware for, or None
 
         Returns:
-          Tuple:
-            List of extra arguments to pass to the firmware updater
-            List of files we expect to see in the firmware update
+            Tuple:
+                List of extra arguments to pass to the firmware updater
+                List of files we expect to see in the firmware update
         """
         models = ["reef", "pyro", "sand"]
         all_models = models + ["electro", "basking"]  # Share others firmware
@@ -288,12 +289,12 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         """Creates an expected CSV line for signer_instructions.csv.
 
         Args:
-          model: Expected model name.
-          fw_target: Expected firmware target.
-          key_id: Expected key ID.
+            model: Expected model name.
+            fw_target: Expected firmware target.
+            key_id: Expected key ID.
 
         Returns:
-          The expected signer instructions CSV line.
+            The expected signer instructions CSV line.
         """
         fw_target = fw_target or model
         key_id = key_id or model.upper()
@@ -396,7 +397,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.assertEqual(self._CreateSignerLine("basking", "sand"), lines[5])
 
     def testVersionOutput(self):
-        """Check that the -V option shows version information as expected"""
+        """Check that the -V option shows version information as expected."""
         extra_args, expected_files = self._SetupArgs()
         outfile, files, _ = self._RunPackFirmware(extra_args)
 
@@ -415,22 +416,23 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.assertEqual(set(expected_files), set(files))
 
     def _MakeImage(self, outfile, ro_id, rw_id=""):
-        """Create a new firmware image with the given IDs."
+        """Create a new firmware image with the given IDs.
 
         This uses the existing flashmap defined in functest/base.fmd. It has two
         256-byte ID sections followed by an FMAP section. We can easily create a
         file that conforms to this map by padding our ID strings to 256 bytes.
 
         Note fmap.bin can be created with:
-          $ fmaptool functest/base.fmd functtest.fmap.bin
+            $ fmaptool functest/base.fmd functtest.fmap.bin
 
         The binary file is checked in since fmaptool is not installed by the
         coreboot-utils ebuild.
 
         Args:
-          outfile: Destination file (within the unpack directory) for output image.
-          ro_id: Read-only firmware ID to use.
-          rw_id: Read-write firmware ID to use, empty string if none.
+            outfile: Destination file (within the unpack directory) for output
+                image.
+            ro_id: Read-only firmware ID to use.
+            rw_id: Read-write firmware ID to use, empty string if none.
         """
         with open(os.path.join(self.unpackdir, outfile), "wb") as fd:
             fd.write(ro_id.encode("utf-8") + b"\x00" * (256 - len(ro_id)))
@@ -445,8 +447,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.assertEqual("Google_Reef.9042.50.0", versions["TARGET_FWID"])
         self.assertEqual("", versions["TARGET_ECID"])
 
-        # Extract the file into a directory, then overwrite various files with new
-        # images with a different IDs.
+        # Extract the file into a directory, then overwrite various files with
+        # new images with a different IDs.
         cros_build_lib.dbg_run(
             [outfile, "--unpack", self.unpackdir], capture_output=True
         )
@@ -486,8 +488,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         This causes a test failure if the file contents do not match.
 
         Args:
-          expect_fname: File containing expected contents
-          fname: File containing contents to check
+            expect_fname: File containing expected contents
+            fname: File containing contents to check
         """
         expect = osutils.ReadFile(expect_fname, mode="rb")
         data = osutils.ReadFile(fname, mode="rb")
@@ -499,28 +501,30 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     def _GetUnequalRegions(
         self, expect_fname, fname, sig_id=None, expect_root_sum=None
     ):
-        """Get a list of firmware regions which are not the same
+        """Get a list of firmware regions which are not the same.
 
         This is used to compare two firmware images. It checks the files regions
-        by region. Any regions which do not match are added to the returned list.
-        For vblock regions the contents are checked against the corresponding
-        vblock file in functest rather than the contents of expect_fname. For
-        GBB regions the root key is checked against expect_root_sum.
+        by region. Any regions which do not match are added to the returned
+        list. For vblock regions the contents are checked against the
+        corresponding vblock file in functest rather than the contents of
+        expect_fname. For GBB regions the root key is checked against
+        expect_root_sum.
 
-        The goal of this function is to check that the firmware the updater would
-        write has the correct keys inside it for the model being written. Note that
-        'SECTION' regions (include 'WP_RO' are ignored since they cover other
-        regions (all of which we check).
+        The goal of this function is to check that the firmware the updater
+        would write has the correct keys inside it for the model being written.
+        Note that 'SECTION' regions (include 'WP_RO' are ignored since they
+        cover other regions (all of which we check).
 
         Args:
-          expect_fname: File containing expected contents
-          fname: File containing contents to check
-          sig_id: Signature ID for vblock, or None
-          expect_root_sum: Expected SHA1 sum of the root key (as a string), or None
+            expect_fname: File containing expected contents
+            fname: File containing contents to check
+            sig_id: Signature ID for vblock, or None
+            expect_root_sum: Expected SHA1 sum of the root key (as a string),
+                or None
 
         Returns:
-          List of file regions that differ  (e.g. ['GBB']) excluding any
-          'section' regions
+            List of file regions that differ  (e.g. ['GBB']) excluding any
+                'section' regions
         """
         try:
             expect_dir = os.path.join(self.tempdir, "expect")
@@ -536,9 +540,9 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
                 ["dump_fmap", "-x", fname], capture_output=True, cwd=actual_dir
             )
             differ = []
-            for expect_fname in glob.glob("%s/*" % expect_dir):
-                expect = osutils.ReadFile(expect_fname, mode="rb")
-                basename = os.path.basename(expect_fname)
+            for expect_file in glob.glob("%s/*" % expect_dir):
+                expect = osutils.ReadFile(expect_file, mode="rb")
+                basename = os.path.basename(expect_file)
                 data = osutils.ReadFile(
                     os.path.join(actual_dir, basename), mode="rb"
                 )
@@ -551,12 +555,14 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
                         check=False,
                         encoding="utf-8",
                     )
+                    # pylint: disable=C0301
                     # Relevant output is:
                     #   Root Key:
                     #     Vboot API:           1.0
                     #     Algorithm:           11 RSA8192 SHA512
                     #     Key Version:         1
                     #     Key sha1sum:         ac7c01b1bea84da486f30a52bba5eb67ff45f50f
+                    # pylint: enable=C0301
                     lines = result.stdout.splitlines()
                     filtered_lines = [
                         line for line in lines if "sha1sum" in line
@@ -606,26 +612,27 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self._AssertFileEqual(bios_file, "%s/image.bin" % self.indir)
 
     def _GetVblock(self, sig_id, a_or_b):
-        """Get the contents of an A or B vblock for a given signature ID
+        """Get the contents of an A or B vblock for a given signature ID.
 
         Args:
-          sig_id: Signature ID for vblock (this is key_id in the update script)
-          a_or_b: Either 'A' or 'B' to select which vblock to use
+            sig_id: Signature ID for vblock (this is key_id in the update
+                script)
+            a_or_b: Either 'A' or 'B' to select which vblock to use
 
         Returns:
-          Contents of the vblock file as a string
+            Contents of the vblock file as a string
         """
         self.assertIn(a_or_b, ["A", "B"])
         with gzip.GzipFile("functest/vblock_%s.%s.gz" % (a_or_b, sig_id)) as fd:
             return fd.read()
 
     def _CopyVblock(self, keydir, sig_id, a_or_b):
-        """Copy a vblock file into the firmware-update key directory
+        """Copy a vblock file into the firmware-update key directory.
 
         Args:
-          keydir: Destination directory to add files into
-          sig_id: Signature ID for vblock
-          a_or_b: Either 'A' or 'B' to select which vblock to use
+            keydir: Destination directory to add files into
+            sig_id: Signature ID for vblock
+            a_or_b: Either 'A' or 'B' to select which vblock to use
         """
         path = os.path.join(keydir, "vblock_%s.%s" % (a_or_b, sig_id))
         osutils.WriteFile(path, self._GetVblock(sig_id, a_or_b), mode="wb")
@@ -634,11 +641,11 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         """Add root key and vblock information for testing.
 
         Args:
-          keydir: Destination directory to add files into
-          sig_id: Signature ID used to identify files in functest/
+            keydir: Destination directory to add files into
+            sig_id: Signature ID used to identify files in functest/
 
         Returns:
-          SHA1 hash of the root key (as a string)
+            SHA1 hash of the root key (as a string)
         """
         rootkey = "functest/rootkey.%s" % sig_id
         shutil.copy(rootkey, keydir)
@@ -661,11 +668,11 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         that the resulting firmware image is correctly signed for that model.
 
         Args:
-          outfile: Firmware update shellball filename
-          model: Name of model to generate firmware for
-          rootkey_sum: SHA1 sum of the root key (as a string)
-          signature_id: Value to return for signature_id from the fake mosys
-          whitelabel_tag: Value to return for whitelabel_tag from the fake vpd
+            outfile: Firmware update shellball filename
+            model: Name of model to generate firmware for
+            rootkey_sum: SHA1 sum of the root key (as a string)
+            signature_id: Value to return for signature_id from the fake mosys
+            whitelabel_tag: Value to return for whitelabel_tag from the fake vpd
         """
         self._RunScript(outfile, model, whitelabel_tag=whitelabel_tag)
         expected_sig_id = signature_id or model
@@ -676,14 +683,14 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.assertEqual([], regions)
 
     def AddFakeKeys(self, outfile, key_ids):
-        """Add fake keys to an existing firmware update to allow testing
+        """Add fake keys to an existing firmware update to allow testing.
 
         Args:
-          outfile: Firmware update file to modify
-          key_ids: List of key IDs to add
+            outfile: Firmware update file to modify
+            key_ids: List of key IDs to add
 
         Returns:
-          List of sums for each key in key_ids
+            List of sums for each key in key_ids
         """
         cros_build_lib.dbg_run(
             [outfile, "--unpack", self.unpackdir], capture_output=True
@@ -701,15 +708,15 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         extra_args, _ = self._SetupArgs()
         outfile, _, _ = self._RunPackFirmware(extra_args)
 
-        # Add some fake root keys and vblocks for some of the models, to simulate
-        # the action of the signer.
+        # Add some fake root keys and vblocks for some of the models, to
+        # simulate the action of the signer.
         reef_sum, electro_sum = self.AddFakeKeys(outfile, ["reef", "electro"])
 
         self._CheckOutput(outfile, REEF_MODEL, reef_sum)
         self._CheckOutput(outfile, "electro", electro_sum)
 
     def testWhitelabel(self):
-        """Test generation of firmware for a whitelabel model"""
+        """Test generation of firmware for a whitelabel model."""
         extra_args, _ = self._SetupArgs(["whitelabel-test"])
         self._RunPackFirmware(extra_args)
         version_lines = osutils.ReadFile(
@@ -746,7 +753,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.assertEqual("Google_Reef.9000.0.0", versions["TARGET_FWID"])
         self._CheckVars("sand", versions, "whitelabel-test")
 
-        # Check the signer instructions - the last line should be for whitelabel.
+        # Check the signer instructions - the last line should be for
+        # whitelabel.
         lines = osutils.ReadFile(
             os.path.join(self.unpackdir, "signer_config.csv")
         ).splitlines()
@@ -756,16 +764,16 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         )
 
     def _CheckZeroTouchWhitelabel(self, model, wl_models, wl_tags):
-        """Test generation of firmware for a 'zero-touch' whitelabel model
+        """Test generation of firmware for a 'zero-touch' whitelabel model.
 
         This is one where the device cannot tell its model name by hardware
         detection, but must use the model name stored in the VPD
         customization_id.
 
         Args:
-          model: Main whitelabel model to generate firmware for
-          wl_models: List of whitelabel models to generate firmware for
-          wl_tags: List of whitelabel tags to generate firmware for
+            model: Main whitelabel model to generate firmware for
+            wl_models: List of whitelabel models to generate firmware for
+            wl_tags: List of whitelabel tags to generate firmware for
         """
         if wl_tags:
             assert (
@@ -838,10 +846,10 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             )
 
     def testZeroTouchWhitelabel(self):
-        """Test generation of firmware for a 'zero-touch' whitelabel model
+        """Test generation of firmware for a 'zero-touch' whitelabel model.
 
-        Whitelabels use a single model with multiple 'whitelabel' tags associated
-        with it.
+        Whitelabels use a single model with multiple 'whitelabel' tags
+        associated with it.
         """
         self._CheckZeroTouchWhitelabel("wlref", [], ["wltag1", "wltag2"])
 

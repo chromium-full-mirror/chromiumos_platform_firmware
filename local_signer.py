@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 # Copyright 2022 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Generates a signer_config.csv file for local build artifacts.
 
-Scans /build/$BOARD/firmware and look up chromeos-config to create the
-signer config file for the firmware updater to use.
+Scans /build/$BOARD/firmware and look up chromeos-config to create the signer
+config file for the firmware updater to use.
 """
 
 from __future__ import print_function
@@ -38,10 +37,10 @@ class LocalSignerConfig(object):
         Invalid arguments or -h cause this function to print a message and exit.
 
         Args:
-          argv: List of string arguments (excluding program name / argv[0])
+            argv: List of string arguments (excluding program name / argv[0])
 
         Returns:
-          argparse.Namespace object containing the attributes.
+            argparse.Namespace object containing the attributes.
         """
         parser = commandline.ArgumentParser(description=__doc__)
         parser.add_argument(
@@ -90,7 +89,7 @@ class LocalSignerConfig(object):
     def Start(self, argv):
         self._args = self.ParseArgs(argv)
         self._conf = libcros_config_host.CrosConfig(self._args.config)
-        with open("signer_config.csv", "w") as fd:
+        with open("signer_config.csv", "w", encoding="utf-8") as fd:
             self.GenerateSignerConfig(fd, sys.stderr)
 
 

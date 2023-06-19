@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright 2017 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -19,14 +18,14 @@ def ReadManifest(folder):
     """Read the manifest information from given folder.
 
     Args:
-      folder: Path to a folder with unpacked firmware updater package
+        folder: Path to a folder with unpacked firmware updater package
 
     Returns:
-      Dict with:
-          key: Keys of versions
-          value: Value of given key
+        Dict with:
+            key: Keys of versions
+            value: Value of given key
     """
-    with open(os.path.join(folder, "manifest.json")) as f:
+    with open(os.path.join(folder, "manifest.json"), encoding="utf-8") as f:
         data = json.load(f)
     result = {}
     for k, v in data.items():
@@ -46,12 +45,12 @@ def ReadVersions(fname):
     """Read the version of images in an updater archive.
 
     Args:
-      fname: Filename of script file.
+        fname: Filename of script file.
 
     Returns:
-      Dict with:
-          key: Version name.
-          value: Version value.
+        Dict with:
+            key: Version name.
+            value: Version value.
     """
     raw_data = subprocess.check_output(["sh", fname, "--manifest"])
     data = json.loads(raw_data)

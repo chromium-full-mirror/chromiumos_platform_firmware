@@ -184,7 +184,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         pack_firmware.FirmwarePacker._ExtractFrid = self._ExtractFrid
 
     def testBadStartup(self):
-        """Test various bad start-up conditions"""
+        """Test various bad start-up conditions."""
         # Starting up in another directory (without required files) should fail.
         with self.assertRaises(pack_firmware.PackError) as e:
             pack_firmware.main(["/"])
@@ -440,7 +440,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         self.assertEqual("base/fred", self.packer._BaseDirPath("fred"))
 
     def _GetFakeReefFirmware(self):
-        """Get the fake reef firmware config
+        """Get the fake reef firmware config.
 
         Returns:
             Dict of the reef firmware config

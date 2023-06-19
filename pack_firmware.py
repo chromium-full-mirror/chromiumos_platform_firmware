@@ -6,8 +6,8 @@
 """Packages firmware images into an executable "shell-ball".
 
 It requires:
- - at least one firmware image (*.bin, should be AP or EC or ...)
- - pack/sfx?.sh as the self extraction (and installation) script
+- at least one firmware image (*.bin, should be AP or EC or ...)
+- pack/sfx?.sh as the self extraction (and installation) script
 """
 
 from __future__ import print_function
@@ -81,7 +81,7 @@ REPLACE_VARS = [
 
 
 class PackError(Exception):
-    """Exception returned by FirmwarePacker when something goes wrong"""
+    """Exception returned by FirmwarePacker when something goes wrong."""
 
 
 class FirmwarePacker(object):
@@ -872,7 +872,7 @@ class FirmwarePacker(object):
         Args:
             image_files: Dict with:
                 key: Image type (e.g. 'BIOS').
-              value: ImageFile object containing filename and version.
+                value: ImageFile object containing filename and version.
 
         Returns:
             Dict with:
@@ -1004,15 +1004,15 @@ class FirmwarePacker(object):
         """Obtain a file based on provided information.
 
         This obtains the file in one of two ways:
-          - if we are building local firmware, it creates a filename using the
-              provided template, with MODEL replaced with the current model.
-              This is used to build a firmware update from the firmware ebuilds.
-              The file is only used if there is a valid property value, since
-              that is what indicates that the file is needed in the update.
-          - otherwise it finds a tar file, unpacks it and returns the filename
-              of the resulting unpacked file. There is only one file in the
-              archive. This is used to build a firmware update from the
-              configured firmware versions, downloaded from BCS.
+        - if we are building local firmware, it creates a filename using the
+            provided template, with MODEL replaced with the current model.
+            This is used to build a firmware update from the firmware ebuilds.
+            The file is only used if there is a valid property value, since
+            that is what indicates that the file is needed in the update.
+        - otherwise it finds a tar file, unpacks it and returns the filename
+            of the resulting unpacked file. There is only one file in the
+            archive. This is used to build a firmware update from the
+            configured firmware versions, downloaded from BCS.
 
         Args:
             build_target: The name of the build target uses, driving the file
