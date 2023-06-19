@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 # Copyright 2017 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -386,8 +385,8 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         fname = self.packer._UntarFile("functest/Reef.9042.50.0.tbz2", dirname)
         self.assertEqual(os.path.basename(fname), "image.bin")
 
-        # Unpack again with a different suffix. We should get a different filename
-        # and the file contents should be different.
+        # Unpack again with a different suffix. We should get a different
+        # filename and the file contents should be different.
         fname2 = self.packer._UntarFile(
             "functest/Reef.9000.0.0.tbz2", dirname, "-rw"
         )
@@ -421,11 +420,11 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         """Get a list of files in a directory.
 
         Args:
-          dirname: Directory name to check.
+            dirname: Directory name to check.
 
         Returns:
-          List of files in that directory (basename only). Any subdirectories are
-              ignored.
+            List of files in that directory (basename only). Any subdirectories
+                are ignored.
         """
         return sorted(
             [
@@ -444,7 +443,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         """Get the fake reef firmware config
 
         Returns:
-          Dict of the reef firmware config
+            Dict of the reef firmware config
         """
         return {
             "ec-ro-image": "bcs://Reef_EC.9042.50.0.tbz2",
@@ -463,8 +462,8 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         dirname = self.packer._CreateTmpDir()
         fake_fw = self._GetFakeReefFirmware()
 
-        # This should look up main-ro-image, find that file in functest/, copy it to
-        # our directory and return its filename.
+        # This should look up main-ro-image, find that file in functest/, copy
+        # it to our directory and return its filename.
         main_image = fake_fw["main-ro-image"]
         self.assertEqual(
             self.packer._ExtractFile(None, None, main_image, dirname),
@@ -521,9 +520,9 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         See _ExtractEcRwUsingCbfs() for where this command is generated.
 
         Args:
-          cmd: Arguments, of the form:
-              ['cbfstool.sh', ..., '-f', <filename>, ...]
-              See _SetPreambleFlags() for where this is generated.
+            cmd: Arguments, of the form:
+                ['cbfstool.sh', ..., '-f', <filename>, ...]
+                See _SetPreambleFlags() for where this is generated.
         """
         file_arg = cmd.index("-f")
         fname = cmd[file_arg + 1]
@@ -539,15 +538,16 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         See _ExtractEcRwUsingFMAP() for where this command is generated.
 
         Args:
-          cmd: Arguments, of the form:
-              ['dump_fmap', '-x', <filename>, <region>]
-              <region> specifies the region to extract from <filename>, which
-              will be extracted to cwd in a file named <region>.
-              See _ExtractEcRwUsingFMAP() for where this is generated.
+            cmd: Arguments, of the form:
+                ['dump_fmap', '-x', <filename>, <region>]
+                <region> specifies the region to extract from <filename>, which
+                will be extracted to cwd in a file named <region>.
+                See _ExtractEcRwUsingFMAP() for where this is generated.
         """
         fname = os.path.join(_kwargs["cwd"], cmd.pop())
         with open(fname, "wb") as fd:
-            # Write a dummy header with image size = ECRW_SIZE, and payload of zeros
+            # Write a dummy header with image size = ECRW_SIZE, and payload of
+            # zeros
             fd.write(struct.pack("<III", 1, 12, ECRW_SIZE))
             fd.truncate(ECRW_SIZE + 12)
 
@@ -650,10 +650,10 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         """Set up to run with a valid updater script and BIOS.
 
         Args:
-          config_fname: Model configuration file to use.
+            config_fname: Model configuration file to use.
 
         Returns:
-          List of arguments to pass to pack_firmware.main()
+            List of arguments to pass to pack_firmware.main()
         """
 
         args = [
@@ -690,14 +690,17 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         with cros_test_lib.RunCommandMock() as rc:
             self._AddMocks(rc)
             pack_firmware.main(args)
-            # Only reef is in the output, configs without firmware uris are skipped.
+            # Only reef is in the output, configs without firmware uris are
+            # skipped.
             self.assertListEqual(
                 pack_firmware.packer._versions.getvalue().strip().splitlines(),
                 [
                     "Model:        reef",
-                    "BIOS image:   99a6fc64e45596aa2c1a9911cddce952 */reef/image.bin",
+                    "BIOS image:   99a6fc64e45596aa2c1a9911cddce952"
+                    " */reef/image.bin",
                     "BIOS version: Google_Reef.9264.0.0_d2017_02_09_1240",
-                    "EC image:     60c08e5aefa3a660687c7027d1358df0 */reef/ec.bin",
+                    "EC image:     60c08e5aefa3a660687c7027d1358df0"
+                    " */reef/ec.bin",
                     "EC version:   Google_Reef.9264.0.0_d2017_02_09_1240",
                     "EC (RW) version: Google_Reef.9264.0.0_d2017_02_09_1250",
                 ],
@@ -718,15 +721,15 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             pack_firmware.packer._versions.getvalue().splitlines()
 
     def _FindLineInList(self, lines, start_text):
-        """Helper to find a single line starting with the given text and return it.
+        """Find a single line starting with the given text and return it.
 
         Args:
-          lines: List of lines to check.
-          start_text: Text to find.
+            lines: List of lines to check.
+            start_text: Text to find.
 
         Returns:
-          Line found, as a string (or assertion failure if exactly one matching
-            line was not found).
+            Line found, as a string (or assertion failure if exactly one
+                matching line was not found).
         """
         found = [line for line in lines if line.strip().startswith(start_text)]
         self.assertEqual(len(found), 1)
