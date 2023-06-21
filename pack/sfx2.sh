@@ -106,7 +106,7 @@ report_system() {
   local package="$(echo "${manifest}" |
     jq -c ".${model}.host.versions" 2>/dev/null)"
   local swwp="1"
-  if flashrom -p host --wp-status 2>/dev/null | grep -q disabled; then
+  if [ "$(futility flash --wp-status --ignore-hw)" = "WP status: disabled" ]; then
     swwp=0
   fi
   if [ -z "${package}" ]; then
