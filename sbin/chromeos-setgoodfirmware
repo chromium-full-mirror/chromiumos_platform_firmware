@@ -30,22 +30,11 @@ emit_complete_event() {
 
 # Main entry.
 main() {
-  case "$(crossystem fw_vboot2)" in
-    1)
-      crossystem fw_result=success fw_try_count=0 ||
-        die "Fail to set good kernel with vboot2 firmware."
-      emit_complete_event
-      info "Active vboot2 firmware set as good firmware."
-      ;;
+  crossystem fw_result=success fw_try_count=0 ||
+    die "Fail to set good kernel with vboot2 firmware."
+  emit_complete_event
+  info "Active firmware set as good firmware."
 
-    0)
-      die "vboot1 is no longer supported."
-      ;;
-
-    *)
-      die "Unknown vboot firmware type."
-      ;;
-  esac
   if [ -x "${BOARD_SCRIPT}" ]; then
     info "Running board script ${BOARD_SCRIPT}..."
     exec "${BOARD_SCRIPT}"
