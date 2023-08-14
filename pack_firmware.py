@@ -1136,8 +1136,8 @@ class FirmwarePacker(object):
         setvars_dict = self._GetReplaceDict(image_files)
         setvars_dict["REPLACE_MODEL"] = firmware.model
 
-        # For zero-touch whitelabel devices tell the firmware updater to get its
-        # signature ID from the VPD.
+        # For zero-touch customlabel devices tell the firmware updater to get
+        # its signature ID from the VPD.
         # TODO(sjg): Update this to say that it comes from mosys / cros_config.
         setvars_dict["REPLACE_SIGNATURE_ID"] = firmware.sig_id
         setvars_fname = os.path.join(setvars_dirname, "setvars.sh")
@@ -1172,7 +1172,7 @@ class FirmwarePacker(object):
             for model, details in model_details.items():
                 if not details.key_id:
                     # Some models will not have a key. At present this is
-                    # normally just the zero-touch whitelabel devices.
+                    # normally just the zero-touch customlabel devices.
                     continue
                 image_fname = self._MainImageOutput(
                     details.image_files[MAIN], IMG_DIR

@@ -25,12 +25,12 @@ The SFX stub program is [sfx2.sh](./sfx2.sh).
     -   `IMAGE_MAIN`: Path to AP (host) firmware image
     -   `IMAGE_EC`: Path to Embedded Controller firmware image
     -   `SIGNATURE_ID`: Signing key name for this model, just put model name.
--   For platforms that supports White Label (LOEM), the keys for each LOEM
-    must be put in `keyset` folder, with a `whitelabel_tag` as suffix
+-   For platforms that supports Custom Label (LOEM), the keys for each LOEM
+    must be put in `keyset` folder, with a `customlabel_tag` as suffix
     (which `${model}-${loem}` in Unified Build, otherwise just `${loem}`):
-    -   `rootkey.$WLTAG`: The firmware root key
-    -   `vblock_A.$WLTAG`: The vblock in A section
-    -   `vblock_B.$WLTAG`: The vblock in A section
+    -   `rootkey.$CLTAG`: The firmware root key
+    -   `vblock_A.$CLTAG`: The vblock in A section
+    -   `vblock_B.$CLTAG`: The vblock in A section
 
 ## Create initial package
 

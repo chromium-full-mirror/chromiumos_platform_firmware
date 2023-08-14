@@ -40,7 +40,7 @@ BIOS_IMAGES = {
 }
 BIOS_IMAGES["electro"] = BIOS_IMAGES["reef"]
 BIOS_IMAGES["basking"] = BIOS_IMAGES["sand"]
-BIOS_IMAGES["wlref"] = BIOS_IMAGES["reef"]
+BIOS_IMAGES["clref"] = BIOS_IMAGES["reef"]
 EC_IMAGES = {
     "reef": "ec-reef.ro-1-1-5857.rw-1-1-5857.bin",
     "pyro": "ec-pyro.ro-1-1-5840.rw-1-1-5840.bin",
@@ -111,7 +111,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             expected_files.add(os.path.join(MODELS_DIR, model, "setvars.sh"))
         return sorted(expected_files)
 
-    def _RunScript(self, outfile, model, mode="output", whitelabel_tag=""):
+    def _RunScript(self, outfile, model, mode="output", customlabel_tag=""):
         """Run an autoupdate with the shellball and check that it works.
 
         This relies on fake tools, principally crossystem which is controlled by
@@ -121,14 +121,14 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             outfile: Shellball output file to test.
             model: Model name to provide when the script asks for it.
             mode: Execution mode (can be 'autoupdate' or 'output')
-            whitelabel_tag: Value to return for whitelabel_tag from the fake vpd
+            customlabel_tag: Value to return for from the fake vpd
 
         Returns:
             List of lines output from the script
         """
         # These are used by our fake vpd/mosys programs (see functest/
         # directory).
-        os.environ["FAKE_WHITELABEL_TAG"] = whitelabel_tag
+        os.environ["FAKE_CUSTOMLABEL_TAG"] = customlabel_tag
         os.environ["FAKE_MODEL"] = model
         input_path = os.path.join(self.indir, "image.bin")
         new_path = ":".join(
@@ -663,7 +663,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         return result.stdout.splitlines()[-1].split()[2]
 
     def _CheckOutput(
-        self, outfile, model, rootkey_sum, signature_id="", whitelabel_tag=""
+        self, outfile, model, rootkey_sum, signature_id="", customlabel_tag=""
     ):
         """Check that the firmware updater can generate the correct output.
 
@@ -675,9 +675,9 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             model: Name of model to generate firmware for
             rootkey_sum: SHA1 sum of the root key (as a string)
             signature_id: Value to return for signature_id from the fake mosys
-            whitelabel_tag: Value to return for whitelabel_tag from the fake vpd
+            customlabel_tag: Value to return from the fake vpd
         """
-        self._RunScript(outfile, model, whitelabel_tag=whitelabel_tag)
+        self._RunScript(outfile, model, customlabel_tag=customlabel_tag)
         expected_sig_id = signature_id or model
         bios_file = os.path.join(self.outdir, "bios.bin")
         regions = self._GetUnequalRegions(
@@ -718,24 +718,24 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self._CheckOutput(outfile, REEF_MODEL, reef_sum)
         self._CheckOutput(outfile, "electro", electro_sum)
 
-    def testWhitelabel(self):
-        """Test generation of firmware for a whitelabel model."""
-        extra_args, _ = self._SetupArgs(["whitelabel_test"])
+    def testCustomlabel(self):
+        """Test generation of firmware for a customlabel model."""
+        extra_args, _ = self._SetupArgs(["customlabel_test"])
         self._RunPackFirmware(extra_args)
         version_lines = osutils.ReadFile(
             os.path.join(self.unpackdir, "VERSION")
         ).splitlines()
 
-        # Check that the whitelabel version output matches sand.
+        # Check that the customlabel version output matches sand.
         found = None
         for linenum, line in enumerate(version_lines):
-            if "whitelabel_test" in line:
+            if "customlabel_test" in line:
                 found = linenum
                 break
         self.assertTrue(found)
         lines = version_lines[found:]
         assertions = [
-            lambda x: self.assertIn("whitelabel_test", x),
+            lambda x: self.assertIn("customlabel_test", x),
             lambda x: self.assertIn("sand/image.bin", x),
             lambda x: self.assertEqual("BIOS version: Google_Reef.9000.0.0", x),
             lambda x: self.assertIn("/sand/ec.bin", x),
@@ -751,46 +751,46 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
 
         # Check that the manifest is correct (points to sand).
         versions = pack_firmware_utils.ReadManifest(self.unpackdir)[
-            "whitelabel_test"
+            "customlabel_test"
         ]
         self.assertEqual("Google_Reef.9000.0.0", versions["TARGET_FWID"])
-        self._CheckVars("sand", versions, "whitelabel_test")
+        self._CheckVars("sand", versions, "customlabel_test")
 
         # Check the signer instructions - the last line should be for
-        # whitelabel.
+        # customlabel.
         lines = osutils.ReadFile(
             os.path.join(self.unpackdir, "signer_config.csv")
         ).splitlines()
         self.assertEqual(
-            self._CreateSignerLine("whitelabel_test", "sand", "WHITELABEL"),
+            self._CreateSignerLine("customlabel_test", "sand", "CUSTOMLABEL"),
             lines[-1],
         )
 
-    def _CheckZeroTouchWhitelabel(self, model, wl_models, wl_tags):
-        """Test generation of firmware for a 'zero-touch' whitelabel model.
+    def _CheckZeroTouchCustomlabel(self, model, cl_models, cl_tags):
+        """Test generation of firmware for a 'zero-touch' customlabel model.
 
         This is one where the device cannot tell its model name by hardware
         detection, but must use the model name stored in the VPD
         customization_id.
 
         Args:
-            model: Main whitelabel model to generate firmware for
-            wl_models: List of whitelabel models to generate firmware for
-            wl_tags: List of whitelabel tags to generate firmware for
+            model: Main customlabel model to generate firmware for
+            cl_models: List of customlabel models to generate firmware for
+            cl_tags: List of customlabel tags to generate firmware for
         """
-        if wl_tags:
+        if cl_tags:
             assert (
-                not wl_models
-            ), "WL tags cannot be tested with multiple models"
-            wl_models = ["%s-%s" % (model, wl_tag) for wl_tag in wl_tags]
-        extra_args, _ = self._SetupArgs([model] + wl_models)
+                not cl_models
+            ), "CL tags cannot be tested with multiple models"
+            cl_models = ["%s-%s" % (model, cl_tag) for cl_tag in cl_tags]
+        extra_args, _ = self._SetupArgs([model] + cl_models)
 
         outfile, _, _ = self._RunPackFirmware(extra_args)
         version_lines = osutils.ReadFile(
             os.path.join(self.unpackdir, "VERSION")
         ).splitlines()
 
-        # Check that the whitelabel version output matches sand.
+        # Check that the customlabel version output matches sand.
         found = None
         for linenum, line in enumerate(version_lines):
             if model in line:
@@ -815,10 +815,10 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             if assertion:
                 assertion(lines[i])
 
-        # We should not create setvars.sh scripts for zero-touch whitelabels.
-        for wl_model in wl_models:
+        # We should not create setvars.sh scripts for zero-touch customlabels.
+        for cl_model in cl_models:
             self.assertNotExists(
-                os.path.join(self.unpackdir, MODELS_DIR, wl_model)
+                os.path.join(self.unpackdir, MODELS_DIR, cl_model)
             )
 
         # Check that the manifest is correct (points to sand).
@@ -827,40 +827,40 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self._CheckVars("reef", versions, "sig-id-in-customization-id")
 
         # Check the signer instructions - we should get keys for the two
-        # zero-touch whitelabels.
+        # zero-touch customlabels.
         lines = osutils.ReadFile(
             os.path.join(self.unpackdir, "signer_config.csv")
         ).splitlines()
-        # The signer instructions should be end by basking, wlref, and
-        # wl_models.
+        # The signer instructions should be end by basking, clref, and
+        # cl_models.
         self.assertEqual(
             self._CreateSignerLine("basking", "sand"),
-            lines[-2 - len(wl_models)],
+            lines[-2 - len(cl_models)],
         )
         self.assertEqual(
-            self._CreateSignerLine("wlref", "reef", "REEF", ""),
-            lines[-1 - len(wl_models)],
+            self._CreateSignerLine("clref", "reef", "REEF", ""),
+            lines[-1 - len(cl_models)],
         )
-        for i, wl_model in enumerate(wl_models):
+        for i, cl_model in enumerate(cl_models):
             self.assertEqual(
-                self._CreateSignerLine(wl_model, "reef"),
-                lines[i - len(wl_models)],
+                self._CreateSignerLine(cl_model, "reef"),
+                lines[i - len(cl_models)],
             )
 
-        sums = self.AddFakeKeys(outfile, wl_models)
+        sums = self.AddFakeKeys(outfile, cl_models)
 
-        for i, wl_tag in enumerate(wl_tags):
+        for i, cl_tag in enumerate(cl_tags):
             self._CheckOutput(
-                outfile, model, sums[i], "%s-%s" % (model, wl_tag), wl_tag
+                outfile, model, sums[i], "%s-%s" % (model, cl_tag), cl_tag
             )
 
-    def testZeroTouchWhitelabel(self):
-        """Test generation of firmware for a 'zero-touch' whitelabel model.
+    def testZeroTouchCustomlabel(self):
+        """Test generation of firmware for a 'zero-touch' customlabel model.
 
-        Whitelabels use a single model with multiple 'whitelabel' tags
+        Customlabels use a single model with multiple 'customlabel' tags
         associated with it.
         """
-        self._CheckZeroTouchWhitelabel("wlref", [], ["wltag1", "wltag2"])
+        self._CheckZeroTouchCustomlabel("clref", [], ["cltag1", "cltag2"])
 
     def testEmptyFirmwareOutput(self):
         """Ensure no output is generated if not --local and no URIs."""

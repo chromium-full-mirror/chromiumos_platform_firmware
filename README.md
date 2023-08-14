@@ -177,6 +177,6 @@ Here's a detailed list of how each updater mode works:
  - `--mode=legacy`: A special mode that only updates `RW_LEGACY`.
 
  - `--mode=output`: A special mode for updater with multiple sets of images.
-   1. Collect system information like model and white label tags.
+   1. Collect system information like model and custom label tags.
    1. Apply patches like signing key blocks if available.
    1. Write images to given output folder (`--output_dir`).

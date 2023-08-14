@@ -44,13 +44,13 @@ device_config: &device_config
     key-id: "{{$key-id}}"
     signature-id: "{{$device-name}}"
 
-wl_device_config: &wl_device_config
+cl_device_config: &cl_device_config
   <<: *base_config
-  $signature-id: "{{$device-name}}-{{$whitelabel-tag}}"
+  $signature-id: "{{$device-name}}-{{$customlabel-tag}}"
   identity:
     platform-name: "SomePlatform"
     frid: "Google_{{$device-name}}"
-    whitelabel-tag: "{{$whitelabel-tag}}"
+    custom-label-tag: "{{$customlabel-tag}}"
   firmware-signing:
     key-id: "{{$key-id}}"
     signature-id: "{{$signature-id}}"
@@ -100,36 +100,36 @@ chromeos:
         - config:
             <<: *device_config
             firmware: *snappy_9042_43
-    - $device-name: "whitelabel_test"
+    - $device-name: "customlabel_test"
       products:
-        - $key-id: "WHITELABEL"
+        - $key-id: "CUSTOMLABEL"
       skus:
         - config:
             <<: *device_config
             firmware: *reef_9000ro_9042ec
-    - $device-name: "zero-touch-whitelabel"
+    - $device-name: "zero-touch-customlabel"
       products:
-        - $whitelabel-tag: "" # default
+        - $customlabel-tag: "" # default
           $signature-id: "{{$device-name}}-default"
           $key-id: ""
-        - $whitelabel-tag: "zt1"
+        - $customlabel-tag: "zt1"
           $key-id: "ZT1"
-        - $whitelabel-tag: "zt2"
+        - $customlabel-tag: "zt2"
           $key-id: "ZT2"
       skus:
         - config:
-            <<: *wl_device_config
+            <<: *cl_device_config
             firmware: *reef_9042_50
-    - $device-name: "wlref"
+    - $device-name: "clref"
       products:
-        - $whitelabel-tag: "" # default
+        - $customlabel-tag: "" # default
           $signature-id: "{{$device-name}}-default"
           $key-id: "REEF"
-        - $whitelabel-tag: "wltag1"
-          $key-id: "WLREF-WLTAG1"
-        - $whitelabel-tag: "wltag2"
-          $key-id: "WLREF-WLTAG2"
+        - $customlabel-tag: "cltag1"
+          $key-id: "CLREF-CLTAG1"
+        - $customlabel-tag: "cltag2"
+          $key-id: "CLREF-CLTAG2"
       skus:
         - config:
-            <<: *wl_device_config
+            <<: *cl_device_config
             firmware: *reef_9042_50

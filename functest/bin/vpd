@@ -10,8 +10,8 @@ get_value() {
   local name="$1"
   local value=""
   case "${name}" in
-    whitelabel_tag)
-      value="${FAKE_WHITELABEL_TAG}"
+    custom_label_tag)
+      value="${FAKE_CUSTOMLABEL_TAG}"
       ;;
     customization_id)
       value="${FAKE_CUSTOMIZATION_ID}"
