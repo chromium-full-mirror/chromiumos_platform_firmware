@@ -124,7 +124,7 @@ chromeos:
       products:
         - $whitelabel-tag: "" # default
           $signature-id: "{{$device-name}}-default"
-          $key-id: ""
+          $key-id: "REEF"
         - $whitelabel-tag: "wltag1"
           $key-id: "WLREF-WLTAG1"
         - $whitelabel-tag: "wltag2"

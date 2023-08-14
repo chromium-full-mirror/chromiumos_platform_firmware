@@ -285,7 +285,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         )
         return extra_args, expected_files
 
-    def _CreateSignerLine(self, model, fw_target=None, key_id=None):
+    def _CreateSignerLine(self, model, fw_target=None, key_id=None,
+                          brand_code=None):
         """Creates an expected CSV line for signer_instructions.csv.
 
         Args:
@@ -298,11 +299,13 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         """
         fw_target = fw_target or model
         key_id = key_id or model.upper()
-        return "%s,images/%s,%s,images/%s,REEF" % (
+        brand_code = "REEF" if brand_code is None else brand_code
+        return "%s,images/%s,%s,images/%s,%s" % (
             model,
             BIOS_IMAGES[fw_target],
             key_id,
             EC_IMAGES[fw_target],
+            brand_code
         )
 
     def testFirmwareUpdateUnibuild(self):
@@ -828,8 +831,14 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         lines = osutils.ReadFile(
             os.path.join(self.unpackdir, "signer_config.csv")
         ).splitlines()
+        # The signer instructions should be end by basking, wlref, and
+        # wl_models.
         self.assertEqual(
             self._CreateSignerLine("basking", "sand"),
+            lines[-2 - len(wl_models)],
+        )
+        self.assertEqual(
+            self._CreateSignerLine("wlref", "reef", "REEF", ""),
             lines[-1 - len(wl_models)],
         )
         for i, wl_model in enumerate(wl_models):
