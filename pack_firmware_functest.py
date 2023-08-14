@@ -720,7 +720,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
 
     def testWhitelabel(self):
         """Test generation of firmware for a whitelabel model."""
-        extra_args, _ = self._SetupArgs(["whitelabel-test"])
+        extra_args, _ = self._SetupArgs(["whitelabel_test"])
         self._RunPackFirmware(extra_args)
         version_lines = osutils.ReadFile(
             os.path.join(self.unpackdir, "VERSION")
@@ -729,13 +729,13 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         # Check that the whitelabel version output matches sand.
         found = None
         for linenum, line in enumerate(version_lines):
-            if "whitelabel-test" in line:
+            if "whitelabel_test" in line:
                 found = linenum
                 break
         self.assertTrue(found)
         lines = version_lines[found:]
         assertions = [
-            lambda x: self.assertIn("whitelabel-test", x),
+            lambda x: self.assertIn("whitelabel_test", x),
             lambda x: self.assertIn("sand/image.bin", x),
             lambda x: self.assertEqual("BIOS version: Google_Reef.9000.0.0", x),
             lambda x: self.assertIn("/sand/ec.bin", x),
@@ -751,10 +751,10 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
 
         # Check that the manifest is correct (points to sand).
         versions = pack_firmware_utils.ReadManifest(self.unpackdir)[
-            "whitelabel-test"
+            "whitelabel_test"
         ]
         self.assertEqual("Google_Reef.9000.0.0", versions["TARGET_FWID"])
-        self._CheckVars("sand", versions, "whitelabel-test")
+        self._CheckVars("sand", versions, "whitelabel_test")
 
         # Check the signer instructions - the last line should be for
         # whitelabel.
@@ -762,7 +762,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             os.path.join(self.unpackdir, "signer_config.csv")
         ).splitlines()
         self.assertEqual(
-            self._CreateSignerLine("whitelabel-test", "sand", "WHITELABEL"),
+            self._CreateSignerLine("whitelabel_test", "sand", "WHITELABEL"),
             lines[-1],
         )
 

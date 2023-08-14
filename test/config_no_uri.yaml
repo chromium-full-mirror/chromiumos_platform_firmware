@@ -100,7 +100,7 @@ chromeos:
         - config:
             <<: *device_config
             firmware: *snappy_9042_43
-    - $device-name: "whitelabel-test"
+    - $device-name: "whitelabel_test"
       products:
         - $key-id: "WHITELABEL"
       skus:
