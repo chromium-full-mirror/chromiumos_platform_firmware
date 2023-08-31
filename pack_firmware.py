@@ -84,7 +84,7 @@ class PackError(Exception):
     """Exception returned by FirmwarePacker when something goes wrong."""
 
 
-class FirmwarePacker(object):
+class FirmwarePacker:
     """Handles building a shell-ball firmware update.
 
     Most member functions raise an exception on error. This can be
