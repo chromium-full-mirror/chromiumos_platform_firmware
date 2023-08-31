@@ -292,7 +292,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
                 returncode=0,
                 side_effect=_SetupImage,
             )
-            self.assertEqual("TESTING", self.packer._ExtractFrid("image.bin"))
+            self.assertEqual("TESTING ", self.packer._ExtractFrid("image.bin"))
         self.packer._RemoveTmpdirs()
 
     def testExtractEcVersion(self):

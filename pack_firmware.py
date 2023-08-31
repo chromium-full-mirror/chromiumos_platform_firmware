@@ -327,9 +327,7 @@ class FirmwarePacker:
         fname = self._ExtractFMAPSection(image_file, section_name)
         if not os.path.exists(fname):
             return ""
-        raw_id = (
-            osutils.ReadFile(fname, mode="rb").replace(b"\x00", b"").strip()
-        )
+        raw_id = osutils.ReadFile(fname, mode="rb").split(b"\x00")[0]
         try:
             return raw_id.decode("utf-8")
         except UnicodeDecodeError:
