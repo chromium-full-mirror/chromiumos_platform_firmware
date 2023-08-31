@@ -325,14 +325,19 @@ class FirmwarePacker:
             Firmware ID as a string, if found, else ''
         """
         fname = self._ExtractFMAPSection(image_file, section_name)
-        if os.path.exists(fname):
-            return (
-                osutils.ReadFile(fname, mode="rb")
-                .replace(b"\x00", b"")
-                .strip()
-                .decode("utf-8")
+        if not os.path.exists(fname):
+            return ""
+        raw_id = (
+            osutils.ReadFile(fname, mode="rb").replace(b"\x00", b"").strip()
+        )
+        try:
+            return raw_id.decode("utf-8")
+        except UnicodeDecodeError:
+            raise PackError(
+                f"Invalid firmware ID in {image_file} section {section_name}. "
+                "Please only use a NULL terminated UTF-8 compatible string. "
+                "Hex dump of the firmware ID: " + raw_id.hex()
             )
-        return ""
 
     def _ExtractFirmwareIds(self, image_file, rw_image_file=None):
         """Extracts the RO/RW firmware IDs from image files.
