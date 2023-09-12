@@ -19,12 +19,12 @@ The SFX stub program is [sfx2.sh](./sfx2.sh).
     -   `bios.bin`: AP (host) firmware image
     -   `ec.bin`: Embedded Controller firmware image
 -   For package with multiple target platforms (i.e., Unified Build),
-    each platform will have its definition file `setvars.sh` (see
-    [setvars.template](./setvars.template)) in `models/${MODEL}` folder,
-    with at least following fields:
-    -   `IMAGE_MAIN`: Path to AP (host) firmware image
-    -   `IMAGE_EC`: Path to Embedded Controller firmware image
-    -   `SIGNATURE_ID`: Signing key name for this model, just put model name.
+    each platform will have its signing instruction file `signer_config.csv`
+    with at least following columns:
+    -   `model_name`: Platform model name.
+    -   `firmware_image`: Path to the AP (host) firmware image.
+    -   `key_id`: Signing key name, usually same as the model name.
+    -   `ec_image`: Path to the Embedded Controller firmware image.
 -   For platforms that supports Custom Label (LOEM), the keys for each LOEM
     must be put in `keyset` folder, with a `customlabel_tag` as suffix
     (which `${model}-${loem}` in Unified Build, otherwise just `${loem}`):
