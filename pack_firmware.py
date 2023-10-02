@@ -1274,6 +1274,7 @@ class FirmwarePacker:
                                 fw.main_image_uri,
                                 fw.main_rw_image_uri,
                                 fw.ec_image_uri,
+                                fw.ec_rw_image_uri,
                             )
                         ), (
                             "Expected an image for %s if any image_uri is set."
