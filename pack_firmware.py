@@ -840,6 +840,8 @@ class FirmwarePacker:
                 )
             tar.extractall(self._tmpdir, members)
             fname = os.path.join(dst_dirname, members[0].name + suffix)
+            if os.path.exists(fname):
+                raise PackError(f"Output file {fname!r} already exists")
             os.rename(os.path.join(self._tmpdir, members[0].name), fname)
             return fname
 
@@ -1082,6 +1084,7 @@ class FirmwarePacker:
             self._args.ec_rw_image,
             firmware.ec_rw_image_uri,
             dirname,
+            "rw",
         )
         return FirmwareSource(bios, bios_rw, ec, ec_rw)
 
