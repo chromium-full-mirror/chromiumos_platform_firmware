@@ -10,8 +10,6 @@ It requires:
 - pack/sfx?.sh as the self extraction (and installation) script
 """
 
-from __future__ import print_function
-
 from collections import namedtuple
 from collections import OrderedDict
 import glob

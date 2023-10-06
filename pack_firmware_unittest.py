@@ -8,8 +8,6 @@
 This mocks out all tools so it can run fairly quickly.
 """
 
-from __future__ import print_function
-
 from contextlib import contextmanager
 import glob
 import io

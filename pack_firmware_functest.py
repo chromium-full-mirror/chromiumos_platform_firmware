@@ -9,8 +9,6 @@ This runs a basic scenario and checks the output by running the update script
 with a few fake tools.
 """
 
-from __future__ import print_function
-
 import glob
 import gzip
 import os

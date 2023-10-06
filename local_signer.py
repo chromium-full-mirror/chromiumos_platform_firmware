@@ -9,8 +9,6 @@ Scans /build/$BOARD/firmware and look up chromeos-config to create the signer
 config file for the firmware updater to use.
 """
 
-from __future__ import print_function
-
 import os
 import sys
 
@@ -28,7 +26,7 @@ from chromite.lib import commandline
 # pylint: enable=import-error
 
 
-class LocalSignerConfig(object):
+class LocalSignerConfig:
     """Scans and generates the signer config from local."""
 
     def __init__(self):
