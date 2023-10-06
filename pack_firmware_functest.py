@@ -2,6 +2,7 @@
 # Copyright 2017 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 """Functional test for pack_firmware.py.
 
 This runs a basic scenario and checks the output by running the update script
@@ -292,14 +293,16 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         )
         return extra_args, expected_files
 
-    def _CreateSignerLine(self, model, fw_target=None, key_id=None,
-                          brand_code=None):
+    def _CreateSignerLine(
+        self, model, fw_target=None, key_id=None, brand_code=None
+    ):
         """Creates an expected CSV line for signer_instructions.csv.
 
         Args:
             model: Expected model name.
             fw_target: Expected firmware target.
             key_id: Expected key ID.
+            brand_code: Expected brand code.
 
         Returns:
             The expected signer instructions CSV line.
@@ -312,7 +315,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             BIOS_IMAGES[fw_target],
             key_id,
             EC_IMAGES[fw_target],
-            brand_code
+            brand_code,
         )
 
     def testFirmwareUpdateUnibuild(self):
