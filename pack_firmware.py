@@ -28,6 +28,12 @@ import tempfile
 # pylint: disable=import-error
 from cros_config_host import libcros_config_host
 
+
+# Find chromite!  Assume this code only runs inside the SDK.
+sys.path.insert(0, "/mnt/host/source")
+
+
+# pylint: disable=wrong-import-position
 from chromite.lib import commandline
 from chromite.lib import cros_build_lib
 from chromite.lib import osutils

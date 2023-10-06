@@ -15,11 +15,18 @@ import gzip
 import os
 import re
 import shutil
+import sys
 import tarfile
 
 from pack_firmware import FirmwarePacker
 import pack_firmware_utils
 
+
+# Find chromite!  Assume this code only runs inside the SDK.
+sys.path.insert(0, "/mnt/host/source")
+
+
+# pylint: disable=wrong-import-position
 from chromite.lib import cros_build_lib
 from chromite.lib import cros_test_lib
 from chromite.lib import osutils
