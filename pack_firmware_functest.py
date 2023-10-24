@@ -17,7 +17,7 @@ import shutil
 import sys
 import tarfile
 
-from pack_firmware import FirmwarePacker
+import pack_firmware
 import pack_firmware_utils
 
 
@@ -90,7 +90,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         osutils.SafeMakedirs(self.unpackdir)
 
         pack_firmware_utils.MakeTestFiles()
-        self.packer = FirmwarePacker("test")
+        self.packer = pack_firmware.FirmwarePacker("test")
         with tarfile.open("functest/Reef.9042.50.0.tbz2") as tar:
             tar.extractall(self.indir)
         with tarfile.open("functest/Reef_EC.9042.50.0.tbz2") as tar:

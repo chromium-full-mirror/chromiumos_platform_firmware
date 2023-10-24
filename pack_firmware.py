@@ -10,8 +10,7 @@ It requires:
 - pack/sfx?.sh as the self extraction (and installation) script
 """
 
-from collections import namedtuple
-from collections import OrderedDict
+import collections
 import glob
 import hashlib
 import io
@@ -48,14 +47,14 @@ EC_RW_FMAP_SECTION_NAME = "EC_MAIN_A"
 EC_RW_CBFS_NAME = "ecrw"
 MODELS_DIR = "models"
 IMG_DIR = "images"
-Section = namedtuple("Section", ["offset", "size"])
-ImageFile = namedtuple(
+Section = collections.namedtuple("Section", ["offset", "size"])
+ImageFile = collections.namedtuple(
     "ImageFile", ["filename", "build_target", "firmware_ids"]
 )
-FirmwareIds = namedtuple("FirmwareIds", ["ro_id", "rw_id"])
+FirmwareIds = collections.namedtuple("FirmwareIds", ["ro_id", "rw_id"])
 
 # Source locations for all firmware images.
-FirmwareSource = namedtuple(
+FirmwareSource = collections.namedtuple(
     "FirmwareSource", ["bios", "bios_rw", "ec", "ec_rw"]
 )
 
@@ -64,7 +63,7 @@ FirmwareSource = namedtuple(
 #   key: Image name (e.g. 'BIOS (RW)' or 'EC').
 #   value: ImageFile, containing filename and version.
 # key_id: key ID to use to sign the image for this model
-ModelDetails = namedtuple(
+ModelDetails = collections.namedtuple(
     "ModelDetails", ["image_files", "key_id", "brand_code"]
 )
 
@@ -1168,7 +1167,7 @@ class FirmwarePacker:
         old and new formats, then push the change here.
 
         Args:
-            model_details: OrderedDict:
+            model_details: collections.OrderedDict:
                 key: Model name (in the order that information is wanted in the
                     instruction file).
                 value: ModelDetails object for that model.
@@ -1224,7 +1223,7 @@ class FirmwarePacker:
                 raise PackError("Missing output file")
             self._basedir = self._CreateTmpDir()
             self._tmpdir = self._CreateTmpDir()
-            model_details = OrderedDict()
+            model_details = collections.OrderedDict()
             if not args.legacy:
                 # Most of the arguments are meaningless with unified builds
                 # since we get the information from the model configuration.
@@ -1252,7 +1251,7 @@ class FirmwarePacker:
                 # for testing.
                 if args.models:
                     # tests depend on exact ordering
-                    devices_fw_target = OrderedDict(
+                    devices_fw_target = collections.OrderedDict(
                         (model, devices_fw_target[model])
                         for model in args.models
                     )

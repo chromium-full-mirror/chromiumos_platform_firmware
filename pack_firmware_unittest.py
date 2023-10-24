@@ -8,7 +8,7 @@
 This mocks out all tools so it can run fairly quickly.
 """
 
-from contextlib import contextmanager
+import contextlib
 import glob
 import io
 import os
@@ -138,7 +138,7 @@ _COMMON_FLAGS = [
 # Use this to suppress stdout/stderr output:
 # with capture_sys_output() as (stdout, stderr)
 #   ...do something...
-@contextmanager
+@contextlib.contextmanager
 def capture_sys_output():
     capture_out, capture_err = io.StringIO(), io.StringIO()
     old_out, old_err = sys.stdout, sys.stderr
