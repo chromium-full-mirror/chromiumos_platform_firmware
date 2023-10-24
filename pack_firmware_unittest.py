@@ -38,24 +38,6 @@ NO_TIMESTAMP_RO_FRID = "Google_Reef.9264.0.1"
 EC_RO_FRID = "reef_v1.1.5857-77f6ed7"
 EC_RW_FWID = "reef_v1.1.5858-77f6ed7"
 
-# Expected output from vbutil.
-VBUTIL_OUTPUT = """Key block:
-  Size:                2232
-  Flags:               7 (ignored)
-  Data key algorithm:  7 RSA4096 SHA256
-  Data key version:    1
-  Data key sha1sum:    e2c1c92d7d7aa7dfed5e8375edd30b7ae52b7450
-Preamble:
-  Size:                  2164
-  Header version:        2.1
-  Firmware version:      1
-  Kernel key algorithm:  7 RSA4096 SHA256
-  Kernel key version:    1
-  Kernel key sha1sum:    5d2b220899c4403d564092ada3f12d3cc4483223
-  Firmware body size:    920000
-  Preamble flags:        1
-Body verification succeeded.
-"""
 
 # Expected output from 'futility dump_fmap -p' for main image.
 FMAP_OUTPUT = """WP_RO 0 4194304
@@ -497,11 +479,6 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             partial_mock.ListRegex("futility gbb"),
             returncode=0,
             stdout=" - exported root_key to file: rootkey.bin",
-        )
-        rc.AddCmdResult(
-            partial_mock.ListRegex("futility vbutil_firmware"),
-            returncode=0,
-            stdout=VBUTIL_OUTPUT,
         )
         rc.AddCmdResult(partial_mock.ListRegex("--repack"), returncode=0)
         rc.AddCmdResult(
