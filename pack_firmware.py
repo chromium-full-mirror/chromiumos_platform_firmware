@@ -640,8 +640,9 @@ class FirmwarePacker:
 
         Letting V denote [0-9], the expected version regex is "V+.V+.V+"
 
-        Expected format is "<board>_vV.V.VVVV-<hash>"
-        For example, "reef_v1.1.5857-77f6ed7" becomes "1-1-5857"
+        Expected format is "<board>_vV.V.VVVV-<hash>" or "<board>-VVVV.VV.V".
+        For example, "reef_v1.1.5857-77f6ed7" becomes "1-1-5857" and
+        "rex-13579.24.0" becomes "13579-24-0".
 
         Args:
             fw_id: The firmware ID providing version information.
@@ -649,7 +650,7 @@ class FirmwarePacker:
         Returns:
             The version number.
         """
-        matched_version = re.search(r"((\d+\.){2}\d+)(-\S+)", fw_id)
+        matched_version = re.search(r"((\d+\.){2}\d+)", fw_id)
         if not matched_version:
             raise PackError("Malformed EC firmware ID: %s" % fw_id)
         return matched_version.group(1).replace(".", "-")

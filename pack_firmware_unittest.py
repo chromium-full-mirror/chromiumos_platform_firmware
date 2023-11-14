@@ -37,6 +37,7 @@ RW_FWID = "Google_Reef.9264.0.0_d2017_02_09_1250"
 NO_TIMESTAMP_RO_FRID = "Google_Reef.9264.0.1"
 EC_RO_FRID = "reef_v1.1.5857-77f6ed7"
 EC_RW_FWID = "reef_v1.1.5858-77f6ed7"
+EC_RO_FRID_NEW = "reef-9264.0.0"
 
 
 # Expected output from 'futility dump_fmap -p' for main image.
@@ -278,6 +279,9 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     def testExtractEcVersion(self):
         """Check extracting version from firmware ID."""
         self.assertEqual(self.packer._ExtractEcVersion(EC_RO_FRID), "1-1-5857")
+        self.assertEqual(
+            self.packer._ExtractEcVersion(EC_RO_FRID_NEW), "9264-0-0"
+        )
         with self.assertRaises(pack_firmware.PackError) as e:
             self.assertEqual(self.packer._ExtractEcVersion("a_bad_id"), "")
         self.assertIn("Malformed EC firmware ID", str(e.exception))
