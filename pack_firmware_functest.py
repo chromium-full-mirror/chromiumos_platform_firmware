@@ -180,12 +180,21 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             Tuple containing:
                 Path to output shellball.
                 Sorted list of files in the shellball.
+                Path to output EC component manifests directory.
+                Sorted list of EC component manifests files.
                 Dict containing the version information, with each entry being:
                     key: shell variable (e.g. TARGET_FWID).
                     value: value of that variable.
         """
         outfile = os.path.join(self.outdir, "output.sh")
-        argv = extra_args + ["-o", outfile, "-q"]
+        ec_comp_outdir = os.path.join(self.outdir, "ec_comp_output")
+        argv = extra_args + [
+            "-o",
+            outfile,
+            "--ec_component_manifest_output",
+            ec_comp_outdir,
+            "-q",
+        ]
 
         # Create the shellball, extract it, and get a list of files it contains.
         os.environ["SYSROOT"] = "test"
@@ -202,13 +211,28 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
                 ]
                 files.append(rel_path)
 
+        # EC component manifests
+        ec_comp_files = []
+        for dirpath, _, fnames in os.walk(ec_comp_outdir):
+            for fname in fnames:
+                rel_path = os.path.join(dirpath, fname)[
+                    len(ec_comp_outdir) + 1 :
+                ]
+                ec_comp_files.append(rel_path)
+
         versions = pack_firmware_utils.ReadVersions(outfile)
-        return outfile, sorted(files), versions
+        return (
+            outfile,
+            sorted(files),
+            ec_comp_outdir,
+            sorted(ec_comp_files),
+            versions,
+        )
 
     def testFirmwareUpdate(self):
         """Run the firmware packer, unpack the result and check it."""
         extra_args = ["-b", os.path.join(self.indir, "image.bin"), "-L"]
-        _, files, versions = self._RunPackFirmware(extra_args)
+        _, files, _, _, versions = self._RunPackFirmware(extra_args)
 
         # Check that we got the right files.
         self.assertEqual(3, len(files))
@@ -319,10 +343,12 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     def testFirmwareUpdateUnibuild(self):
         """Run the firmware packer, unpack the result and check it."""
         extra_args, expected_files = self._SetupArgs()
-        _, files, versions = self._RunPackFirmware(extra_args)
+        _, files, _, ec_comp_files, versions = self._RunPackFirmware(extra_args)
 
         self.assertEqual(13, len(files))
         self.assertEqual(expected_files, files)
+        self.assertEqual([], ec_comp_files)
+
         version_lines = osutils.ReadFile(
             os.path.join(self.unpackdir, "VERSION")
         ).splitlines()
@@ -407,10 +433,17 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.assertEqual(self._CreateSignerLine("electro", "reef"), lines[4])
         self.assertEqual(self._CreateSignerLine("basking", "sand"), lines[5])
 
+    def testFirmwareUpdateEcComponentManifests(self):
+        """Check the extracted EC component manifests."""
+        extra_args = ["-c", "test/geralt_config.yaml", "-i", "functest"]
+        _, _, _, ec_comp_files, _ = self._RunPackFirmware(extra_args)
+        expected_files = ["ciri/component_manifest.json"]
+        self.assertEqual(set(expected_files), set(ec_comp_files))
+
     def testVersionOutput(self):
         """Check that the -V option shows version information as expected."""
         extra_args, expected_files = self._SetupArgs()
-        outfile, files, _ = self._RunPackFirmware(extra_args)
+        outfile, files, _, _, _ = self._RunPackFirmware(extra_args)
 
         cmd = [SHELL, outfile, "-V"]
         result = cros_build_lib.run(
@@ -453,7 +486,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     def testRepack(self):
         """Repacking the shellball with new images should update versions."""
         extra_args = ["-b", os.path.join(self.indir, "image.bin"), "-L"]
-        outfile, _, versions = self._RunPackFirmware(extra_args)
+        outfile, _, _, _, versions = self._RunPackFirmware(extra_args)
         self.assertEqual("Google_Reef.9042.50.0", versions["TARGET_RO_FWID"])
         self.assertEqual("Google_Reef.9042.50.0", versions["TARGET_FWID"])
         self.assertEqual("", versions["TARGET_ECID"])
@@ -482,7 +515,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     def testFilesSorted(self):
         """Files in the shellball should be sorted by filename."""
         extra_args = ["-b", os.path.join(self.indir, "image.bin"), "-L"]
-        outfile, files, _ = self._RunPackFirmware(extra_args)
+        outfile, files, _, _, _ = self._RunPackFirmware(extra_args)
 
         # The shellball shows files in a comment with this format:
         # 16777216 -rw-r--r-- bios.bin
@@ -598,7 +631,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     def testFirmwareOutput(self):
         """Check the --output feature."""
         extra_args, _ = self._SetupArgs()
-        outfile, files, _ = self._RunPackFirmware(extra_args)
+        outfile, files, _, _, _ = self._RunPackFirmware(extra_args)
         lines = self._RunScript(outfile, REEF_MODEL)
         # TODO(evanhernandez): Consider changing futility so the image
         # names below align with those in the shellball. For now, too
@@ -717,7 +750,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     def testSignedFirmwareOutput(self):
         """Check the --output feature with signed firmware."""
         extra_args, _ = self._SetupArgs()
-        outfile, _, _ = self._RunPackFirmware(extra_args)
+        outfile, _, _, _, _ = self._RunPackFirmware(extra_args)
 
         # Add some fake root keys and vblocks for some of the models, to
         # simulate the action of the signer.
@@ -793,7 +826,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             cl_models = ["%s-%s" % (model, cl_tag) for cl_tag in cl_tags]
         extra_args, _ = self._SetupArgs([model] + cl_models)
 
-        outfile, _, _ = self._RunPackFirmware(extra_args)
+        outfile, _, _, _, _ = self._RunPackFirmware(extra_args)
         version_lines = osutils.ReadFile(
             os.path.join(self.unpackdir, "VERSION")
         ).splitlines()
