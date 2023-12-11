@@ -14,6 +14,7 @@ import collections
 import glob
 import hashlib
 import io
+import json
 import os
 import re
 import shutil
@@ -21,6 +22,7 @@ import struct
 import sys
 import tarfile
 import tempfile
+from typing import Dict
 
 # pylint: disable=import-error
 from cros_config_host import libcros_config_host
@@ -53,9 +55,13 @@ ImageFile = collections.namedtuple(
 )
 FirmwareIds = collections.namedtuple("FirmwareIds", ["ro_id", "rw_id"])
 
+# File names in firmware tarball from BCS
+EC_IMAGE = "ec.bin"
+EC_COMPONENT_MANIFEST = "component_manifest.json"
+
 # Source locations for all firmware images.
 FirmwareSource = collections.namedtuple(
-    "FirmwareSource", ["bios", "bios_rw", "ec", "ec_rw"]
+    "FirmwareSource", ["bios", "bios_rw", "ec", "ec_rw", "ec_component"]
 )
 
 # image_files:  Dict containing information on the output image files for this
@@ -195,6 +201,12 @@ class FirmwarePacker:
         )
         parser.add_argument(
             "-o", "--output", type="path", help="Path of output filename"
+        )
+        parser.add_argument(
+            "--ec_component_manifest_output",
+            dest="ec_comp_output",
+            default="cme",
+            help="Output directory for EC component manifests",
         )
         parser.add_argument(
             "-t",
@@ -634,14 +646,14 @@ class FirmwarePacker:
         """
         if not fw_source.bios:
             raise PackError("Need main (RO) firmware image to merge RW image.")
-        bios, bios_rw, ec, ec_rw = [
+        bios, bios_rw, ec, ec_rw, ec_comp = [
             fw and self._CopyFile(fw, merge_dir, preserve_path=True)
             for fw in fw_source
         ]
         self._MergeRwMainFirmware(bios, bios_rw)
         if ec:
             self._MergeRwEcFirmware(ec, ec_rw, bios)
-        return FirmwareSource(bios, bios_rw, ec, ec_rw)
+        return FirmwareSource(bios, bios_rw, ec, ec_rw, ec_comp)
 
     @staticmethod
     def _ExtractEcVersion(fw_id):
@@ -824,41 +836,70 @@ class FirmwarePacker:
             if ro_id != rw_id and name != MAIN:
                 self._AddVersionInfo(name + " (RW)", None, rw_id)
 
-    def _UntarFile(self, pathname, dst_dirname, suffix=""):
-        """Unpack the only item in a tar file.
+    def _UntarFile(
+        self, tar_path, dst_dirname, suffix="", fname=None, required=True
+    ):
+        """Unpack a file in a tar file.
 
-        Read a file from a tar file. It must contain just a single member and
-        its filename may not include a path.
+        Read a file from a tar file.
 
         Args:
-            pathname: Pathname of tar file to unpack.
+            tar_path: Path of the tar file to unpack.
             dst_dirname: Destination directory to place the unpacked file.
             suffix: String to append to output filename.
+            fname: The file to be extracted from the tar file. When the tar file
+                contains multiple members, this must be specified.
+            required: Whether `fname` must exist in `tar_path`. If True and the
+                file is absent in `tar_path`, an exception will be raised.
 
         Returns:
-            Pathname of unpacked file.
+            Path of unpacked file, or `None` if `fname` is absent.
         """
-        with tarfile.open(pathname) as tar:
+        with tarfile.open(tar_path) as tar:
             members = tar.getmembers()
-            if len(members) != 1:
+            if not members:
+                raise PackError(f"No member found in {tar_path!r} ({fname=})")
+
+            matched_members = []
+            for member in members:
+                name = member.name
+                if name.startswith("./"):
+                    name = name[2:]
+                if "/" in name:
+                    raise PackError(
+                        f"Tar file {tar_path!r} member {member.name!r} "
+                        "should be a simple name"
+                    )
+                if not fname or name == fname:
+                    matched_members.append((member, name))
+
+            if not matched_members:
+                if not required:
+                    return None
                 raise PackError(
-                    "Expected 1 member in file '%s' but found %d"
-                    % (pathname, len(members))
+                    f"No matched member {fname!r} found in {tar_path!r}"
                 )
-            name = members[0].name
-            if name.startswith("./"):
-                name = name[2:]
-            if "/" in name:
-                raise PackError(
-                    "Tar file '%s' member '%s' should be a simple name"
-                    % (pathname, members[0].name)
-                )
-            tar.extractall(self._tmpdir, members)
-            fname = os.path.join(dst_dirname, members[0].name + suffix)
-            if os.path.exists(fname):
-                raise PackError(f"Output file {fname!r} already exists")
-            os.rename(os.path.join(self._tmpdir, members[0].name), fname)
-            return fname
+
+            if len(matched_members) > 1:
+                if fname:
+                    raise PackError(
+                        f"Multiple matched members found in {tar_path!r}: "
+                        f"{[x[0] for x in matched_members]}"
+                    )
+                else:
+                    raise PackError(
+                        f"Expected 1 member in {tar_path!r} "
+                        f"but found {len(matched_members)}"
+                    )
+
+            matched_member, matched_name = matched_members[0]
+            tar.extract(matched_member, self._tmpdir)
+
+        out_file = os.path.join(dst_dirname, matched_name + suffix)
+        if os.path.exists(out_file):
+            raise PackError(f"Output file {out_file!r} already exists")
+        os.rename(os.path.join(self._tmpdir, matched_member.name), out_file)
+        return out_file
 
     @staticmethod
     def _CopyFile(src, dst, mode=CHMOD_ALL_READ, preserve_path=False):
@@ -1019,7 +1060,14 @@ class FirmwarePacker:
         return image_files
 
     def _ExtractFile(
-        self, build_target, fname_template, uri, dirname, suffix=""
+        self,
+        build_target,
+        fname_template,
+        uri,
+        dirname,
+        suffix="",
+        fname=None,
+        required=True,
     ):
         """Obtain a file based on provided information.
 
@@ -1030,17 +1078,19 @@ class FirmwarePacker:
             The file is only used if there is a valid property value, since
             that is what indicates that the file is needed in the update.
         - otherwise it finds a tar file, unpacks it and returns the filename
-            of the resulting unpacked file. There is only one file in the
-            archive. This is used to build a firmware update from the
-            configured firmware versions, downloaded from BCS.
+            of the resulting unpacked file. This is used to build the firmware
+            updater from the configured firmware versions, downloaded from BCS.
 
         Args:
             build_target: The name of the build target uses, driving the file
                 output.
             fname_template: Filename template to use in local model.
-            uri: URI containing the file
+            uri: URI containing the file.
             dirname: Output directory where the unpacked file should be placed.
             suffix: String to append to output filename.
+            fname: The filename contained in `uri` to be extracted. This is
+                required when there are multiple files in `uri`.
+            required: Whether the `fname` must exist in `uri`.
 
         Returns:
             Filename of the resulting image file or None if the file doesn't
@@ -1060,9 +1110,13 @@ class FirmwarePacker:
         if not uri:
             return None
 
-        fname = uri.replace("bcs://", "")
+        tar_fname = uri.replace("bcs://", "")
         return self._UntarFile(
-            os.path.join(self._args.imagedir, fname), dirname, suffix
+            os.path.join(self._args.imagedir, tar_fname),
+            dirname,
+            suffix=suffix,
+            fname=fname,
+            required=required,
         )
 
     def _ExtractFirmware(self, firmware, dirname):
@@ -1073,7 +1127,7 @@ class FirmwarePacker:
             dirname: Destination for extracted firmware.
 
         Returns:
-            FirmwareSource object containing filenames of extracted images.
+            FirmwareSource object containing filenames of extracted files.
         """
         bios = self._ExtractFile(
             firmware.bios_build_target,
@@ -1086,22 +1140,47 @@ class FirmwarePacker:
             None,
             firmware.main_rw_image_uri,
             dirname,
-            "rw",
+            suffix="rw",
         )
         ec = self._ExtractFile(
             firmware.ec_build_target,
             self._args.ec_image,
             firmware.ec_image_uri,
             dirname,
+            fname=EC_IMAGE,
         )
         ec_rw = self._ExtractFile(
             firmware.ec_build_target,
             self._args.ec_rw_image,
             firmware.ec_rw_image_uri,
             dirname,
-            "rw",
+            suffix="rw",
+            fname=EC_IMAGE,
         )
-        return FirmwareSource(bios, bios_rw, ec, ec_rw)
+
+        # EC component manifest, which must be in sync with EC RW
+        ec_comp_uri = (
+            firmware.ec_rw_image_uri if ec_rw else firmware.ec_image_uri
+        )
+        ec_comp = self._ExtractFile(
+            firmware.ec_build_target,
+            None,  # Not supported for local updater (self._args.local)
+            ec_comp_uri,
+            dirname,
+            fname=EC_COMPONENT_MANIFEST,
+            required=False,
+        )
+
+        return FirmwareSource(bios, bios_rw, ec, ec_rw, ec_comp)
+
+    def _VerifyEcComponentManifest(self, manifest_file):
+        """Verify the EC compoenent manifest file."""
+        with open(manifest_file, encoding="utf-8") as f:
+            manifests = json.load(f)
+        required_keys = ("manifest_version", "ec_version")
+        for key in required_keys:
+            if key not in manifests:
+                raise PackError(f"Missing {key!r} in {manifest_file!r}")
 
     def _WriteFirmwareImages(self, firmware_info, devices_fw_target):
         """Extract and build all firmware images, then copy to the shellball.
@@ -1115,11 +1194,16 @@ class FirmwarePacker:
                 value: Firmware target name.
 
         Returns:
-            Dict:
-                key: Target name.
-                value: Firmware files for that model (ImageFiles object).
+            A tuple of `images` and `ec_component_manifests`:
+                images (dict):
+                    key: Target name.
+                    value: Firmware files for that model (ImageFiles object).
+                ec_component_manifests (dict):
+                    key: Target name.
+                    value: Path of EC component manifest.
         """
         images = {}
+        ec_component_manifests = {}
         for device, fw_target in devices_fw_target.items():
             firmware = firmware_info[device]
             if fw_target in images:
@@ -1139,7 +1223,11 @@ class FirmwarePacker:
                 firmware.ec_build_target,
                 fw_target,
             )
-        return images
+
+            if fw_source.ec and fw_source.ec_component:
+                self._VerifyEcComponentManifest(fw_source.ec_component)
+                ec_component_manifests[fw_target] = fw_source.ec_component
+        return images, ec_component_manifests
 
     def _GenerateSetVars(self, firmware, image_files):
         """Generate the setvars.sh script for a single model.
@@ -1217,6 +1305,24 @@ class FirmwarePacker:
                     file=fd,
                 )
 
+    def _SaveEcComponentManifests(self, manifests: Dict[str, str]):
+        """Save EC component manifests.
+
+        Args:
+            manifests:
+                key: Device name.
+                value: EC component manifest file path.
+        """
+        # The output directory should not exist
+        os.makedirs(self._args.ec_comp_output)
+        for fw_name, manifest_file in manifests.items():
+            if not manifest_file:
+                continue
+            out_dir = os.path.join(self._args.ec_comp_output, fw_name)
+            os.mkdir(out_dir)
+            out_file = os.path.join(out_dir, "component_manifest.json")
+            shutil.copy2(manifest_file, out_file)
+
     def Start(self, argv, remove_tmpdirs=True):
         """Handle the creation of a firmware shell-ball.
 
@@ -1268,7 +1374,7 @@ class FirmwarePacker:
                         for model in args.models
                     )
 
-                images = self._WriteFirmwareImages(
+                images, ec_component_manifests = self._WriteFirmwareImages(
                     firmware_info, devices_fw_target
                 )
 
@@ -1309,6 +1415,7 @@ class FirmwarePacker:
                         continue
                     self._WriteVersions(device, image_files)
                     self._GenerateSetVars(fw, image_files)
+                self._SaveEcComponentManifests(ec_component_manifests)
             else:
                 image_files = self._ProcessFirmware(
                     FirmwareSource(
@@ -1316,6 +1423,7 @@ class FirmwarePacker:
                         args.bios_rw_image,
                         args.ec_image,
                         args.ec_rw_image,
+                        None,
                     ),
                     self._basedir,
                 )

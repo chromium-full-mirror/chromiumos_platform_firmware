@@ -155,6 +155,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
 
     def setUp(self):
         self.output = os.path.join(self.tempdir, "out")
+        self.ec_comp_output = os.path.join(self.tempdir, "ec_comp_out")
         self.common_flags = _COMMON_FLAGS + [self.output]
 
         pack_firmware_utils.MakeTestFiles()
@@ -391,6 +392,25 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             fname = self.packer._UntarFile("test/two_files.tbz2", dirname)
         self.assertIn("Expected 1 member", str(e.exception))
 
+        # Extract one file from a tar file with two files.
+        fname = self.packer._UntarFile(
+            "test/two_files.tbz2", dirname, fname="RW_FRID"
+        )
+        self.assertEqual(os.path.basename(fname), "RW_FRID")
+
+        # Extract a non-existing file.
+        with self.assertRaises(pack_firmware.PackError) as e:
+            self.packer._UntarFile(
+                "test/two_files.tbz2", dirname, fname="NO_SUCH"
+            )
+        self.assertIn("No matched member", str(e.exception))
+
+        # Extract a non-existing file, but with required=False.
+        fname = self.packer._UntarFile(
+            "test/two_files.tbz2", dirname, fname="NO_SUCH", required=False
+        )
+        self.assertIsNone(fname)
+
         # This tar file has as directory name in its member's filename.
         # -rw-r----- sjg/eng          64 2017-03-03 16:12 test/RO_FRID
         with self.assertRaises(pack_firmware.PackError) as e:
@@ -423,41 +443,49 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         self.packer._basedir = "base"
         self.assertEqual("base/fred", self.packer._BaseDirPath("fred"))
 
-    def _GetFakeReefFirmware(self):
-        """Get the fake reef firmware config.
-
-        Returns:
-            Dict of the reef firmware config
-        """
-        return {
-            "ec-ro-image": "bcs://Reef_EC.9042.50.0.tbz2",
-            "extra": [
-                "${FILESDIR}/extra",
-                "${SYSROOT}/usr/sbin/ectool",
-                "bcs://Reef.9000.0.0.tbz2",
-            ],
-            "main-ro-image": "bcs://Reef.9042.50.0.tbz2",
-        }
-
     def testExtractFileBcs(self):
-        """Test handling file extraction based on a configuration property,"""
+        """Test handling file extraction."""
         self.packer._tmpdir = self.packer._CreateTmpDir()
         self.packer._args = self.packer.ParseArgs(["--imagedir", "functest"])
         dirname = self.packer._CreateTmpDir()
-        fake_fw = self._GetFakeReefFirmware()
 
-        # This should look up main-ro-image, find that file in functest/, copy
-        # it to our directory and return its filename.
-        main_image = fake_fw["main-ro-image"]
-        self.assertEqual(
-            self.packer._ExtractFile(None, None, main_image, dirname),
-            os.path.join(dirname, "image.bin"),
+        # This should find the tar file in functest/, copy it to dirname and
+        # return its filename.
+        out_file = self.packer._ExtractFile(
+            None, None, "bcs://Reef.9042.50.0.tbz2", dirname
         )
-        ec_image = fake_fw["ec-ro-image"]
-        self.assertEqual(
-            self.packer._ExtractFile(None, None, ec_image, dirname),
-            os.path.join(dirname, "ec.bin"),
+        self.assertEqual(out_file, os.path.join(dirname, "image.bin"))
+
+        # Specify the file name to be extracted.
+        out_file = self.packer._ExtractFile(
+            None, None, "bcs://Reef_EC.9042.50.0.tbz2", dirname, fname="ec.bin"
         )
+        self.assertEqual(out_file, os.path.join(dirname, "ec.bin"))
+
+        # Try to extract a non-existing file.
+        out_file = self.packer._ExtractFile(
+            None,
+            None,
+            "bcs://Reef_EC.9042.50.0.tbz2",
+            dirname,
+            fname="NO_SUCH",
+            required=False,
+        )
+        self.assertIsNone(out_file)
+
+        # Extract a file from a tar ball with two files.
+        out_file = self.packer._ExtractFile(
+            None,
+            None,
+            "bcs://Ciri_EC.15705.0.0.tbz2",
+            dirname,
+            fname="component_manifest.json",
+        )
+        self.assertEqual(
+            out_file, os.path.join(dirname, "component_manifest.json")
+        )
+
+        # Cleanup
         self.packer._RemoveTmpdirs()
 
     @staticmethod
@@ -646,6 +674,8 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             "-q",
             "-o",
             self.output,
+            "--ec_component_manifest_output",
+            self.ec_comp_output,
             "-c",
             "test/%s" % config_fname,
             "-i",
