@@ -581,21 +581,32 @@ class FirmwarePacker:
         if ec_fname_for_rw:
             ecrw_fname = os.path.join(self._tmpdir, "ecrw")
             self._ExtractFMAPSection(ec_fname_for_rw, "EC_RW", ecrw_fname)
-            # For legacy CrOS EC (pre-zephyr EC), the EC_RW section contains
-            # 0xff paddings. However the "ecrw" in BIOS doesn't contain those
-            # paddings (at least not all of them). Therefore we cannot simply
-            # compare ecrw_in_bios_fname with ecrw_fname.
+            # The EC_RW section may contain 0x00 or 0xff paddings. However the
+            # "ecrw" CBFS file in BIOS doesn't contain those paddings (at least
+            # not all of them). Therefore we cannot simply compare
+            # ecrw_in_bios_fname with ecrw_fname.
             ecrw = osutils.ReadFile(ecrw_fname, mode="rb")
             ecrw_in_bios = osutils.ReadFile(ecrw_in_bios_fname, mode="rb")
             if len(ecrw_in_bios) > len(ecrw):
                 raise PackError(
-                    "EC RW extracted from BIOS is larger than provided EC RW"
+                    f"EC RW extracted from BIOS ({len(ecrw_in_bios):#x}) is "
+                    f"larger than provided EC RW ({len(ecrw):#x})"
                 )
-            if ecrw_in_bios != ecrw[: len(ecrw_in_bios)] or not all(
-                x == ord(b"\xff") for x in ecrw[len(ecrw_in_bios) :]
-            ):
+            if ecrw_in_bios != ecrw[: len(ecrw_in_bios)]:
                 raise PackError(
-                    "EC RW extracted from BIOS differs from the provided EC RW"
+                    "EC RW extracted from BIOS differs from EC_RW section "
+                    f"in the first {len(ecrw_in_bios):#x} bytes"
+                )
+            paddings = ecrw[len(ecrw_in_bios) :]
+            wrong_idx = [
+                i
+                for i, x in enumerate(paddings, start=len(ecrw_in_bios))
+                if x not in b"\x00\xff"
+            ]
+            if wrong_idx:
+                raise PackError(
+                    "Unexpected padding in EC_RW section "
+                    f"(offset {wrong_idx[0]:#x})"
                 )
         else:
             ecrw_fname = ecrw_in_bios_fname
