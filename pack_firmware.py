@@ -156,7 +156,7 @@ class FirmwarePacker:
         parser.add_argument(
             "-c",
             "--config",
-            type="path",
+            type="str_path",
             help="Filename of model configuration .json file",
         )
         parser.add_argument(
@@ -172,35 +172,35 @@ class FirmwarePacker:
         parser.add_argument(
             "-i",
             "--imagedir",
-            type="path",
+            type="str_path",
             default=".",
             help="Default locations for source images",
         )
         parser.add_argument(
             "-b",
             "--bios_image",
-            type="path",
+            type="str_path",
             help="Path of input AP (BIOS) firmware image",
         )
         parser.add_argument(
             "-w",
             "--bios_rw_image",
-            type="path",
+            type="str_path",
             help="Path of input BIOS RW firmware image",
         )
         parser.add_argument(
             "-e",
             "--ec_image",
-            type="path",
+            type="str_path",
             help="Path of input Embedded Controller firmware image",
         )
         parser.add_argument(
             "--ec_rw_image",
-            type="path",
+            type="str_path",
             help="Path of input Embedded Controller RW firmware image",
         )
         parser.add_argument(
-            "-o", "--output", type="path", help="Path of output filename"
+            "-o", "--output", type="str_path", help="Path of output filename"
         )
         parser.add_argument(
             "--ec_component_manifest_output",

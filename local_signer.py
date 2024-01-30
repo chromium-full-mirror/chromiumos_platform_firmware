@@ -49,11 +49,14 @@ class LocalSignerConfig:
         parser.add_argument(
             "-c",
             "--config",
-            type="path",
+            type="str_path",
             help="Filename of model configuration .json file",
         )
         parser.add_argument(
-            "-r", "--sysroot", type="path", help="Sysroot of firmware images"
+            "-r",
+            "--sysroot",
+            type="str_path",
+            help="Sysroot of firmware images",
         )
 
         opts = parser.parse_args(argv)
