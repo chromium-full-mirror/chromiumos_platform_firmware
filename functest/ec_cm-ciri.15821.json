@@ -1,0 +1,57 @@
+{
+    "manifest_version": 1,
+    "ec_version": "ciri-15821.0.0",
+    "component_list": [
+        {
+            "component_type": "charger",
+            "component_name": "richtek,rt9490",
+            "i2c": {
+                "port": 0,
+                "addr": "0x53"
+            }
+        },
+        {
+            "component_type": "ppc",
+            "component_name": "silergy,syv682x",
+            "i2c": {
+                "port": 2,
+                "addr": "0x42"
+            }
+        },
+        {
+            "component_type": "ppc",
+            "component_name": "silergy,syv682x",
+            "i2c": {
+                "port": 2,
+                "addr": "0x40"
+            },
+            "usbc": {
+                "port": 1
+            }
+        },
+        {
+            "component_type": "accel",
+            "component_name": "cros-ec,bmi3xx",
+            "i2c": {
+                "port": 3,
+                "addr": "0x68"
+            },
+            "ssfc": {
+                "mask": "0x7",
+                "value": 2
+            }
+        },
+        {
+            "component_type": "accel",
+            "component_name": "cros-ec,lsm6dsm",
+            "i2c": {
+                "port": 3,
+                "addr": "0x6a"
+            },
+            "ssfc": {
+                "mask": "0x7",
+                "value": 2
+            }
+        }
+    ]
+}

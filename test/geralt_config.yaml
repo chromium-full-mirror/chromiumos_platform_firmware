@@ -40,22 +40,78 @@
             "libpayload": "geralt",
             "zephyr-ec": "ciri"
           },
-          "ec-ro-image": "bcs://Ciri_EC.15705.0.0.tbz2",
+          "ec-ro-image": "bcs://Ciri_EC.15820.0.0.tbz2",
           "firmware-config": 0,
-          "image-name": "ciri",
-          "main-ro-image": "bcs://Ciri.15705.0.0.tbz2",
-          "main-rw-image": "bcs://Ciri.15706.0.0.tbz2"
+          "image-name": "duny",
+          "main-ro-image": "bcs://Ciri.15705.0.0.tbz2"
         },
         "firmware-signing": {
           "key-id": "DEFAULT",
-          "signature-id": "ciri"
+          "signature-id": "duny"
         },
         "identity": {
           "frid": "Google_Ciri",
           "platform-name": "Geralt",
           "sku-id": 2147483409
         },
-        "name": "ciri"
+        "name": "duny"
+      },
+      {
+        "brand-code": "LDPJ",
+        "firmware": {
+          "bcs-overlay": "overlay-geralt-private",
+          "build-targets": {
+            "bmpblk": "geralt",
+            "coreboot": "ciri",
+            "depthcharge": "geralt",
+            "libpayload": "geralt",
+            "zephyr-ec": "ciri"
+          },
+          "ec-ro-image": "bcs://Ciri_EC.15820.0.0.tbz2",
+          "firmware-config": 0,
+          "image-name": "emhyr",
+          "main-ro-image": "bcs://Ciri.15705.0.0.tbz2",
+          "main-rw-image": "bcs://Ciri.15706.0.0.tbz2"
+        },
+        "firmware-signing": {
+          "key-id": "DEFAULT",
+          "signature-id": "emhyr"
+        },
+        "identity": {
+          "frid": "Google_Ciri",
+          "platform-name": "Geralt",
+          "sku-id": 2147483410
+        },
+        "name": "emhyr"
+      },
+      {
+        "brand-code": "LDPJ",
+        "firmware": {
+          "bcs-overlay": "overlay-geralt-private",
+          "build-targets": {
+            "bmpblk": "geralt",
+            "coreboot": "ciri",
+            "depthcharge": "geralt",
+            "libpayload": "geralt",
+            "zephyr-ec": "ciri"
+          },
+          "ec-ro-image": "bcs://Ciri_EC.15820.0.0.tbz2",
+          "ec-rw-image": "bcs://Ciri_EC.15821.0.0.tbz2",
+          "firmware-config": 0,
+          "image-name": "fenn",
+          "main-ro-image": "bcs://Ciri.15705.0.0.tbz2",
+          "main-rw-image": "bcs://Ciri.15706.0.0.tbz2"
+        },
+        "firmware-signing": {
+          "key-id": "DEFAULT",
+          "signature-id": "fenn"
+        },
+        "identity": {
+          "frid": "Google_Ciri",
+          "platform-name": "Geralt",
+          "sku-id": 2147483411
+        },
+        "name": "fenn"
       },
       {
         "brand-code": "ZZCR",

@@ -483,19 +483,19 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
 
         # This should find the tar file in self.IMAGE_DIR, copy it to dirname
         # and return its filename.
-        out_file = self.packer._ExtractFile(
+        image = self.packer._ExtractFile(
             None, None, "bcs://Reef.9042.50.0.tbz2", dirname
         )
-        self.assertEqual(out_file, os.path.join(dirname, "image.bin"))
+        self.assertEqual(image.file, os.path.join(dirname, "image.bin"))
 
         # Specify the file name to be extracted.
-        out_file = self.packer._ExtractFile(
+        image = self.packer._ExtractFile(
             None, None, "bcs://Reef_EC.9042.50.0.tbz2", dirname, fname="ec.bin"
         )
-        self.assertEqual(out_file, os.path.join(dirname, "ec.bin"))
+        self.assertEqual(image.file, os.path.join(dirname, "ec.bin"))
 
         # Try to extract a non-existing file.
-        out_file = self.packer._ExtractFile(
+        image = self.packer._ExtractFile(
             None,
             None,
             "bcs://Reef_EC.9042.50.0.tbz2",
@@ -503,10 +503,10 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             fname="NO_SUCH",
             required=False,
         )
-        self.assertIsNone(out_file)
+        self.assertIsNone(image)
 
         # Extract a file from a tar ball with two files.
-        out_file = self.packer._ExtractFile(
+        image = self.packer._ExtractFile(
             None,
             None,
             "bcs://Ciri_EC.15705.0.0.tbz2",
@@ -514,7 +514,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             fname="component_manifest.json",
         )
         self.assertEqual(
-            out_file, os.path.join(dirname, "component_manifest.json")
+            image.file, os.path.join(dirname, "component_manifest.json")
         )
 
         # Cleanup
@@ -631,7 +631,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         )
         rc.AddCmdResult(
             partial_mock.ListRegex(
-                r"futility dump_fmap -x .*image\.bin \w+_MAIN_A$"
+                r"futility dump_fmap -x .*image(?:_rw)?\.bin \w+_MAIN_A$"
             ),
             returncode=0,
             side_effect=cls._CreateDumpfmapFile,
