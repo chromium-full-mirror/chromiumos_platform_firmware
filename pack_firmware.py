@@ -16,6 +16,7 @@ import hashlib
 import io
 import json
 import os
+import pathlib
 import re
 import shutil
 import struct
@@ -54,6 +55,7 @@ ImageFile = collections.namedtuple(
     "ImageFile", ["filename", "build_target", "firmware_ids"]
 )
 FirmwareIds = collections.namedtuple("FirmwareIds", ["ro_id", "rw_id"])
+FirmwareVersion = collections.namedtuple("Version", ["major", "minor", "patch"])
 
 # File names in firmware tarball from BCS
 EC_IMAGE = "ec.bin"
@@ -1059,6 +1061,33 @@ class FirmwarePacker:
         self._CopyFirmwareFiles(image_files, target_dir)
         return image_files
 
+    def _ExtractUriVersion(self, uri):
+        """Extract the firmware version from `uri`.
+
+        `uri` is expected to be one of the form:
+        1. bcs://Name.xxxxx.yy.tbz2
+        2. bcs://Name.xxxxx.yy.z.tbz2
+        """
+        stem = pathlib.PosixPath(uri).stem
+        version = [int(x) for x in stem.split(".")[1:]]
+        if len(version) == 2:
+            # Append the optional "patch"
+            version.append(0)
+        if len(version) != 3:
+            raise PackError(f"Failed to extract version from URI {uri}")
+        return FirmwareVersion(*version)
+
+    def _CheckVersion(self, firmware):
+        """Verify that AP (RO) and EC (RO) have the same version."""
+        if not firmware.main_image_uri or not firmware.ec_image_uri:
+            return
+        ap_version = self._ExtractUriVersion(firmware.main_image_uri)
+        ec_version = self._ExtractUriVersion(firmware.ec_image_uri)
+        if ap_version != ec_version:
+            raise PackError(
+                f"AP and EC have different versions: {ap_version} {ec_version}"
+            )
+
     def _ExtractFile(
         self,
         build_target,
@@ -1214,6 +1243,10 @@ class FirmwarePacker:
             firmware = firmware_info[device]
             if fw_target in images:
                 continue
+
+            # Before b/325886850 is implemented, verify the AP and EC versions
+            # for existing devices.
+            self._CheckVersion(firmware)
 
             unpack_dir = self._TmpDirPath(fw_target)
             osutils.SafeMakedirs(unpack_dir)

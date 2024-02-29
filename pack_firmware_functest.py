@@ -42,7 +42,7 @@ REEF_RO_MAIN_VERSION = "Google_Reef.9042.43.0"
 BIOS_IMAGES = {
     "reef": "bios-reef.ro-9042-50-0.rw-9042-50-0.bin",
     "pyro": "bios-pyro.ro-9042-41-0.rw-9042-41-0.bin",
-    "sand": "bios-reef.ro-9000-0-0.rw-9000-0-0.bin",
+    "sand": "bios-reef.ro-9042-50-0.rw-9042-50-0.bin",
 }
 BIOS_IMAGES["electro"] = BIOS_IMAGES["reef"]
 BIOS_IMAGES["basking"] = BIOS_IMAGES["sand"]
@@ -345,7 +345,6 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         extra_args, expected_files = self._SetupArgs()
         _, files, _, ec_comp_files, versions = self._RunPackFirmware(extra_args)
 
-        self.assertEqual(13, len(files))
         self.assertEqual(expected_files, files)
         self.assertEqual([], ec_comp_files)
 
@@ -378,7 +377,9 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             lambda x: self.assertEqual("", x),
             lambda x: self.assertIn("sand", x),
             lambda x: self.assertIn("sand/image.bin", x),
-            lambda x: self.assertEqual("BIOS version: Google_Reef.9000.0.0", x),
+            lambda x: self.assertEqual(
+                "BIOS version: Google_Reef.9042.50.0", x
+            ),
             lambda x: self.assertIn("/sand/ec.bin", x),
             lambda x: self.assertEqual(
                 "EC version:   reef_v1.1.5857-77f6ed7", x
@@ -396,7 +397,9 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             lambda x: self.assertEqual("", x),
             lambda x: self.assertIn("basking", x),
             lambda x: self.assertIn("sand/image.bin", x),
-            lambda x: self.assertEqual("BIOS version: Google_Reef.9000.0.0", x),
+            lambda x: self.assertEqual(
+                "BIOS version: Google_Reef.9042.50.0", x
+            ),
             lambda x: self.assertIn("/sand/ec.bin", x),
             lambda x: self.assertEqual(
                 "EC version:   reef_v1.1.5857-77f6ed7", x
@@ -802,7 +805,9 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         assertions = [
             lambda x: self.assertIn("customlabel_test", x),
             lambda x: self.assertIn("sand/image.bin", x),
-            lambda x: self.assertEqual("BIOS version: Google_Reef.9000.0.0", x),
+            lambda x: self.assertEqual(
+                "BIOS version: Google_Reef.9042.50.0", x
+            ),
             lambda x: self.assertIn("/sand/ec.bin", x),
             lambda x: self.assertEqual(
                 "EC version:   reef_v1.1.5857-77f6ed7", x
@@ -818,7 +823,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         versions = pack_firmware_utils.ReadManifest(self.unpackdir)[
             "customlabel_test"
         ]
-        self.assertEqual("Google_Reef.9000.0.0", versions["TARGET_FWID"])
+        self.assertEqual("Google_Reef.9042.50.0", versions["TARGET_FWID"])
         self._CheckVars("sand", versions, "customlabel_test")
 
         # Check the signer instructions - the last line should be for

@@ -18,10 +18,9 @@ firmwares:
     <<: *firmware_common
     $ro-rev: "9042.50"
     name: "reef"
-  reef_9000ro_9042ec: &reef_9000ro_9042ec
+  reef_9042_50_sand: &reef_9042_50_sand
     <<: *firmware_common
-    $ro-rev: "9000.0"
-    $ec-rev: "9042.50"
+    $ro-rev: "9042.50"
     name: "sand"
   pyro_9042_41: &pyro_9042_41
     <<: *firmware_common
@@ -82,14 +81,14 @@ chromeos:
       skus:
         - config:
             <<: *device_config
-            firmware: *reef_9000ro_9042ec
+            firmware: *reef_9042_50_sand
     - $device-name: "sand"
       products:
         - $key-id: "SAND"
       skus:
         - config:
             <<: *device_config
-            firmware: *reef_9000ro_9042ec
+            firmware: *reef_9042_50_sand
     - $device-name: "pyro"
       products:
         - $key-id: "PYRO"
@@ -110,7 +109,7 @@ chromeos:
       skus:
         - config:
             <<: *device_config
-            firmware: *reef_9000ro_9042ec
+            firmware: *reef_9042_50_sand
     - $device-name: "zero-touch-customlabel"
       products:
         - $customlabel-tag: "" # default
