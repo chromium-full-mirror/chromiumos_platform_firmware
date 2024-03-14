@@ -440,6 +440,21 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         expected_files = ["ciri/component_manifest.json"]
         self.assertEqual(set(expected_files), set(ec_comp_files))
 
+    def testFirmwareUpdateEcComponentManifestsVersionNotMatch(self):
+        """Check the extracted EC component manifests version."""
+        extra_args = [
+            "-c",
+            "test/config_wrong_ec_manifest_version.yaml",
+            "-i",
+            "functest",
+        ]
+        with self.assertRaisesRegex(
+            pack_firmware.PackError,
+            "EC version 'ciri-15705.0.0' doesn't match "
+            "ec_version 'ciri-15705.0.0-wrong-version' in ",
+        ):
+            self._RunPackFirmware(extra_args)
+
     def testVersionOutput(self):
         """Check that the -V option shows version information as expected."""
         extra_args, expected_files = self._SetupArgs()
