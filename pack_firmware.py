@@ -1230,10 +1230,17 @@ class FirmwarePacker:
                 fw_target,
             )
 
-            if fw_source.ec and fw_source.ec_component:
+            if not fw_source.ec:
+                continue
+            if fw_source.ec_component:
                 rw_id = images[fw_target][EC].firmware_ids.rw_id
                 self._VerifyEcComponentManifest(fw_source.ec_component, rw_id)
                 ec_component_manifests[fw_target] = fw_source.ec_component
+            elif firmware.has_ec_component_manifest:
+                raise PackError(
+                    f"Missing {EC_COMPONENT_MANIFEST!r} for {device}"
+                )
+
         return images, ec_component_manifests
 
     def _GenerateSetVars(self, firmware, image_files):

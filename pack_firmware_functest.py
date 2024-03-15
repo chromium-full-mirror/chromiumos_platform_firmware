@@ -455,6 +455,15 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         ):
             self._RunPackFirmware(extra_args)
 
+    def testFirmwareUpdateEcComponentManifestsNotExist(self):
+        """Check the extracted EC component manifests exist."""
+        extra_args = ["-c", "test/config_no_ec_manifest.yaml", "-i", "functest"]
+        with self.assertRaisesRegex(
+            pack_firmware.PackError,
+            "Missing 'component_manifest.json' for geralt",
+        ):
+            self._RunPackFirmware(extra_args)
+
     def testVersionOutput(self):
         """Check that the -V option shows version information as expected."""
         extra_args, expected_files = self._SetupArgs()
