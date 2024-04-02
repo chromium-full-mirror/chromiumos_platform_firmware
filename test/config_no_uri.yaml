@@ -1,8 +1,5 @@
 firmware_common: &firmware_common
   $build-target: "reef"
-  $fw-name: "Reef"
-  $ro-rev: "9042.50"
-  $ec-rev: "{{$ro-rev}}"
   bcs-overlay: "overlay-{{$build-target}}-private"
   build-targets:
     coreboot: "{{$build-target}}"
@@ -11,25 +8,15 @@ firmware_common: &firmware_common
     libpayload: "{{$build-target}}"
 
 firmwares:
-  reef_9042_50: &reef_9042_50
+  reef_fw: &reef_fw
     <<: *firmware_common
-    $ro-rev: "9042.50"
     name: "reef"
-  reef_9000ro_9042ec: &reef_9000ro_9042ec
+  reef_sand_fw: &reef_sand_fw
     <<: *firmware_common
-    $ro-rev: "9000.0"
-    $ec-rev: "9042.50"
     name: "sand"
-  pyro_9042_41: &pyro_9042_41
+  pyro_fw: &pyro_fw
     <<: *firmware_common
-    $fw-name: "Pyro"
     $build-target: "pyro"
-    $ro-rev: "9042.41"
-  snappy_9042_43: &snappy_9042_43
-    <<: *firmware_common
-    $fw-name: "Snappy"
-    $build-target: "snappy"
-    $ro-rev: "9042.43"
 
 
 base_config: &base_config
@@ -64,49 +51,42 @@ chromeos:
       skus:
         - config:
             <<: *device_config
-            firmware: *reef_9042_50
+            firmware: *reef_fw
     - $device-name: "electro"
       products:
         - $key-id: "ELECTRO"
       skus:
         - config:
             <<: *device_config
-            firmware: *reef_9042_50
+            firmware: *reef_fw
     - $device-name: "basking"
       products:
         - $key-id: "BASKING"
       skus:
         - config:
             <<: *device_config
-            firmware: *reef_9000ro_9042ec
+            firmware: *reef_sand_fw
     - $device-name: "sand"
       products:
         - $key-id: "SAND"
       skus:
         - config:
             <<: *device_config
-            firmware: *reef_9000ro_9042ec
+            firmware: *reef_sand_fw
     - $device-name: "pyro"
       products:
         - $key-id: "PYRO"
       skus:
         - config:
             <<: *device_config
-            firmware: *pyro_9042_41
-    - $device-name: "snappy"
-      products:
-        - $key-id: "SNAPPY"
-      skus:
-        - config:
-            <<: *device_config
-            firmware: *snappy_9042_43
+            firmware: *pyro_fw
     - $device-name: "customlabel_test"
       products:
         - $key-id: "CUSTOMLABEL"
       skus:
         - config:
             <<: *device_config
-            firmware: *reef_9000ro_9042ec
+            firmware: *reef_sand_fw
     - $device-name: "zero-touch-customlabel"
       products:
         - $customlabel-tag: "" # default
@@ -119,7 +99,7 @@ chromeos:
       skus:
         - config:
             <<: *cl_device_config
-            firmware: *reef_9042_50
+            firmware: *reef_fw
     - $device-name: "clref"
       products:
         - $customlabel-tag: "" # default
@@ -132,4 +112,4 @@ chromeos:
       skus:
         - config:
             <<: *cl_device_config
-            firmware: *reef_9042_50
+            firmware: *reef_fw
