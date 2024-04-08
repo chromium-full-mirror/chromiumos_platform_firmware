@@ -9,3 +9,4 @@
 *.pyc
 test/*.dtb
 test/*.json
+functest/images/

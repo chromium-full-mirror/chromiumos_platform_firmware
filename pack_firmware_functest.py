@@ -82,7 +82,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         unpackdir: Directory used to unpack shellball into.
     """
 
-    IMAGE_DIR = "functest"
+    IMAGE_DIR = "functest/images"
 
     @classmethod
     def setUpClass(cls):
@@ -470,6 +470,30 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.assertEqual(self._CreateSignerLine("sand"), lines[3])
         self.assertEqual(self._CreateSignerLine("electro", "reef"), lines[4])
         self.assertEqual(self._CreateSignerLine("basking", "sand"), lines[5])
+
+    def testFirmwareUpdateUnibuildMerge(self):
+        """Test the firmware packer with merging RW firmware."""
+        extra_args = ["-c", "test/geralt_config.yaml", "-i", self.IMAGE_DIR]
+        self._RunPackFirmware(extra_args)
+
+        self._AssertVersionLines(
+            {
+                "ciri": [
+                    r"BIOS image: +\w+ \*/.*merged.*/image-ciri\.bin",
+                    r"BIOS version: +Google_Ciri\.15705\.0\.0",
+                    r"BIOS \(RW\) version: +Google_Ciri\.15706\.0\.0",
+                    r"EC image: +\w+ \*/.*merged.*/ec\.bin",
+                    r"EC version: +ciri-15705\.0\.0",
+                    r"EC \(RW\) version: +ciri-15706\.0\.0",
+                ],
+                "geralt": [
+                    r"BIOS image: +\w+ \*/.*/image-geralt\.bin",
+                    r"BIOS version: +Google_Geralt\.15663\.0\.0",
+                    r"EC image: +\w+ \*/.*/ec\.bin",
+                    r"EC version: +geralt_v3\.5\.119161-ec:dc7985,os",
+                ],
+            }
+        )
 
     def testFirmwareUpdateEcComponentManifests(self):
         """Check the extracted EC component manifests."""
