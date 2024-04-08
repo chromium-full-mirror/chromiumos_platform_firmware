@@ -101,7 +101,7 @@ report_system() {
   # which can be obtained via "cros_config / name".  This is given
   # here for informational purposes.  Check the output of "crosid" for
   # what futility uses.
-  local model="$(cros_config /firmware image-name || echo unknown)"
+  local model="$(cros_config /firmware image-name || cros_config / name || echo unknown)"
   local manifest="$(sh "${self}" --manifest 2>/dev/null)"
   local package="$(echo "${manifest}" |
     jq -c ".${model}.host.versions" 2>/dev/null)"
