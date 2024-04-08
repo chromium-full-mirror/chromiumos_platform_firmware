@@ -43,9 +43,7 @@ from chromite.lib import osutils
 
 
 MAIN = "BIOS"
-MAIN_RW = "BIOS (RW)"
 EC = "EC"
-EC_RW = "EC (RW)"
 EC_RW_FMAP_SECTION_NAME = "EC_MAIN_A"
 EC_RW_CBFS_NAME = "ecrw"
 MODELS_DIR = "models"
@@ -829,13 +827,12 @@ class FirmwarePacker:
         print(file=self._versions)  # Blank line.
         if model:
             print("Model:        %s" % model, file=self._versions)
-        for name in sorted(image_files.keys()):
-            filename = image_files[name].filename
-            ro_id, rw_id = image_files[name].firmware_ids
+        for name, image in sorted(image_files.items()):
+            filename = image.filename
+            ro_id, rw_id = image.firmware_ids
             self._AddVersionInfo(name, filename, ro_id)
-            # Only write the RW version if it differs from RO. Main has separate
-            # RO/RW inputs, so check to avoid writing RW version twice.
-            if ro_id != rw_id and name != MAIN:
+            # Write the RW version only if it differs from RO version.
+            if rw_id != ro_id:
                 self._AddVersionInfo(name + " (RW)", None, rw_id)
 
     def _UntarFile(
@@ -1055,9 +1052,8 @@ class FirmwarePacker:
         self._AddImageFile(
             image_files, MAIN, main_target, fw_source.bios, fw_source.bios_rw
         )
-        self._AddImageFile(image_files, MAIN_RW, main_target, fw_source.bios_rw)
+        # TODO(yupingso): Add fw_source.ec_rw.
         self._AddImageFile(image_files, EC, ec_target, fw_source.ec)
-        self._AddImageFile(image_files, EC_RW, ec_target, fw_source.ec_rw)
         self._CopyFirmwareFiles(image_files, target_dir)
         return image_files
 

@@ -667,7 +667,6 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         expected_versions = [
             r"BIOS image: +\w+ \*/images-merged/.*/image.bin",
             f"BIOS version: +{RO_FRID}",
-            r"BIOS \(RW\) image: +\w+ \*/images-merged/.*/image_rw.bin",
             r"EC image: +\w+ \*/images-merged/.*/ec.bin",
             f"EC version: +{RO_FRID}",
             rf"EC \(RW\) version: +{RW_FWID}",
@@ -679,7 +678,6 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         expected_versions = [
             r"BIOS image: +\w+ \*/images-merged/.*/image.bin",
             f"BIOS version: +{RO_FRID}",
-            r"BIOS \(RW\) image: +\w+ \*/images-merged/.*/image_rw.bin",
             r"EC image: +\w+ \*/images-merged/.*/ec.bin",
             f"EC version: +{RO_FRID}",
             rf"EC \(RW\) version: +{RW_FWID}",
@@ -749,6 +747,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
                     "BIOS image: +99a6fc64e45596aa2c1a9911cddce952"
                     r" \*/reef/image.bin",
                     f"BIOS version: +{RO_FRID}",
+                    rf"BIOS \(RW\) version: +{RW_FWID}",
                     "EC image: +60c08e5aefa3a660687c7027d1358df0"
                     r" \*/reef/ec.bin",
                     f"EC version: +{RO_FRID}",
@@ -796,6 +795,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         expected_versions = [
             r"BIOS image: +\w+ \*/.*/image.bin",
             f"BIOS version: +{RO_FRID}",
+            rf"BIOS \(RW\) version: +{RW_FWID}",
         ]
         self._AssertVersionsEqual(
             self.packer._versions.getvalue(), expected_versions
