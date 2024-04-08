@@ -565,29 +565,30 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         rc.AddCmdResult(
             partial_mock.ListRegex(
                 r"futility dump_fmap -x .*/images-merged/.*image_rw\.bin"
+                " (?:RO_FRID|RW_FWID)$"
             ),
             returncode=0,
         )
         rc.AddCmdResult(
             partial_mock.ListRegex(
-                r"futility dump_fmap -p .*/images-merged/.*image_rw\.bin"
+                r"futility dump_fmap -p .*/images-merged/.*image_rw\.bin$"
             ),
             returncode=0,
             stdout=mocked_dump_fmap_output,
         )
         rc.AddCmdResult(
-            partial_mock.ListRegex(r"futility dump_fmap -p .*image\.binrw"),
+            partial_mock.ListRegex(r"futility dump_fmap -p .*image\.binrw$"),
             returncode=0,
             stdout=mocked_dump_fmap_output,
         )
         rc.AddCmdResult(
-            partial_mock.ListRegex(r"futility dump_fmap -p .*image\.bin"),
+            partial_mock.ListRegex(r"futility dump_fmap -p .*image\.bin$"),
             returncode=0,
             stdout=mocked_dump_fmap_output,
         )
         rc.AddCmdResult(partial_mock.Regex("extract_ecrw"), returncode=0)
         rc.AddCmdResult(
-            partial_mock.ListRegex(r"futility dump_fmap -p .*ec\.bin"),
+            partial_mock.ListRegex(r"futility dump_fmap -p .*ec\.bin$"),
             returncode=0,
             stdout=FMAP_OUTPUT_EC,
         )
@@ -598,7 +599,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         )
         rc.AddCmdResult(
             partial_mock.ListRegex(
-                r"futility dump_fmap -x .*image\.bin .*_MAIN_A"
+                r"futility dump_fmap -x .*image\.bin \w+_MAIN_A$"
             ),
             returncode=0,
             side_effect=cls._CreateDumpfmapFile,
