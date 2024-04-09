@@ -12,6 +12,7 @@ import contextlib
 import glob
 import io
 import os
+import pprint
 import shutil
 import struct
 import sys
@@ -165,6 +166,20 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     def tearDown(self):
         pack_firmware.FirmwarePacker._ExtractFrid = self._ExtractFrid
 
+    def _AssertVersionsEqual(self, versions, expected_versions):
+        """Verify the content of `versions`."""
+        versions = versions.strip().splitlines()
+        n = len(expected_versions)
+        if len(versions) != n:
+            raise AssertionError(
+                f"Wrong list length {len(versions)}, expected {n}\n"
+                f"Versions: \n{pprint.pformat(versions)}\n"
+                f"Expected versions: \n{pprint.pformat(expected_versions)}"
+            )
+        self.assertEqual(len(versions), len(expected_versions))
+        for i, line in enumerate(versions):
+            self.assertRegex(line, expected_versions[i])
+
     def testBadStartup(self):
         """Test various bad start-up conditions."""
         # Starting up in another directory (without required files) should fail.
@@ -221,26 +236,32 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     def testAddVersionInfoNoFile(self):
         """Check adding version info with no filename."""
         self.packer._AddVersionInfo("BIOS", "", "v123")
-        self.assertEqual(
-            "BIOS version: v123\n", self.packer._versions.getvalue()
+        self._AssertVersionsEqual(
+            self.packer._versions.getvalue(),
+            ["BIOS version: v123"],
         )
 
     def testAddVersionNoVersion(self):
         """Check adding version info with no version."""
         self.packer._AddVersionInfo("BIOS", "test/image.bin", "")
-        self.assertEqual(
-            "BIOS image:   8ce05b02847603aef6cfa01f1bab73d0 "
-            "*test/image.bin\n",
+        self._AssertVersionsEqual(
             self.packer._versions.getvalue(),
+            [
+                "BIOS image:   8ce05b02847603aef6cfa01f1bab73d0 "
+                r"\*test/image.bin"
+            ],
         )
 
     def testAddVersionInfo(self):
         """Check adding version info with both a filename and version."""
         self.packer._AddVersionInfo("BIOS", "test/image.bin", "v123")
-        self.assertEqual(
-            "BIOS image:   8ce05b02847603aef6cfa01f1bab73d0 "
-            "*test/image.bin\nBIOS version: v123\n",
+        self._AssertVersionsEqual(
             self.packer._versions.getvalue(),
+            [
+                "BIOS image:   8ce05b02847603aef6cfa01f1bab73d0 "
+                r"\*test/image.bin",
+                "BIOS version: v123",
+            ],
         )
 
     def testExtractFrid(self):
@@ -614,7 +635,9 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             pack_firmware.main(args)
             pack_firmware.packer._versions.getvalue().splitlines()
 
-    def _testMockedRunWithMerge(self, mocked_dump_fmap_output):
+    def _testMockedRunWithMerge(
+        self, mocked_dump_fmap_output, expected_versions
+    ):
         args = [
             "--bios_rw_image",
             "test/image_rw.bin",
@@ -626,10 +649,9 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             self._AddMocks(rc)
             self._AddMergeMocks(rc, mocked_dump_fmap_output)
             self.packer.Start(args, remove_tmpdirs=False)
-        result = self.packer._versions.getvalue().splitlines()
-        self.assertEqual(8, len(result))
-        self.assertIn(RO_FRID, self._FindLineInList(result, "EC version"))
-        self.assertIn(RW_FWID, self._FindLineInList(result, "EC (RW) version"))
+        self._AssertVersionsEqual(
+            self.packer._versions.getvalue(), expected_versions
+        )
         rw_fname = self.packer._BaseDirPath("ec.bin")
         self.assertAlmostEqual(
             os.stat(rw_fname).st_mtime, os.stat("test/image_rw.bin").st_mtime
@@ -642,11 +664,27 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
 
     def testMockedRunWithMerge(self):
         """Start up with a valid updater script and merge the RW BIOS."""
-        self._testMockedRunWithMerge(FMAP_OUTPUT)
+        expected_versions = [
+            r"BIOS image: +\w+ \*/images-merged/.*/image.bin",
+            f"BIOS version: +{RO_FRID}",
+            r"BIOS \(RW\) image: +\w+ \*/images-merged/.*/image_rw.bin",
+            r"EC image: +\w+ \*/images-merged/.*/ec.bin",
+            f"EC version: +{RO_FRID}",
+            rf"EC \(RW\) version: +{RW_FWID}",
+        ]
+        self._testMockedRunWithMerge(FMAP_OUTPUT, expected_versions)
 
     def testMockedRunWithMergeLegacyFmap(self):
         """Repeat merge test with alternate FMAP used on legacy devices."""
-        self._testMockedRunWithMerge(FMAP_OUTPUT_LEGACY)
+        expected_versions = [
+            r"BIOS image: +\w+ \*/images-merged/.*/image.bin",
+            f"BIOS version: +{RO_FRID}",
+            r"BIOS \(RW\) image: +\w+ \*/images-merged/.*/image_rw.bin",
+            r"EC image: +\w+ \*/images-merged/.*/ec.bin",
+            f"EC version: +{RO_FRID}",
+            rf"EC \(RW\) version: +{RW_FWID}",
+        ]
+        self._testMockedRunWithMerge(FMAP_OUTPUT_LEGACY, expected_versions)
 
     def testMockedRunUnibuildBad(self):
         """Try unified build options with invalid arguments."""
@@ -704,17 +742,17 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             pack_firmware.main(args)
             # Only reef is in the output, configs without firmware uris are
             # skipped.
-            self.assertListEqual(
-                pack_firmware.packer._versions.getvalue().strip().splitlines(),
+            self._AssertVersionsEqual(
+                pack_firmware.packer._versions.getvalue(),
                 [
-                    "Model:        reef",
-                    "BIOS image:   99a6fc64e45596aa2c1a9911cddce952"
-                    " */reef/image.bin",
-                    "BIOS version: Google_Reef.9264.0.0_d2017_02_09_1240",
-                    "EC image:     60c08e5aefa3a660687c7027d1358df0"
-                    " */reef/ec.bin",
-                    "EC version:   Google_Reef.9264.0.0_d2017_02_09_1240",
-                    "EC (RW) version: Google_Reef.9264.0.0_d2017_02_09_1250",
+                    "Model: +reef",
+                    "BIOS image: +99a6fc64e45596aa2c1a9911cddce952"
+                    r" \*/reef/image.bin",
+                    f"BIOS version: +{RO_FRID}",
+                    "EC image: +60c08e5aefa3a660687c7027d1358df0"
+                    r" \*/reef/ec.bin",
+                    f"EC version: +{RO_FRID}",
+                    rf"EC \(RW\) version: +{RW_FWID}",
                 ],
             )
 
@@ -754,10 +792,14 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             self._AddMocks(rc)
             self.packer.Start(args)
 
-        # There should be no EC version in the VERSION file.
-        result = self.packer._versions.getvalue()
-        self.assertNotIn("EC version", result)
-        self.assertEqual(4, len(result.splitlines()))
+        # There should be only BIOS version in the VERSION file.
+        expected_versions = [
+            r"BIOS image: +\w+ \*/.*/image.bin",
+            f"BIOS version: +{RO_FRID}",
+        ]
+        self._AssertVersionsEqual(
+            self.packer._versions.getvalue(), expected_versions
+        )
 
 
 if __name__ == "__main__":
