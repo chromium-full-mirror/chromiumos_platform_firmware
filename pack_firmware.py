@@ -1144,6 +1144,21 @@ class FirmwarePacker:
             required=required,
         )
 
+    def _VerifyEcComponentManifest(self, manifest_file, ec_version):
+        """Verify the EC compoenent manifest file."""
+        with open(manifest_file, encoding="utf-8") as f:
+            manifests = json.load(f)
+        required_keys = ("manifest_version", "ec_version")
+        for key in required_keys:
+            if key not in manifests:
+                raise PackError(f"Missing {key!r} in {manifest_file!r}")
+        manifest_ec_version = manifests["ec_version"]
+        if ec_version != manifest_ec_version:
+            raise PackError(
+                f"EC version '{ec_version}' doesn't match "
+                f"ec_version '{manifest_ec_version}' in {manifest_file!r}"
+            )
+
     def _ExtractFirmware(self, firmware, dirname):
         """Extract all firmware images to a temporary directory.
 
@@ -1184,9 +1199,12 @@ class FirmwarePacker:
         )
 
         # EC component manifest, which must be in sync with EC RW
-        ec_comp_uri = (
-            firmware.ec_rw_image_uri if ec_rw else firmware.ec_image_uri
-        )
+        if ec_rw:
+            ec_comp_uri = firmware.ec_rw_image_uri
+            effective_ec_rw = ec_rw
+        else:
+            ec_comp_uri = firmware.ec_image_uri
+            effective_ec_rw = ec
         ec_comp = self._ExtractFile(
             firmware.ec_build_target,
             None,  # Not supported for local updater (self._args.local)
@@ -1195,23 +1213,11 @@ class FirmwarePacker:
             fname=EC_COMPONENT_MANIFEST,
             required=False,
         )
+        if ec_comp:
+            ec_rw_id = self._ExtractFirmwareIds(effective_ec_rw).rw_id
+            self._VerifyEcComponentManifest(ec_comp, ec_rw_id)
 
         return FirmwareSource(bios, bios_rw, ec, ec_rw, ec_comp)
-
-    def _VerifyEcComponentManifest(self, manifest_file, ec_version):
-        """Verify the EC compoenent manifest file."""
-        with open(manifest_file, encoding="utf-8") as f:
-            manifests = json.load(f)
-        required_keys = ("manifest_version", "ec_version")
-        for key in required_keys:
-            if key not in manifests:
-                raise PackError(f"Missing {key!r} in {manifest_file!r}")
-        manifest_ec_version = manifests["ec_version"]
-        if ec_version != manifest_ec_version:
-            raise PackError(
-                f"EC version '{ec_version}' doesn't match "
-                f"ec_version '{manifest_ec_version}' in {manifest_file!r}"
-            )
 
     def _WriteFirmwareImages(self, firmware_info, devices_fw_target):
         """Extract and build all firmware images, then copy to the shellball.
@@ -1262,8 +1268,6 @@ class FirmwarePacker:
             if not fw_source.ec:
                 continue
             if fw_source.ec_component:
-                rw_id = images[fw_target][EC].firmware_ids.rw_id
-                self._VerifyEcComponentManifest(fw_source.ec_component, rw_id)
                 ec_component_manifests[fw_target] = fw_source.ec_component
             elif firmware.has_ec_component_manifest:
                 raise PackError(
