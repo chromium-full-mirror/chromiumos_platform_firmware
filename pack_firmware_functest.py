@@ -9,13 +9,16 @@ This runs a basic scenario and checks the output by running the update script
 with a few fake tools.
 """
 
+import collections
 import glob
 import gzip
 import os
+import pprint
 import re
 import shutil
 import sys
 import tarfile
+import typing
 
 import pack_firmware
 import pack_firmware_utils
@@ -229,6 +232,63 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             versions,
         )
 
+    def _AssertVersionLines(
+        self,
+        expected_lines: typing.Union[dict, list],
+        ignore_extra_model: bool = False,
+    ):
+        """Verify the content of VERSION file (ignoring blank lines).
+
+        Args:
+            expected_lines: As a dict, key is the model name and value is the
+                list of expected lines. As a list, it's the list of expected
+                lines.
+            ignore_extra_model: Whether to ignore extra models found in VERSION.
+        """
+        content = osutils.ReadFile(os.path.join(self.unpackdir, "VERSION"))
+        raw_lines = [line for line in content.splitlines() if line]
+        if not isinstance(expected_lines, dict):
+            # Make a placeholder model name: None
+            expected_lines = {None: expected_lines}
+
+        # Parse the lines, grouped by model.
+        model = None
+        model_lines = collections.defaultdict(list)
+        for line in raw_lines:
+            match = re.fullmatch(r"Model: +(\w+)", line)
+            if match:
+                model = match.group(1)
+            else:
+                model_lines[model].append(line)
+
+        # Check model_lines.
+        for model, lines in model_lines.items():
+            if model not in expected_lines:
+                if ignore_extra_model:
+                    continue
+                raise AssertionError(
+                    f"Unexpected model {model} found in VERSION:\n"
+                    f"{pprint.pformat(raw_lines)}"
+                )
+            exp_lines = expected_lines[model]
+            n = len(exp_lines)
+            if len(lines) != n:
+                raise AssertionError(
+                    f"Wrong #lines {len(lines)}, expected {n}\n"
+                    f"Versions: \n{pprint.pformat(lines)}\n"
+                    f"Expected versions: \n{pprint.pformat(exp_lines)}"
+                )
+            for i, line in enumerate(lines):
+                self.assertRegex(line, exp_lines[i])
+
+        # Check extra model in expected_lines.
+        for model in expected_lines:
+            if model not in model_lines:
+                raise AssertionError(
+                    f"Model {model} not found in VERSION:\n"
+                    f"{pprint.pformat(raw_lines)}"
+                )
+
     def testFirmwareUpdate(self):
         """Run the firmware packer, unpack the result and check it."""
         extra_args = ["-b", os.path.join(self.indir, "image.bin"), "-L"]
@@ -238,19 +298,16 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.assertEqual(3, len(files))
         self.assertEqual(self._ExpectedFiles(["bios.bin"]), files)
 
-        # Comb through the VERSION file and check that everything is as
-        # expected.
-        lines = osutils.ReadFile(
-            os.path.join(self.unpackdir, "VERSION")
-        ).splitlines()
-        self.assertEqual(4, len(lines))
-        self.assertEqual(
-            "BIOS image:   99a6fc64e45596aa2c1a9911cddce952 *%s/image.bin"
-            % self.indir,
-            lines[1],
+        # Check VERSION file.
+        self._AssertVersionLines(
+            [
+                "BIOS image: +99a6fc64e45596aa2c1a9911cddce952 "
+                rf"\*{self.indir}/image\.bin",
+                r"BIOS version: Google_Reef\.9042\.50\.0",
+            ]
         )
-        self.assertEqual("BIOS version: Google_Reef.9042.50.0", lines[2])
 
+        # Check versions.
         self.assertEqual("Google_Reef.9042.50.0", versions["TARGET_RO_FWID"])
         self.assertEqual("Google_Reef.9042.50.0", versions["TARGET_FWID"])
         self.assertEqual("", versions["TARGET_ECID"])
@@ -348,68 +405,40 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.assertEqual(expected_files, files)
         self.assertEqual([], ec_comp_files)
 
-        version_lines = osutils.ReadFile(
-            os.path.join(self.unpackdir, "VERSION")
-        ).splitlines()
-
-        # Each assertion matches to a line:
-        assertions = [
-            None,  # Skip testing first line.
-            lambda x: self.assertIn("reef", x),
-            lambda x: self.assertIn("reef/image.bin", x),
-            lambda x: self.assertEqual(
-                "BIOS version: Google_Reef.9042.50.0", x
-            ),
-            lambda x: self.assertIn("/reef/ec.bin", x),
-            lambda x: self.assertEqual(
-                "EC version:   reef_v1.1.5857-77f6ed7", x
-            ),
-            lambda x: self.assertEqual("", x),
-            lambda x: self.assertIn("pyro", x),
-            lambda x: self.assertIn("pyro/image.bin", x),
-            lambda x: self.assertEqual(
-                "BIOS version: Google_Pyro.9042.41.0", x
-            ),
-            lambda x: self.assertIn("/pyro/ec.bin", x),
-            lambda x: self.assertEqual(
-                "EC version:   pyro_v1.1.5840-f0d7761", x
-            ),
-            lambda x: self.assertEqual("", x),
-            lambda x: self.assertIn("sand", x),
-            lambda x: self.assertIn("sand/image.bin", x),
-            lambda x: self.assertEqual(
-                "BIOS version: Google_Reef.9042.50.0", x
-            ),
-            lambda x: self.assertIn("/sand/ec.bin", x),
-            lambda x: self.assertEqual(
-                "EC version:   reef_v1.1.5857-77f6ed7", x
-            ),
-            lambda x: self.assertEqual("", x),
-            lambda x: self.assertIn("electro", x),
-            lambda x: self.assertIn("reef/image.bin", x),
-            lambda x: self.assertEqual(
-                "BIOS version: Google_Reef.9042.50.0", x
-            ),
-            lambda x: self.assertIn("/reef/ec.bin", x),
-            lambda x: self.assertEqual(
-                "EC version:   reef_v1.1.5857-77f6ed7", x
-            ),
-            lambda x: self.assertEqual("", x),
-            lambda x: self.assertIn("basking", x),
-            lambda x: self.assertIn("sand/image.bin", x),
-            lambda x: self.assertEqual(
-                "BIOS version: Google_Reef.9042.50.0", x
-            ),
-            lambda x: self.assertIn("/sand/ec.bin", x),
-            lambda x: self.assertEqual(
-                "EC version:   reef_v1.1.5857-77f6ed7", x
-            ),
-            lambda x: self.assertEqual("", x),
-        ]
-        self.assertEqual(len(assertions), len(version_lines))
-        for i, assertion in enumerate(assertions):
-            if assertion:
-                assertion(version_lines[i])
+        self._AssertVersionLines(
+            {
+                "reef": [
+                    r"reef/image\.bin",
+                    r"BIOS version: +Google_Reef\.9042\.50\.0",
+                    "/reef/ec.bin",
+                    r"EC version: +reef_v1\.1\.5857-77f6ed7",
+                ],
+                "pyro": [
+                    r"pyro/image\.bin",
+                    r"BIOS version: +Google_Pyro\.9042\.41\.0",
+                    "/pyro/ec.bin",
+                    r"EC version: +pyro_v1\.1\.5840-f0d7761",
+                ],
+                "sand": [
+                    r"sand/image\.bin",
+                    r"BIOS version: +Google_Reef\.9042\.50\.0",
+                    "/sand/ec.bin",
+                    r"EC version: +reef_v1\.1\.5857-77f6ed7",
+                ],
+                "electro": [
+                    r"reef/image\.bin",
+                    r"BIOS version: +Google_Reef\.9042\.50\.0",
+                    "/reef/ec.bin",
+                    r"EC version: +reef_v1\.1\.5857-77f6ed7",
+                ],
+                "basking": [
+                    r"sand/image\.bin",
+                    r"BIOS version: +Google_Reef\.9042\.50\.0",
+                    "/sand/ec.bin",
+                    r"EC version: +reef_v1\.1\.5857-77f6ed7",
+                ],
+            }
+        )
 
         manifest = pack_firmware_utils.ReadManifest(self.unpackdir)
         versions = manifest["reef"]
@@ -790,34 +819,19 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         """Test generation of firmware for a customlabel model."""
         extra_args, _ = self._SetupArgs(["customlabel_test"])
         self._RunPackFirmware(extra_args)
-        version_lines = osutils.ReadFile(
-            os.path.join(self.unpackdir, "VERSION")
-        ).splitlines()
 
         # Check that the customlabel version output matches sand.
-        found = None
-        for linenum, line in enumerate(version_lines):
-            if "customlabel_test" in line:
-                found = linenum
-                break
-        self.assertTrue(found)
-        lines = version_lines[found:]
-        assertions = [
-            lambda x: self.assertIn("customlabel_test", x),
-            lambda x: self.assertIn("sand/image.bin", x),
-            lambda x: self.assertEqual(
-                "BIOS version: Google_Reef.9042.50.0", x
-            ),
-            lambda x: self.assertIn("/sand/ec.bin", x),
-            lambda x: self.assertEqual(
-                "EC version:   reef_v1.1.5857-77f6ed7", x
-            ),
-            lambda x: self.assertEqual("", x),
-        ]
-        self.assertEqual(len(assertions), len(lines))
-        for i, assertion in enumerate(assertions):
-            if assertion:
-                assertion(lines[i])
+        self._AssertVersionLines(
+            {
+                "customlabel_test": [
+                    r"sand/image\.bin",
+                    r"BIOS version: +Google_Reef\.9042\.50\.0",
+                    r"/sand/ec\.bin",
+                    r"EC version: +reef_v1\.1\.5857-77f6ed7",
+                ],
+            },
+            ignore_extra_model=True,
+        )
 
         # Check that the manifest is correct (points to sand).
         versions = pack_firmware_utils.ReadManifest(self.unpackdir)[
@@ -856,34 +870,19 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         extra_args, _ = self._SetupArgs([model] + cl_models)
 
         outfile, _, _, _, _ = self._RunPackFirmware(extra_args)
-        version_lines = osutils.ReadFile(
-            os.path.join(self.unpackdir, "VERSION")
-        ).splitlines()
 
-        # Check that the customlabel version output matches sand.
-        found = None
-        for linenum, line in enumerate(version_lines):
-            if model in line:
-                found = linenum
-                break
-        self.assertTrue(found)
-        lines = version_lines[found:]
-        assertions = [
-            lambda x: self.assertIn(model, x),
-            lambda x: self.assertIn("reef/image.bin", x),
-            lambda x: self.assertEqual(
-                "BIOS version: Google_Reef.9042.50.0", x
-            ),
-            lambda x: self.assertIn("/reef/ec.bin", x),
-            lambda x: self.assertEqual(
-                "EC version:   reef_v1.1.5857-77f6ed7", x
-            ),
-            lambda x: self.assertEqual("", x),
-        ]
-        self.assertEqual(len(assertions), len(lines))
-        for i, assertion in enumerate(assertions):
-            if assertion:
-                assertion(lines[i])
+        # Check that the customlabel version output matches reef.
+        self._AssertVersionLines(
+            {
+                model: [
+                    r"reef/image\.bin",
+                    r"BIOS version: +Google_Reef\.9042\.50\.0",
+                    r"/reef/ec\.bin",
+                    r"EC version: +reef_v1\.1\.5857-77f6ed7",
+                ],
+            },
+            ignore_extra_model=True,
+        )
 
         # We should not create setvars.sh scripts for zero-touch customlabels.
         for cl_model in cl_models:
