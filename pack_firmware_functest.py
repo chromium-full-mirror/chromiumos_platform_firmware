@@ -82,6 +82,13 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         unpackdir: Directory used to unpack shellball into.
     """
 
+    IMAGE_DIR = "functest"
+
+    @classmethod
+    def setUpClass(cls):
+        # This will generate files in cls.IMAGE_DIR.
+        pack_firmware_utils.MakeTestFiles()
+
     def setUp(self):
         # These are the named paths we use under self.tempdir.
         self.indir = os.path.join(self.tempdir, "indir")
@@ -92,11 +99,10 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         osutils.SafeMakedirs(self.outdir)
         osutils.SafeMakedirs(self.unpackdir)
 
-        pack_firmware_utils.MakeTestFiles()
         self.packer = pack_firmware.FirmwarePacker("test")
-        with tarfile.open("functest/Reef.9042.50.0.tbz2") as tar:
+        with tarfile.open(f"{self.IMAGE_DIR}/Reef.9042.50.0.tbz2") as tar:
             tar.extractall(self.indir)
-        with tarfile.open("functest/Reef_EC.9042.50.0.tbz2") as tar:
+        with tarfile.open(f"{self.IMAGE_DIR}/Reef_EC.9042.50.0.tbz2") as tar:
             tar.extractall(self.indir)
         self.basedir = os.path.realpath(os.path.dirname(__file__))
         self.chroot = path_util.ToChrootPath("/")
@@ -361,7 +367,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         extra_args = []
         for model in all_models:
             extra_args += ["-m", model]
-        extra_args += ["-c", "test/config.yaml", "-i", "functest"]
+        extra_args += ["-c", "test/config.yaml", "-i", self.IMAGE_DIR]
         expected_files = self._ExpectedFiles(
             [
                 "models/electro/setvars.sh",
@@ -467,7 +473,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
 
     def testFirmwareUpdateEcComponentManifests(self):
         """Check the extracted EC component manifests."""
-        extra_args = ["-c", "test/geralt_config.yaml", "-i", "functest"]
+        extra_args = ["-c", "test/geralt_config.yaml", "-i", self.IMAGE_DIR]
         _, _, _, ec_comp_files, _ = self._RunPackFirmware(extra_args)
         expected_files = ["ciri/component_manifest.json"]
         self.assertEqual(set(expected_files), set(ec_comp_files))
@@ -478,7 +484,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             "-c",
             "test/config_wrong_ec_manifest_version.yaml",
             "-i",
-            "functest",
+            self.IMAGE_DIR,
         ]
         with self.assertRaisesRegex(
             pack_firmware.PackError,
@@ -489,7 +495,12 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
 
     def testFirmwareUpdateEcComponentManifestsNotExist(self):
         """Check the extracted EC component manifests exist."""
-        extra_args = ["-c", "test/config_no_ec_manifest.yaml", "-i", "functest"]
+        extra_args = [
+            "-c",
+            "test/config_no_ec_manifest.yaml",
+            "-i",
+            self.IMAGE_DIR,
+        ]
         with self.assertRaisesRegex(
             pack_firmware.PackError,
             "Missing 'component_manifest.json' for geralt",
@@ -933,7 +944,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
 
     def testEmptyFirmwareOutput(self):
         """Ensure no output is generated if not --local and no URIs."""
-        args = ["-c", "test/config_no_uri.yaml", "-i", "functest"]
+        args = ["-c", "test/config_no_uri.yaml", "-i", self.IMAGE_DIR]
 
         outfile = os.path.join(self.outdir, "output.sh")
         args += ["-o", outfile]

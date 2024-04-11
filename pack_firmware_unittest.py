@@ -154,12 +154,15 @@ def capture_sys_output():
 class TestUnit(cros_test_lib.MockTempDirTestCase):
     """Test cases for common program flows."""
 
+    @classmethod
+    def setUpClass(cls):
+        pack_firmware_utils.MakeTestFiles()
+
     def setUp(self):
         self.output = os.path.join(self.tempdir, "out")
         self.ec_comp_output = os.path.join(self.tempdir, "ec_comp_out")
         self.common_flags = _COMMON_FLAGS + [self.output]
 
-        pack_firmware_utils.MakeTestFiles()
         self.packer = pack_firmware.FirmwarePacker(".")
         self._ExtractFrid = pack_firmware.FirmwarePacker._ExtractFrid
 
