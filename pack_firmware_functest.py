@@ -550,8 +550,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         ]
         with self.assertRaisesRegex(
             pack_firmware.PackError,
-            "EC version 'ciri-15705.0.0' doesn't match "
-            "ec_version 'ciri-15705.0.0-wrong-version' in ",
+            "EC version '.*' doesn't match "
+            r"ec_version '.*' in .*/component_manifest\.json",
         ):
             self._RunPackFirmware(extra_args)
 

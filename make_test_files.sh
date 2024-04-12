@@ -51,6 +51,10 @@ patch_tar() {
 patch_tar "Ciri.15705.0.0.tbz2" "Ciri.15706.0.0.tbz2" \
   "image-ciri.bin" "image-ciri.15706.bspatch"
 
+# Generate Ciri_EC_Wrong_Version.15705.0.0.tbz2.
+patch_tar "Ciri_EC.15705.0.0.tbz2" "Ciri_EC_Wrong_Version.15705.0.0.tbz2" \
+  "ec.bin" "" "ec_cm-ciri.15820.json"
+
 # Generate Ciri_EC.15820.0.0.tbz2.
 patch_tar "Ciri_EC_base.15820.0.0.tbz2" "Ciri_EC.15820.0.0.tbz2" \
   "ec.bin" "" "ec_cm-ciri.15820.json"
