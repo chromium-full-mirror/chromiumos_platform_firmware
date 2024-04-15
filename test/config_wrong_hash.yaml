@@ -1,0 +1,37 @@
+{
+  "chromeos": {
+    "configs": [
+      {
+        "brand-code": "LDPJ",
+        "firmware": {
+          "bcs-overlay": "overlay-geralt-private",
+          "build-targets": {
+            "bmpblk": "geralt",
+            "coreboot": "ciri",
+            "depthcharge": "geralt",
+            "libpayload": "geralt",
+            "zephyr-ec": "ciri"
+          },
+          "ec-ro-image": "bcs://Ciri_EC.15820.0.0.tbz2",
+          "ec-rw-image": "bcs://Ciri_EC.15821.0.0.tbz2",
+          "firmware-config": 0,
+          "image-name": "fenn",
+          "main-ro-image": "bcs://Ciri.15705.0.0.tbz2",
+          "main-rw-image": "bcs://Ciri.15706.0.0.tbz2",
+          "main-rw-a-hash": "wronghash",
+          "main-rw-a-hash-algorithm": "md5sum"
+        },
+        "firmware-signing": {
+          "key-id": "DEFAULT",
+          "signature-id": "fenn"
+        },
+        "identity": {
+          "frid": "Google_Ciri",
+          "platform-name": "Geralt",
+          "sku-id": 2147483411
+        },
+        "name": "fenn"
+      }
+    ]
+  }
+}

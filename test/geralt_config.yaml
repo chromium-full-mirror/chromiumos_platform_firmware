@@ -100,7 +100,9 @@
           "firmware-config": 0,
           "image-name": "fenn",
           "main-ro-image": "bcs://Ciri.15705.0.0.tbz2",
-          "main-rw-image": "bcs://Ciri.15706.0.0.tbz2"
+          "main-rw-image": "bcs://Ciri.15706.0.0.tbz2",
+          "main-rw-a-hash": "e14a52e8a1062fab3bb797cc82d14414",
+          "main-rw-a-hash-algorithm": "md5sum"
         },
         "firmware-signing": {
           "key-id": "DEFAULT",

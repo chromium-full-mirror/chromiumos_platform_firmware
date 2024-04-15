@@ -632,7 +632,24 @@ class FirmwarePacker:
         # TODO(yupingso): Add 0xff paddings if ec_rw_size < section.size.
         self._MergeFile(ec_fname, ec_rw_section_fname, section.offset)
 
-    def _MergeRwFirmware(self, fw_source, merge_dir):
+    def _VerifyBIOSRwCBFS(self, bios_fname, rw_cbfs_hash):
+        """Verify RW CBFS (FW_MAIN_A and FW_MAIN_B) of `bios_fname`."""
+        for section in ("FW_MAIN_A", "FW_MAIN_B"):
+            fname = self._ExtractFMAPSection(bios_fname, section)
+            if rw_cbfs_hash.algorithm != "md5sum":
+                raise PackError(
+                    f"Unsupported hash algorithm {rw_cbfs_hash.algorithm}"
+                )
+            md5 = hashlib.md5()
+            md5.update(osutils.ReadFile(fname, mode="rb"))
+            digest = md5.hexdigest()
+            if digest != rw_cbfs_hash.digest:
+                raise PackError(
+                    f"Wrong md5 digest {digest}, "
+                    f"expected {rw_cbfs_hash.digest}"
+                )
+
+    def _MergeRwFirmware(self, fw_source, merge_dir, fw_main_a_hash):
         """Merge all RW firmware into corresponding RO images.
 
         RO images are cloned to a given directory before being modified.
@@ -640,6 +657,7 @@ class FirmwarePacker:
         Args:
             fw_source: Locations of original images.
             merge_dir: Directory in which to perform the merge.
+            fw_main_a_hash: Expected hash of FW_MAIN_A in hex.
 
         Returns:
             FirmwareSource of merged firmware.
@@ -723,6 +741,10 @@ class FirmwarePacker:
                 self._CopyTimestamp(ec_rw_source, ec.file)
         elif ec_rw:
             raise PackError("Need EC (RO) firmware image to merge EC RW")
+
+        # Verify BIOS RW CBFS where "ecrw" is stored.
+        if use_ec_rw_from_ec_source and fw_main_a_hash:
+            self._VerifyBIOSRwCBFS(bios.file, fw_main_a_hash)
 
         return fw_source
 
@@ -1094,6 +1116,7 @@ class FirmwarePacker:
         main_target=None,
         ec_target=None,
         fw_name=None,
+        fw_main_a_hash=None,
     ):
         """Prepares firmware to be copied into shellball, then copies it.
 
@@ -1105,6 +1128,7 @@ class FirmwarePacker:
             main_target: The build target for main firmware, if available.
             ec_target: The build target for ec firmware, if available.
             fw_name: Name for this firmware.
+            fw_main_a_hash: Expected hash of FW_MAIN_A in hex.
 
         Returns:
             Dict:
@@ -1122,7 +1146,9 @@ class FirmwarePacker:
             # know. This prevents FirmwarePacker from silently reusing dirty
             # images.
             os.mkdir(merge_dir)
-            fw_source = self._MergeRwFirmware(fw_source, merge_dir)
+            fw_source = self._MergeRwFirmware(
+                fw_source, merge_dir, fw_main_a_hash
+            )
         image_files = {}
         self._AddImageFile(
             image_files, MAIN, main_target, fw_source.bios, fw_source.bios_rw
@@ -1367,6 +1393,7 @@ class FirmwarePacker:
                 firmware.bios_build_target,
                 firmware.ec_build_target,
                 fw_target,
+                firmware.main_rw_a_hash,
             )
 
             if fw_source.ec and fw_source.ec_component:

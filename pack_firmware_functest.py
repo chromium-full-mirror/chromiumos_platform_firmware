@@ -527,6 +527,15 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             }
         )
 
+    def testFirmwareUpdateUnibuildWrongHash(self):
+        """Test the firmware packer with merging RW firmware."""
+        extra_args = ["-c", "test/config_wrong_hash.yaml", "-i", self.IMAGE_DIR]
+        with self.assertRaisesRegex(
+            pack_firmware.PackError,
+            "Wrong md5 digest",
+        ):
+            self._RunPackFirmware(extra_args)
+
     def testFirmwareUpdateEcComponentManifests(self):
         """Check the extracted EC component manifests."""
         extra_args = ["-c", "test/geralt_config.yaml", "-i", self.IMAGE_DIR]
