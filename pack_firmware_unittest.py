@@ -154,6 +154,8 @@ def capture_sys_output():
 class TestUnit(cros_test_lib.MockTempDirTestCase):
     """Test cases for common program flows."""
 
+    IMAGE_DIR = "functest/images"
+
     @classmethod
     def setUpClass(cls):
         pack_firmware_utils.MakeTestFiles()
@@ -391,13 +393,15 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         """Test operation of the tar file unpacker."""
         self.packer._tmpdir = self.packer._CreateTmpDir()
         dirname = self.packer._CreateTmpDir()
-        fname = self.packer._UntarFile("functest/Reef.9042.50.0.tbz2", dirname)
+        fname = self.packer._UntarFile(
+            f"{self.IMAGE_DIR}/Reef.9042.50.0.tbz2", dirname
+        )
         self.assertEqual(os.path.basename(fname), "image.bin")
 
         # Unpack again with a different suffix. We should get a different
         # filename and the file contents should be different.
         fname2 = self.packer._UntarFile(
-            "functest/Reef.9000.0.0.tbz2", dirname, "-rw"
+            f"{self.IMAGE_DIR}/Reef.9000.0.0.tbz2", dirname, "-rw"
         )
         self.assertEqual(os.path.basename(fname2), "image.bin-rw")
         self.assertNotEqual(fname, fname2)
@@ -406,7 +410,9 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         self.assertNotEqual(data, data2)
 
         dirname = self.packer._CreateTmpDir()
-        fname = self.packer._UntarFile("functest/Reef.9042.50.0.tbz2", dirname)
+        fname = self.packer._UntarFile(
+            f"{self.IMAGE_DIR}/Reef.9042.50.0.tbz2", dirname
+        )
         self.assertEqual(os.path.basename(fname), "image.bin")
 
         # This tar file has two files in it.
@@ -470,11 +476,13 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     def testExtractFileBcs(self):
         """Test handling file extraction."""
         self.packer._tmpdir = self.packer._CreateTmpDir()
-        self.packer._args = self.packer.ParseArgs(["--imagedir", "functest"])
+        self.packer._args = self.packer.ParseArgs(
+            ["--imagedir", self.IMAGE_DIR]
+        )
         dirname = self.packer._CreateTmpDir()
 
-        # This should find the tar file in functest/, copy it to dirname and
-        # return its filename.
+        # This should find the tar file in self.IMAGE_DIR, copy it to dirname
+        # and return its filename.
         out_file = self.packer._ExtractFile(
             None, None, "bcs://Reef.9042.50.0.tbz2", dirname
         )
