@@ -1231,6 +1231,34 @@ class FirmwarePacker:
                 f"ec_version '{manifest_ec_version}' in {manifest_file!r}"
             )
 
+    def _RequireEcComponentManifest(self, ec_comp_uri):
+        """Whether the EC component manifest is required in `ec_comp_uri`.
+
+        The component_manifest.json file is required if the firmware build
+        contains CL:5046021, which landed in the following versions:
+        - 13606.620.0 (dedede)
+        - 14505.678.0 (brya)
+        - 15194.145.0 (corsola)
+        - 15217.397.0 (nissa)
+        - 15696.0.0
+        """
+        version = self._ExtractUriVersion(ec_comp_uri)
+
+        # There are existing BCS EC tarballs (>= the landed versions) missing
+        # the component manifest. Therefore, rule them out by increasing the
+        # min version to 1 larger than existing problematic tarball version.
+        min_versions = (
+            (13606, 620),
+            (14505, 678),
+            (15194, 171),  # corsola: Chinchou_EC.15194.170.0.tbz2
+            (15217, 532),  # nissa: Glassway_EC.15217.531.0.tbz2
+            (15709, 101),  # rex: Karis_EC.15709.100.0.tbz2
+        )
+        for v in min_versions:
+            if version.major == v[0] and version.minor >= 1:
+                return version.minor >= v[1]
+        return version.major >= 15696
+
     def _ExtractFirmware(self, firmware, dirname):
         """Extract all firmware images to a temporary directory.
 
@@ -1288,6 +1316,14 @@ class FirmwarePacker:
         if ec_comp:
             ec_rw_id = self._ExtractFirmwareIds(effective_ec_rw.file).rw_id
             self._VerifyEcComponentManifest(ec_comp.file, ec_rw_id)
+        elif (
+            ec_comp_uri
+            and firmware.is_zephyr_ec
+            and self._RequireEcComponentManifest(ec_comp_uri)
+        ):
+            raise PackError(
+                f"Missing {EC_COMPONENT_MANIFEST!r} in {ec_comp_uri}\n"
+            )
 
         return FirmwareSource(bios, bios_rw, ec, ec_rw, ec_comp)
 
@@ -1333,14 +1369,8 @@ class FirmwarePacker:
                 fw_target,
             )
 
-            if not fw_source.ec:
-                continue
-            if fw_source.ec_component:
+            if fw_source.ec and fw_source.ec_component:
                 ec_component_manifests[fw_target] = fw_source.ec_component.file
-            elif firmware.has_ec_component_manifest:
-                raise PackError(
-                    f"Missing {EC_COMPONENT_MANIFEST!r} for {device}"
-                )
 
         return images, ec_component_manifests
 

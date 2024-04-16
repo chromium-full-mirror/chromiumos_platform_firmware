@@ -565,7 +565,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         ]
         with self.assertRaisesRegex(
             pack_firmware.PackError,
-            "Missing 'component_manifest.json' for geralt",
+            "Missing 'component_manifest.json'",
         ):
             self._RunPackFirmware(extra_args)
 
