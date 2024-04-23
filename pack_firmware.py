@@ -686,12 +686,15 @@ class FirmwarePacker:
         if bios and bios.uri_version and ec and ec.uri_version:
             if bios.uri_version.major != ec.uri_version.major:
                 use_ec_rw_from_ec_source = True
-            elif bios.uri_version != ec.uri_version:
-                # If the major version is the same but not minor/patch versions,
-                # that probably indicates an incorrect version.
+            elif bios.uri_version.minor != ec.uri_version.minor:
+                # If the major version is the same but not the minor version,
+                # that probably indicates an incorrect version. The patch
+                # versions, however, are allowed to be different, because
+                # people may increment the patch version in order to fix BCS
+                # tarball issues (such missing component_manifest.json).
                 raise PackError(
                     "AP and EC have same major version, "
-                    "but different minor/patch versions.\n"
+                    "but different minor versions.\n"
                     f"AP {bios.uri_version}, EC {ec.uri_version}"
                 )
 
