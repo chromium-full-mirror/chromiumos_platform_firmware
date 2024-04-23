@@ -1279,7 +1279,7 @@ class FirmwarePacker:
         min_versions = (
             (13606, 620),
             (14505, 678),
-            (15194, 171),  # corsola: Chinchou_EC.15194.170.0.tbz2
+            (15194, 145),
             (15217, 532),  # nissa: Glassway_EC.15217.531.0.tbz2
             (15709, 101),  # rex: Karis_EC.15709.100.0.tbz2
         )
