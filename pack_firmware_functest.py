@@ -479,14 +479,24 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self._AssertVersionLines(
             {
                 # main-ro-image and ec-ro-image have the same version.
-                # EC RW comes from main-rw-image.
-                "ciri": [
+                # No ec-rw-image specified, so EC RW comes from main-rw-image.
+                "braenn": [
                     r"BIOS image: +\w+ \*/.*/image-ciri\.bin",
                     r"BIOS version: +Google_Ciri\.15705\.0\.0",
                     r"BIOS \(RW\) version: +Google_Ciri\.15706\.0\.0",
                     r"EC image: +\w+ \*/.*/ec\.bin",
                     r"EC version: +ciri-15705\.0\.0",
                     r"EC \(RW\) version: +ciri-15706\.0\.0",
+                ],
+                # main-ro-image and ec-ro-image have the same version.
+                # EC RW comes from ec-rw-image.
+                "ciri": [
+                    r"BIOS image: +\w+ \*/.*/image-ciri\.bin",
+                    r"BIOS version: +Google_Ciri\.15705\.0\.0",
+                    r"BIOS \(RW\) version: +Google_Ciri\.15706\.0\.0",
+                    r"EC image: +\w+ \*/.*/ec\.bin",
+                    r"EC version: +ciri-15705\.0\.0",
+                    r"EC \(RW\) version: +ciri-15821\.0\.0",
                 ],
                 # main-ro-image version differs from ec-ro-image.
                 # No ec-rw-image specified, so EC RW comes from ec-ro-image.
@@ -541,6 +551,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         extra_args = ["-c", "test/geralt_config.yaml", "-i", self.IMAGE_DIR]
         _, _, _, ec_comp_files, _ = self._RunPackFirmware(extra_args)
         expected_files = [
+            "braenn/component_manifest.json",
             "ciri/component_manifest.json",
             "duny/component_manifest.json",
             "emhyr/component_manifest.json",

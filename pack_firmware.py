@@ -678,12 +678,15 @@ class FirmwarePacker:
         ec = fw_source.ec
         ec_rw = fw_source.ec_rw
 
-        # Different BIOS and EC URI major versions mean that the BIOS and EC
-        # came from different branches. In that case, we use the EC RW from the
-        # EC payload as the source of truth, by swapping out the "ecrw" in BIOS
-        # RW. Otherwise, the EC RW stored in BIOS RW is used.
+        # Decide the source of truth for EC RW.
+        # - If ec_rw is specified, always use the EC RW from ec_rw.
+        # - If ec_rw is not specified, use the EC RW from ec if BIOS and EC came
+        #   from different branches. Otherwise use the EC RW stored in BIOS RW.
+        # The branch is determined by the major version.
         use_ec_rw_from_ec_source = False
-        if bios and bios.uri_version and ec and ec.uri_version:
+        if ec_rw:
+            use_ec_rw_from_ec_source = True
+        elif bios and bios.uri_version and ec and ec.uri_version:
             if bios.uri_version.major != ec.uri_version.major:
                 use_ec_rw_from_ec_source = True
             elif bios.uri_version.minor != ec.uri_version.minor:
@@ -706,20 +709,6 @@ class FirmwarePacker:
                 effective_ec_rw = ec_rw or ec
                 if effective_ec_rw:
                     self._SwapEcRwInBIOS(bios.file, effective_ec_rw.file)
-            elif ec_rw:
-                # This is usually an error, as the EC RW source is in BIOS (RW).
-                # Raise an exception unless the ec_rw version is the same as
-                # bios_rw.
-                if not bios_rw:
-                    raise PackError(
-                        f"Redundant ec_rw specified: {ec_rw.uri_version}\n"
-                        "EC RW in BIOS will be used"
-                    )
-                elif ec_rw.uri_version != bios_rw.uri_version:
-                    raise PackError(
-                        f"Redundant ec_rw specified: {ec_rw.uri_version}\n"
-                        "EC RW will be extracted from BIOS RW"
-                    )
             self._CopyTimestamp(bios_rw.file, bios.file)
         elif bios_rw:
             raise PackError("Need main (RO) firmware image to merge BIOS RW")
