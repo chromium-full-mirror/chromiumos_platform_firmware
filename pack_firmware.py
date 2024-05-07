@@ -709,7 +709,8 @@ class FirmwarePacker:
                 effective_ec_rw = ec_rw or ec
                 if effective_ec_rw:
                     self._SwapEcRwInBIOS(bios.file, effective_ec_rw.file)
-            self._CopyTimestamp(bios_rw.file, bios.file)
+            if bios_rw:
+                self._CopyTimestamp(bios_rw.file, bios.file)
         elif bios_rw:
             raise PackError("Need main (RO) firmware image to merge BIOS RW")
 
@@ -1131,16 +1132,14 @@ class FirmwarePacker:
             raise PackError(
                 "Target '%s': Must assign at least one of BIOS or EC " % fw_name
             )
-        if fw_source.bios_rw:
-            merge_dir = self._TmpDirPath("%s-merged" % (fw_name or "images"))
-            # We use os.mkdir instead of osutils.SafeMakedirs because merge_dir
-            # should not exist. If it does, something is broken and we want to
-            # know. This prevents FirmwarePacker from silently reusing dirty
-            # images.
-            os.mkdir(merge_dir)
-            fw_source = self._MergeRwFirmware(
-                fw_source, merge_dir, fw_main_a_hash
-            )
+
+        merge_dir = self._TmpDirPath("%s-merged" % (fw_name or "images"))
+        # We use os.mkdir instead of osutils.SafeMakedirs because merge_dir
+        # should not exist. If it does, something is broken and we want to know.
+        # This prevents FirmwarePacker from silently reusing dirty images.
+        os.mkdir(merge_dir)
+        fw_source = self._MergeRwFirmware(fw_source, merge_dir, fw_main_a_hash)
+
         image_files = {}
         self._AddImageFile(
             image_files, MAIN, main_target, fw_source.bios, fw_source.bios_rw

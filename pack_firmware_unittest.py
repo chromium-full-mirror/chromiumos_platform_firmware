@@ -756,11 +756,11 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
                 [
                     "Model: +reef",
                     "BIOS image: +99a6fc64e45596aa2c1a9911cddce952"
-                    r" \*/reef/image.bin",
+                    r" \*.*/reef/image.bin",
                     f"BIOS version: +{RO_FRID}",
                     rf"BIOS \(RW\) version: +{RW_FWID}",
                     "EC image: +60c08e5aefa3a660687c7027d1358df0"
-                    r" \*/reef/ec.bin",
+                    r" \*.*/reef/ec.bin",
                     f"EC version: +{RO_FRID}",
                     rf"EC \(RW\) version: +{RW_FWID}",
                 ],

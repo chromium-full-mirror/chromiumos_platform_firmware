@@ -308,7 +308,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self._AssertVersionLines(
             [
                 "BIOS image: +99a6fc64e45596aa2c1a9911cddce952 "
-                rf"\*{self.indir}/image\.bin",
+                r"\*/.*/image\.bin",
                 r"BIOS version: Google_Reef\.9042\.50\.0",
             ]
         )
@@ -517,6 +517,16 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
                     r"EC version: +ciri-15820\.0\.0",
                 ],
                 # main-ro-image version differs from ec-ro-image.
+                # No main-rw-image specified.
+                # EC RW comes from ec-rw-image.
+                "falka": [
+                    r"BIOS image: +\w+ \*/.*/image-ciri\.bin",
+                    r"BIOS version: +Google_Ciri\.15705\.0\.0",
+                    r"EC image: +\w+ \*/.*/ec\.bin",
+                    r"EC version: +ciri-15820\.0\.0",
+                    r"EC \(RW\) version: +ciri-15821\.0\.0",
+                ],
+                # main-ro-image version differs from ec-ro-image.
                 # EC RW comes from ec-rw-image.
                 "fenn": [
                     r"BIOS image: +\w+ \*/.*/image-ciri\.bin",
@@ -555,6 +565,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             "ciri/component_manifest.json",
             "duny/component_manifest.json",
             "emhyr/component_manifest.json",
+            "falka/component_manifest.json",
             "fenn/component_manifest.json",
             # geralt EC (15663.0.0) doesn't have component manifest
         ]
