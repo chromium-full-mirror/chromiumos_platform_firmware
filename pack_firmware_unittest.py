@@ -366,9 +366,27 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         )
         self.assertEqual(
             self.packer._FirmwareImageOutput(
-                tag, target, fw_ids, version_fn, self.packer._tmpdir
+                tag,
+                target,
+                fw_ids,
+                version_fn,
+                None,
+                target_dir=self.packer._tmpdir,
             ),
             os.path.join(self.packer._tmpdir, expected_fname),
+        )
+
+        self.assertEqual(
+            self.packer._FirmwareImageOutput(
+                "bios",
+                "rex",
+                pack_firmware.FirmwareIds(
+                    "Google_Rex.15555.55.0", "Google_Rex.15555.56.0"
+                ),
+                self.packer._ExtractMainVersion,
+                bios_ecrw_id="rex-16666.66.0",
+            ),
+            "bios-rex.ro-15555-55-0.rw-15555-56-0.ecrw-16666-66-0.bin",
         )
 
         self.packer._RemoveTmpdirs()
