@@ -325,6 +325,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RO_FWID"])
         self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RW_FWID"])
         self.assertEqual("", versions["EC_RO_FWID"])
+        self.assertEqual("", versions["EC_RW_FWID"])
         self.assertEqual("Google_Reef", versions["TARGET_PLATFORM"])
 
     def _CheckVersionsReef(self, versions):
@@ -338,6 +339,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RO_FWID"])
         self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RW_FWID"])
         self.assertEqual("reef_v1.1.5857-77f6ed7", versions["EC_RO_FWID"])
+        self.assertEqual("reef_v1.1.5857-77f6ed7", versions["EC_RW_FWID"])
         self.assertEqual("Google_Reef", versions["TARGET_PLATFORM"])
 
     def _CheckVars(self, model, versions, signature_id):
@@ -702,6 +704,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RO_FWID"])
         self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RW_FWID"])
         self.assertEqual("", versions["EC_RO_FWID"])
+        self.assertEqual("", versions["EC_RW_FWID"])
 
         # Extract the file into a directory, then overwrite various files with
         # new images with a different IDs.
@@ -710,10 +713,11 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         )
         ro_id = "Google_Veyron_Mickey.6588.197.0"
         rw_id = "Google_Veyron_Mickey.6588.197.1"
-        ec_id = "GoogleEC_Veyron_Mickey.6588.197.0"
+        ec_ro_id = "GoogleEC_Veyron_Mickey.6588.197.0"
+        ec_rw_id = "GoogleEC_Veyron_Mickey.6588.197.1"
 
         self._MakeImage("bios.bin", ro_id, rw_id)
-        self._MakeImage("ec.bin", ec_id)
+        self._MakeImage("ec.bin", ec_ro_id, ec_rw_id)
 
         # Repack the file and make sure that the versions update.
         cros_build_lib.dbg_run(
@@ -722,7 +726,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         versions = pack_firmware_utils.ReadVersions(outfile)
         self.assertEqual(ro_id, versions["MAIN_RO_FWID"])
         self.assertEqual(rw_id, versions["MAIN_RW_FWID"])
-        self.assertEqual(ec_id, versions["EC_RO_FWID"])
+        self.assertEqual(ec_ro_id, versions["EC_RO_FWID"])
+        self.assertEqual(ec_rw_id, versions["EC_RW_FWID"])
 
     def testFilesSorted(self):
         """Files in the shellball should be sorted by filename."""
