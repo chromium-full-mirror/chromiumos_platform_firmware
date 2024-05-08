@@ -513,78 +513,69 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     def testFirmwareUpdateUnibuildMerge(self):
         """Test the firmware packer with merging RW firmware."""
         extra_args = ["-c", "test/geralt_config.yaml", "-i", self.IMAGE_DIR]
-        self._RunPackFirmware(extra_args)
+        result = self._RunPackFirmware(extra_args)
 
-        self._AssertVersionLines(
-            {
-                # main-ro-image and ec-ro-image have the same version.
-                # No ec-rw-image specified, so EC RW comes from main-rw-image.
-                "braenn": [
-                    r"BIOS image: +\w+ \*/.*/image-ciri\.bin",
-                    r"BIOS version: +Google_Ciri\.15705\.0\.0",
-                    r"BIOS \(RW\) version: +Google_Ciri\.15706\.0\.0",
-                    r"EC image: +\w+ \*/.*/ec\.bin",
-                    r"EC version: +ciri-15705\.0\.0",
-                    r"EC \(RW\) version: +ciri-15706\.0\.0",
-                ],
-                # main-ro-image and ec-ro-image have the same version.
-                # EC RW comes from ec-rw-image.
-                "ciri": [
-                    r"BIOS image: +\w+ \*/.*/image-ciri\.bin",
-                    r"BIOS version: +Google_Ciri\.15705\.0\.0",
-                    r"BIOS \(RW\) version: +Google_Ciri\.15706\.0\.0",
-                    r"EC image: +\w+ \*/.*/ec\.bin",
-                    r"EC version: +ciri-15705\.0\.0",
-                    r"EC \(RW\) version: +ciri-15821\.0\.0",
-                ],
-                # main-ro-image version differs from ec-ro-image.
-                # No ec-rw-image specified, so EC RW comes from ec-ro-image.
-                # No main-rw-image specified.
-                "duny": [
-                    r"BIOS image: +\w+ \*/.*/image-ciri\.bin",
-                    r"BIOS version: +Google_Ciri\.15705\.0\.0",
-                    r"EC image: +\w+ \*/.*/ec\.bin",
-                    r"EC version: +ciri-15820\.0\.0",
-                ],
-                # main-ro-image version differs from ec-ro-image.
-                # No ec-rw-image specified, so EC RW comes from ec-ro-image.
-                "emhyr": [
-                    r"BIOS image: +\w+ \*/.*/image-ciri\.bin",
-                    r"BIOS version: +Google_Ciri\.15705\.0\.0",
-                    r"BIOS \(RW\) version: +Google_Ciri\.15706\.0\.0",
-                    r"EC image: +\w+ \*/.*/ec\.bin",
-                    r"EC version: +ciri-15820\.0\.0",
-                ],
-                # main-ro-image version differs from ec-ro-image.
-                # No main-rw-image specified.
-                # EC RW comes from ec-rw-image.
-                "falka": [
-                    r"BIOS image: +\w+ \*/.*/image-ciri\.bin",
-                    r"BIOS version: +Google_Ciri\.15705\.0\.0",
-                    r"EC image: +\w+ \*/.*/ec\.bin",
-                    r"EC version: +ciri-15820\.0\.0",
-                    r"EC \(RW\) version: +ciri-15821\.0\.0",
-                ],
-                # main-ro-image version differs from ec-ro-image.
-                # EC RW comes from ec-rw-image.
-                "fenn": [
-                    r"BIOS image: +\w+ \*/.*/image-ciri\.bin",
-                    r"BIOS version: +Google_Ciri\.15705\.0\.0",
-                    r"BIOS \(RW\) version: +Google_Ciri\.15706\.0\.0",
-                    r"EC image: +\w+ \*/.*/ec\.bin",
-                    r"EC version: +ciri-15820\.0\.0",
-                    r"EC \(RW\) version: +ciri-15821\.0\.0",
-                ],
-                # main-ro-image and ec-ro-image have the same version.
-                # EC RW comes from main-rw-image.
-                "geralt": [
-                    r"BIOS image: +\w+ \*/.*/image-geralt\.bin",
-                    r"BIOS version: +Google_Geralt\.15663\.0\.0",
-                    r"EC image: +\w+ \*/.*/ec\.bin",
-                    r"EC version: +geralt_v3\.5\.119161-ec:dc7985,os",
-                ],
-            }
-        )
+        expected_versions = {
+            # main-ro-image and ec-ro-image have the same version.
+            # No ec-rw-image specified, so EC RW comes from main-rw-image.
+            "braenn": pack_firmware_utils.ModelVersion(
+                "Google_Ciri.15705.0.0",
+                "Google_Ciri.15706.0.0",
+                "ciri-15705.0.0",
+                "ciri-15706.0.0",
+            ),
+            # main-ro-image and ec-ro-image have the same version.
+            # EC RW comes from ec-rw-image.
+            "ciri": pack_firmware_utils.ModelVersion(
+                "Google_Ciri.15705.0.0",
+                "Google_Ciri.15706.0.0",
+                "ciri-15705.0.0",
+                "ciri-15821.0.0",
+            ),
+            # main-ro-image version differs from ec-ro-image.
+            # No ec-rw-image specified, so EC RW comes from ec-ro-image.
+            # No main-rw-image specified.
+            "duny": pack_firmware_utils.ModelVersion(
+                "Google_Ciri.15705.0.0",
+                "Google_Ciri.15705.0.0",
+                "ciri-15820.0.0",
+                "ciri-15820.0.0",
+            ),
+            # main-ro-image version differs from ec-ro-image.
+            # No ec-rw-image specified, so EC RW comes from ec-ro-image.
+            "emhyr": pack_firmware_utils.ModelVersion(
+                "Google_Ciri.15705.0.0",
+                "Google_Ciri.15706.0.0",
+                "ciri-15820.0.0",
+                "ciri-15820.0.0",
+            ),
+            # main-ro-image version differs from ec-ro-image.
+            # No main-rw-image specified.
+            # EC RW comes from ec-rw-image.
+            "falka": pack_firmware_utils.ModelVersion(
+                "Google_Ciri.15705.0.0",
+                "Google_Ciri.15705.0.0",
+                "ciri-15820.0.0",
+                "ciri-15821.0.0",
+            ),
+            # main-ro-image version differs from ec-ro-image.
+            # EC RW comes from ec-rw-image.
+            "fenn": pack_firmware_utils.ModelVersion(
+                "Google_Ciri.15705.0.0",
+                "Google_Ciri.15706.0.0",
+                "ciri-15820.0.0",
+                "ciri-15821.0.0",
+            ),
+            # main-ro-image and ec-ro-image have the same version.
+            # EC RW comes from main-rw-image.
+            "geralt": pack_firmware_utils.ModelVersion(
+                "Google_Geralt.15663.0.0",
+                "Google_Geralt.15663.0.0",
+                "geralt_v3.5.119161-ec:dc7985,os",
+                "geralt_v3.5.119161-ec:dc7985,os",
+            ),
+        }
+        self.assertEqual(expected_versions, result.versions)
 
     def testFirmwareUpdateWrongFirmwareVersion(self):
         """Test with firmware packer with mismatched FWID and URI versions."""
