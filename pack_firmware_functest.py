@@ -69,11 +69,12 @@ SHELL = "/bin/dash" if HAVE_DASH else "/bin/sh"
 # Result of firmware packer.
 # outfile: Output file of firmware updater.
 # files: List of files in the updater.
+# image_output: Output directory of image files.
 # ec_comp_files: List of EC component manifest files.
 # versions: Dict of versions from the updater manifest.
 PackerResult = collections.namedtuple(
     "PackerResult",
-    ["outfile", "files", "ec_comp_files", "versions"],
+    ["outfile", "files", "image_output", "ec_comp_files", "versions"],
 )
 
 
@@ -118,6 +119,16 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.basedir = os.path.realpath(os.path.dirname(__file__))
         self.chroot = path_util.ToChrootPath("/")
         self.packer._force_dash = HAVE_DASH
+
+    @staticmethod
+    def _GetFiles(dir_path):
+        """Get the relative path of all files in `dir_path`."""
+        files = []
+        for root, _, fnames in os.walk(dir_path):
+            for fname in fnames:
+                file_path = os.path.join(root, fname)
+                files.append(os.path.relpath(file_path, dir_path))
+        return sorted(files)
 
     @staticmethod
     def _ExpectedFiles(extra_files, models=()):
@@ -200,10 +211,13 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             PackerResult.
         """
         outfile = os.path.join(self.outdir, "output.sh")
+        image_outdir = os.path.join(self.outdir, "images")
         ec_comp_outdir = os.path.join(self.outdir, "ec_comp_output")
         argv = extra_args + [
             "-o",
             outfile,
+            "--image_output",
+            image_outdir,
             "--ec_component_manifest_output",
             ec_comp_outdir,
             "-q",
@@ -216,28 +230,17 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         cros_build_lib.dbg_run(
             [outfile, "--unpack", self.unpackdir], capture_output=True
         )
-        files = []
-        for dirpath, _, fnames in os.walk(self.unpackdir):
-            for fname in fnames:
-                rel_path = os.path.join(dirpath, fname)[
-                    len(self.unpackdir) + 1 :
-                ]
-                files.append(rel_path)
+        files = self._GetFiles(self.unpackdir)
 
-        # EC component manifests
-        ec_comp_files = []
-        for dirpath, _, fnames in os.walk(ec_comp_outdir):
-            for fname in fnames:
-                rel_path = os.path.join(dirpath, fname)[
-                    len(ec_comp_outdir) + 1 :
-                ]
-                ec_comp_files.append(rel_path)
+        # EC component manifests.
+        ec_comp_files = self._GetFiles(ec_comp_outdir)
 
         versions = pack_firmware_utils.ReadVersions(outfile)
         return PackerResult(
             outfile=outfile,
-            files=sorted(files),
-            ec_comp_files=sorted(ec_comp_files),
+            files=files,
+            image_output=image_outdir,
+            ec_comp_files=ec_comp_files,
             versions=versions,
         )
 
@@ -475,6 +478,33 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.assertEqual(self._CreateSignerLine("sand"), lines[3])
         self.assertEqual(self._CreateSignerLine("electro", "reef"), lines[4])
         self.assertEqual(self._CreateSignerLine("basking", "sand"), lines[5])
+
+        # Check the output image files.
+        expected_bios_files = (
+            "image-basking.bin",
+            "image-electro.bin",
+            "image-pyro.bin",
+            "image-reef.bin",
+            "image-sand.bin",
+        )
+        expected_ec_files = (
+            "basking/ec.bin",
+            "electro/ec.bin",
+            "pyro/ec.bin",
+            "reef/ec.bin",
+            "sand/ec.bin",
+        )
+        for opt, expected_files in zip(
+            ("-i", "-e"), (expected_bios_files, expected_ec_files)
+        ):
+            for file in expected_files:
+                file_path = os.path.join(result.image_output, file)
+                # Validity check of AP and EC image.
+                cros_build_lib.run(
+                    ["futility", "update", "--manifest", opt, file_path],
+                    print_cmd=False,
+                    capture_output=True,
+                )
 
     def testFirmwareUpdateUnibuildMerge(self):
         """Test the firmware packer with merging RW firmware."""

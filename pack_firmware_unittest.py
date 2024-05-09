@@ -128,14 +128,6 @@ EC_RW 262144 229376
 RW_FWID 262468 32
 """
 
-# Common flags that we use in several tests.
-_COMMON_FLAGS = [
-    "-b",
-    "test/image.bin",
-    "-q",
-    "-o",
-]
-
 
 # Use this to suppress stdout/stderr output:
 # with capture_sys_output() as (stdout, stderr)
@@ -162,8 +154,17 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
 
     def setUp(self):
         self.output = os.path.join(self.tempdir, "out")
+        self.image_output = os.path.join(self.tempdir, "images")
         self.ec_comp_output = os.path.join(self.tempdir, "ec_comp_out")
-        self.common_flags = _COMMON_FLAGS + [self.output]
+        self.common_flags = [
+            "-b",
+            "test/image.bin",
+            "-q",
+            "-o",
+            self.output,
+            "--image_output",
+            self.image_output,
+        ]
 
         self.packer = pack_firmware.FirmwarePacker(".")
         self._ExtractFrid = pack_firmware.FirmwarePacker._ExtractFrid
@@ -740,6 +741,8 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             "-q",
             "-o",
             self.output,
+            "--image_output",
+            self.image_output,
             "--ec_component_manifest_output",
             self.ec_comp_output,
             "-c",

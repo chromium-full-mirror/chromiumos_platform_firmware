@@ -220,6 +220,11 @@ class FirmwarePacker:
             "-o", "--output", type="str_path", help="Path of output filename"
         )
         parser.add_argument(
+            "--image_output",
+            default="images",
+            help="Output directory for firmware images",
+        )
+        parser.add_argument(
             "--ec_component_manifest_output",
             dest="ec_comp_output",
             default="cme",
@@ -916,16 +921,13 @@ class FirmwarePacker:
             target_dir: Target directory for output images.
 
         Returns:
-            Dict containing information on the output image files:
-                key: Name, one of BIOS, BIOS (RW), EC, EC (RW).
-                value: ImageFile, containing filename and version.
+            Tuple of (bios_output, ec_output).
         """
         bios, ec = [image_files.get(label, None) for label in [MAIN, EC]]
+        bios_output, ec_output = None, None
         if bios:
-            self._CopyFirmwareFile(
-                bios.filename,
-                self._MainImageOutput(bios, target_dir),
-            )
+            bios_output = self._MainImageOutput(bios, target_dir)
+            self._CopyFirmwareFile(bios.filename, bios_output)
         if ec:
             # TODO(yupingso): Enable "check" for EC image.
             #
@@ -939,11 +941,9 @@ class FirmwarePacker:
             # are 13606.421.0 and 13606.422.0, respectively, but their version
             # strings are both "blipper_v2.0.11644-1892ef4217", and their output
             # file names are both "ec-blipper.ro-2-0-11644.rw-2-0-13496.bin".
-            self._CopyFirmwareFile(
-                ec.filename,
-                self._EcImageOutput(ec, target_dir),
-                check=False,
-            )
+            ec_output = self._EcImageOutput(ec, target_dir)
+            self._CopyFirmwareFile(ec.filename, ec_output, check=False)
+        return bios_output, ec_output
 
     def _WriteVersions(self, model, image_files):
         """Write version information for all image files into the version file.
@@ -1530,6 +1530,68 @@ class FirmwarePacker:
                     file=fd,
                 )
 
+    @staticmethod
+    def _CreateSymlink(src, dst):
+        """Create a symlink `dst` pointing to `src` as relative path."""
+        rel_src = os.path.relpath(src, os.path.dirname(dst))
+        os.symlink(rel_src, dst)
+
+    def _SaveRawImageFiles(
+        self,
+        devices_fw_target: Dict[str, str],
+        images: Dict[str, Dict[str, ImageFile]],
+        output_dir: str,
+    ):
+        """Save image files to a directory separate from the shellball.
+
+        The directory structure is the same as ${SYSROOT}/firmware:
+            image-<DEVICE0>.bin
+            image-<DEVICE1>.bin
+            <DEVICE0>/ec.bin
+            <DEVICE1>/ec.bin
+        As different devices may share the same image, to avoid storing
+        duplicate images, the actual images are stored in the images/ directory,
+        and the above files are just symlinks to files in images/.
+
+        Args:
+            devices_fw_target:
+                key: Device name.
+                value: Firmware target name.
+            images:
+                key: Firmware target name.
+                value: Dict of image files for that model:
+                    key: Image type.
+                    value: ImageFile.
+            output_dir: Directory to save image files to.
+        """
+        # The output directory should not exist.
+        os.makedirs(output_dir)
+
+        # Copy images to images/.
+        images_dir = os.path.join(output_dir, "images")
+        os.mkdir(images_dir)
+        fw_files = {}
+        for fw_target, image_files in images.items():
+            bios_file, ec_file = self._CopyFirmwareFiles(
+                image_files,
+                images_dir,
+            )
+            fw_files[fw_target] = (bios_file, ec_file)
+
+        # Create symlinks.
+        for device, fw_target in devices_fw_target.items():
+            if fw_target not in images:
+                continue
+            bios_file, ec_file = fw_files[fw_target]
+            if bios_file:
+                bios_link = os.path.join(output_dir, f"image-{device}.bin")
+                self._CreateSymlink(bios_file, bios_link)
+            if ec_file:
+                ec_dir = os.path.join(output_dir, device)
+                os.mkdir(ec_dir)
+                ec_link = os.path.join(ec_dir, "ec.bin")
+                self._CreateSymlink(ec_file, ec_link)
+
     def _SaveEcComponentManifests(self, manifests: Dict[str, str]):
         """Save EC component manifests.
 
@@ -1640,6 +1702,12 @@ class FirmwarePacker:
                         continue
                     self._WriteVersions(device, image_files)
                     self._GenerateSetVars(fw, image_files)
+                if not args.local:
+                    self._SaveRawImageFiles(
+                        devices_fw_target,
+                        images,
+                        args.image_output,
+                    )
                 self._SaveEcComponentManifests(ec_component_manifests)
             else:
                 bios = self._CreateLocalImageSource(args.bios_image)
