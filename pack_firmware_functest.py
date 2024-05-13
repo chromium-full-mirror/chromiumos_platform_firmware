@@ -66,6 +66,17 @@ HAVE_DASH = os.path.exists("/bin/dash")
 SHELL = "/bin/dash" if HAVE_DASH else "/bin/sh"
 
 
+# Result of firmware packer.
+# outfile: Output file of firmware updater.
+# files: List of files in the updater.
+# ec_comp_files: List of EC component manifest files.
+# versions: Dict of versions from the updater manifest.
+PackerResult = collections.namedtuple(
+    "PackerResult",
+    ["outfile", "files", "ec_comp_files", "versions"],
+)
+
+
 class TestFunctional(cros_test_lib.TempDirTestCase):
     """Functional test for firmware packer script.
 
@@ -186,14 +197,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             extra_args: Extra arguments to pass to FirmwarePacker.
 
         Returns:
-            Tuple containing:
-                Path to output shellball.
-                Sorted list of files in the shellball.
-                Path to output EC component manifests directory.
-                Sorted list of EC component manifests files.
-                Dict containing the version information, with each entry being:
-                    key: shell variable (e.g. TARGET_FWID).
-                    value: value of that variable.
+            PackerResult.
         """
         outfile = os.path.join(self.outdir, "output.sh")
         ec_comp_outdir = os.path.join(self.outdir, "ec_comp_output")
@@ -230,12 +234,11 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
                 ec_comp_files.append(rel_path)
 
         versions = pack_firmware_utils.ReadVersions(outfile)
-        return (
-            outfile,
-            sorted(files),
-            ec_comp_outdir,
-            sorted(ec_comp_files),
-            versions,
+        return PackerResult(
+            outfile=outfile,
+            files=sorted(files),
+            ec_comp_files=sorted(ec_comp_files),
+            versions=versions,
         )
 
     def _AssertVersionLines(
@@ -298,9 +301,10 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     def testFirmwareUpdate(self):
         """Run the firmware packer, unpack the result and check it."""
         extra_args = ["-b", os.path.join(self.indir, "image.bin"), "-L"]
-        _, files, _, _, versions = self._RunPackFirmware(extra_args)
+        result = self._RunPackFirmware(extra_args)
 
         # Check that we got the right files.
+        files = result.files
         self.assertEqual(3, len(files))
         self.assertEqual(self._ExpectedFiles(["bios.bin"]), files)
 
@@ -314,6 +318,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         )
 
         # Check versions.
+        versions = result.versions
         self.assertEqual("Google_Reef.9042.50.0", versions["TARGET_RO_FWID"])
         self.assertEqual("Google_Reef.9042.50.0", versions["TARGET_FWID"])
         self.assertEqual("", versions["TARGET_ECID"])
@@ -406,10 +411,10 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     def testFirmwareUpdateUnibuild(self):
         """Run the firmware packer, unpack the result and check it."""
         extra_args, expected_files = self._SetupArgs()
-        _, files, _, ec_comp_files, versions = self._RunPackFirmware(extra_args)
+        result = self._RunPackFirmware(extra_args)
 
-        self.assertEqual(expected_files, files)
-        self.assertEqual([], ec_comp_files)
+        self.assertEqual(expected_files, result.files)
+        self.assertEqual([], result.ec_comp_files)
 
         self._AssertVersionLines(
             {
@@ -559,7 +564,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     def testFirmwareUpdateEcComponentManifests(self):
         """Check the extracted EC component manifests."""
         extra_args = ["-c", "test/geralt_config.yaml", "-i", self.IMAGE_DIR]
-        _, _, _, ec_comp_files, _ = self._RunPackFirmware(extra_args)
+        ec_comp_files = self._RunPackFirmware(extra_args).ec_comp_files
         expected_files = [
             "braenn/component_manifest.json",
             "ciri/component_manifest.json",
@@ -603,9 +608,9 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     def testVersionOutput(self):
         """Check that the -V option shows version information as expected."""
         extra_args, expected_files = self._SetupArgs()
-        outfile, files, _, _, _ = self._RunPackFirmware(extra_args)
+        packer_result = self._RunPackFirmware(extra_args)
 
-        cmd = [SHELL, outfile, "-V"]
+        cmd = [SHELL, packer_result.outfile, "-V"]
         result = cros_build_lib.run(
             cmd, capture_output=True, print_cmd=False, encoding="utf-8"
         )
@@ -617,7 +622,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.assertEqual(
             version_lines, check_version_lines[: len(version_lines)]
         )
-        self.assertEqual(set(expected_files), set(files))
+        self.assertEqual(set(expected_files), set(packer_result.files))
 
     def _MakeImage(self, outfile, ro_id, rw_id=""):
         """Create a new firmware image with the given IDs.
@@ -646,7 +651,10 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     def testRepack(self):
         """Repacking the shellball with new images should update versions."""
         extra_args = ["-b", os.path.join(self.indir, "image.bin"), "-L"]
-        outfile, _, _, _, versions = self._RunPackFirmware(extra_args)
+        result = self._RunPackFirmware(extra_args)
+        outfile = result.outfile
+
+        versions = result.versions
         self.assertEqual("Google_Reef.9042.50.0", versions["TARGET_RO_FWID"])
         self.assertEqual("Google_Reef.9042.50.0", versions["TARGET_FWID"])
         self.assertEqual("", versions["TARGET_ECID"])
@@ -675,12 +683,13 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     def testFilesSorted(self):
         """Files in the shellball should be sorted by filename."""
         extra_args = ["-b", os.path.join(self.indir, "image.bin"), "-L"]
-        outfile, files, _, _, _ = self._RunPackFirmware(extra_args)
+        result = self._RunPackFirmware(extra_args)
+        files = result.files
 
         # The shellball shows files in a comment with this format:
         # 16777216 -rw-r--r-- bios.bin
         re_files = re.compile(rb"^# +[0-9]+ [-rwx]+ \(.*\)$")
-        for line in osutils.ReadFile(outfile, mode="rb").splitlines():
+        for line in osutils.ReadFile(result.outfile, mode="rb").splitlines():
             m = re_files.match(line)
             if m:
                 files.append(m.group(1).decode("utf-8"))
@@ -791,7 +800,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     def testFirmwareOutput(self):
         """Check the --output feature."""
         extra_args, _ = self._SetupArgs()
-        outfile, files, _, _, _ = self._RunPackFirmware(extra_args)
+        outfile = self._RunPackFirmware(extra_args).outfile
         lines = self._RunScript(outfile, REEF_MODEL)
         # TODO(evanhernandez): Consider changing futility so the image
         # names below align with those in the shellball. For now, too
@@ -910,7 +919,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     def testSignedFirmwareOutput(self):
         """Check the --output feature with signed firmware."""
         extra_args, _ = self._SetupArgs()
-        outfile, _, _, _, _ = self._RunPackFirmware(extra_args)
+        outfile = self._RunPackFirmware(extra_args).outfile
 
         # Add some fake root keys and vblocks for some of the models, to
         # simulate the action of the signer.
@@ -973,7 +982,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             cl_models = ["%s-%s" % (model, cl_tag) for cl_tag in cl_tags]
         extra_args, _ = self._SetupArgs([model] + cl_models)
 
-        outfile, _, _, _, _ = self._RunPackFirmware(extra_args)
+        result = self._RunPackFirmware(extra_args)
 
         # Check that the customlabel version output matches reef.
         self._AssertVersionLines(
@@ -1020,6 +1029,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
                 lines[i - len(cl_models)],
             )
 
+        outfile = result.outfile
         sums = self.AddFakeKeys(outfile, cl_models)
 
         for i, cl_tag in enumerate(cl_tags):
