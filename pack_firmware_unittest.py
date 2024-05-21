@@ -551,9 +551,10 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             returncode=0,
             stdout="ELF 64-bit LSB executable, etc.\n",
         )
+        fwid_pattern = "RO_FRID|RW_FWID|RW_FWID_A|RW_FWID_B"
         rc.AddCmdResult(
             partial_mock.ListRegex(
-                r"futility dump_fmap -x .*image\.bin (?:RO_FRID|RW_FWID)$"
+                rf"futility dump_fmap -x .*image\.bin (?:{fwid_pattern})$"
             ),
             side_effect=_CopySections,
             returncode=0,
@@ -613,10 +614,11 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
 
     @classmethod
     def _AddMergeMocks(cls, rc, mocked_dump_fmap_output):
+        fwid_pattern = "RO_FRID|RW_FWID|RW_FWID_A|RW_FWID_B"
         rc.AddCmdResult(
             partial_mock.ListRegex(
                 r"futility dump_fmap -x .*/images-merged/.*image_rw\.bin"
-                " (?:RO_FRID|RW_FWID)$"
+                f" (?:{fwid_pattern})$"
             ),
             returncode=0,
         )
@@ -697,6 +699,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         expected_versions = [
             r"BIOS image: +\w+ \*/images-merged/.*/image.bin",
             f"BIOS version: +{RO_FRID}",
+            rf"BIOS \(RW\) version: +{RW_FWID}",
             r"EC image: +\w+ \*/images-merged/.*/ec.bin",
             f"EC version: +{RO_FRID}",
             rf"EC \(RW\) version: +{RW_FWID}",
@@ -708,6 +711,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         expected_versions = [
             r"BIOS image: +\w+ \*/images-merged/.*/image.bin",
             f"BIOS version: +{RO_FRID}",
+            rf"BIOS \(RW\) version: +{RW_FWID}",
             r"EC image: +\w+ \*/images-merged/.*/ec.bin",
             f"EC version: +{RO_FRID}",
             rf"EC \(RW\) version: +{RW_FWID}",

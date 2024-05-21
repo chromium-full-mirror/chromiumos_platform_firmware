@@ -374,24 +374,26 @@ class FirmwarePacker:
                 "Hex dump of the firmware ID: " + raw_id.hex()
             )
 
-    def _ExtractFirmwareIds(self, image_file, rw_image_file=None):
+    def _ExtractFirmwareIds(self, image_file):
         """Extracts the RO/RW firmware IDs from image files.
 
         Args:
             image_file: File to process.
-            rw_image_file: RW image file, if separate.
 
         Returns:
             FirmwareIds object containing RO and RW firmware IDs.
-            If RW ID not found, RO ID is used in its place.
         """
         ro_id = self._ExtractFrid(image_file)
-        rw_id = (
-            self._ExtractFrid(rw_image_file)
-            if rw_image_file
-            else self._ExtractFrid(image_file, "RW_FWID")
-        )
-        return FirmwareIds(ro_id, rw_id or ro_id)
+        if not ro_id:
+            raise PackError(f"Failed to extract RO_FRID from {image_file}")
+        rw_id = self._ExtractFrid(image_file, "RW_FWID_A")
+        if not rw_id:
+            rw_id = self._ExtractFrid(image_file, "RW_FWID")
+        if not rw_id:
+            raise PackError(
+                f"Failed to extract RW_FWID/RW_FWID_A from {image_file}"
+            )
+        return FirmwareIds(ro_id, rw_id)
 
     def _BaseDirPath(self, basename):
         """Build a filename in the temporary base directory.
@@ -1127,8 +1129,7 @@ class FirmwarePacker:
         image_files,
         key,
         build_target,
-        ro_source,
-        rw_source=None,
+        fw_source,
         bios_ecrw_id=None,
     ):
         """Adds an ImageFile to the given dict if possible.
@@ -1139,19 +1140,16 @@ class FirmwarePacker:
             image_files: Dictionary in which to insert ImageFile.
             key: Dictionary key for the new ImageFile.
             build_target: The firmware build target.
-            ro_source: ImageSource for the RO image.
-            rw_source: ImageSource for the RW image, if any.
+            fw_source: ImageSource for the image.
             bios_ecrw_id: The firmware ID of "ecrw" CBFS file in BIOS, if it
                 has been swapped with the RW_FW section of an EC image.
         """
-        if not ro_source:
+        if not fw_source:
             return
         image_files[key] = ImageFile(
-            ro_source.file,
+            fw_source.file,
             build_target,
-            self._ExtractFirmwareIds(
-                ro_source.file, rw_source.file if rw_source else None
-            ),
+            self._ExtractFirmwareIds(fw_source.file),
             bios_ecrw_id,
         )
 
@@ -1203,10 +1201,8 @@ class FirmwarePacker:
             MAIN,
             main_target,
             fw_source.bios,
-            fw_source.bios_rw,
             bios_ecrw_id=bios_ecrw_id,
         )
-        # TODO(yupingso): Add fw_source.ec_rw.
         self._AddImageFile(image_files, EC, ec_target, fw_source.ec)
         self._CopyFirmwareFiles(image_files, target_dir)
         return image_files
