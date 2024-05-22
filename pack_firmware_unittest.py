@@ -521,6 +521,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             dirname,
             fname="NO_SUCH",
             required=False,
+            extract_fwid=False,
         )
         self.assertIsNone(image)
 
@@ -531,6 +532,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             "bcs://Ciri_EC.15705.0.0.tbz2",
             dirname,
             fname="component_manifest.json",
+            extract_fwid=False,
         )
         self.assertEqual(
             image.file, os.path.join(dirname, "component_manifest.json")
@@ -540,12 +542,13 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         self.packer._RemoveTmpdirs()
 
     @staticmethod
-    def _AddMocks(rc):
-        def _CopySections(_, **kwargs):
-            destdir = kwargs["cwd"]
-            for fname in ["RO_FRID", "RW_FWID"]:
-                shutil.copy2(os.path.join("test", fname), destdir)
+    def _CopySections(_, **kwargs):
+        destdir = kwargs["cwd"]
+        for fname in ["RO_FRID", "RW_FWID"]:
+            shutil.copy2(os.path.join("test", fname), destdir)
 
+    @classmethod
+    def _AddMocks(cls, rc):
         rc.AddCmdResult(
             partial_mock.ListRegex(r"(?:^|\s)file(?:$|\s)"),
             returncode=0,
@@ -556,7 +559,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             partial_mock.ListRegex(
                 rf"futility dump_fmap -x .*image\.bin (?:{fwid_pattern})$"
             ),
-            side_effect=_CopySections,
+            side_effect=cls._CopySections,
             returncode=0,
         )
         rc.AddCmdResult(
@@ -567,7 +570,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         rc.AddCmdResult(partial_mock.ListRegex("--repack"), returncode=0)
         rc.AddCmdResult(
             partial_mock.ListRegex(r"futility dump_fmap -x .*ec\.bin"),
-            side_effect=_CopySections,
+            side_effect=cls._CopySections,
             returncode=0,
         )
 
@@ -617,9 +620,9 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         fwid_pattern = "RO_FRID|RW_FWID|RW_FWID_A|RW_FWID_B"
         rc.AddCmdResult(
             partial_mock.ListRegex(
-                r"futility dump_fmap -x .*/images-merged/.*image_rw\.bin"
-                f" (?:{fwid_pattern})$"
+                rf"futility dump_fmap -x .*image_rw\.bin (?:{fwid_pattern})$"
             ),
+            side_effect=cls._CopySections,
             returncode=0,
         )
         rc.AddCmdResult(

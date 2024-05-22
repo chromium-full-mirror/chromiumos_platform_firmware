@@ -67,7 +67,8 @@ class ImageSource:
     """File path and info of a firmware image."""
 
     file: str
-    uri_version: tuple
+    uri_version: FirmwareVersion
+    firmware_ids: FirmwareIds
 
 
 # ImageSource for all firmware images.
@@ -718,13 +719,15 @@ class FirmwarePacker:
         if bios:
             if bios_rw:
                 self._MergeRwMainFirmware(bios.file, bios_rw.file)
+                bios.firmware_ids = FirmwareIds(
+                    bios.firmware_ids.ro_id,
+                    bios_rw.firmware_ids.rw_id,
+                )
             if use_ec_rw_from_ec_source:
                 effective_ec_rw = ec_rw or ec
                 if effective_ec_rw:
                     self._SwapEcRwInBIOS(bios.file, effective_ec_rw.file)
-                    bios_ecrw_id = self._ExtractFirmwareIds(
-                        effective_ec_rw.file
-                    ).rw_id
+                    bios_ecrw_id = effective_ec_rw.firmware_ids.rw_id
             if bios_rw:
                 self._CopyTimestamp(bios_rw.file, bios.file)
         elif bios_rw:
@@ -733,11 +736,13 @@ class FirmwarePacker:
         # Merge EC firmware
         if ec:
             ec_rw_section = None
+            ec_rw_fwid = None
             ec_rw_source = None
             if use_ec_rw_from_ec_source:
                 if ec_rw:
                     ec_rw_section = os.path.join(self._tmpdir, "ecrw_from_ec")
                     self._ExtractFMAPSection(ec_rw.file, "EC_RW", ec_rw_section)
+                    ec_rw_fwid = ec_rw.firmware_ids.rw_id
                     ec_rw_source = ec_rw.file
             elif bios_rw:
                 ec_rw_section = os.path.join(self._tmpdir, "ecrw_from_bios")
@@ -747,6 +752,15 @@ class FirmwarePacker:
                 ec_rw_source = bios_rw.file
             if ec_rw_section:
                 self._MergeRwEcFirmware(ec.file, ec_rw_section)
+                if ec_rw_fwid:
+                    ec.firmware_ids = FirmwareIds(
+                        ec.firmware_ids.ro_id, ec_rw_fwid
+                    )
+                else:
+                    # When ec_rw_section comes from bios_rw, we need to extract
+                    # FWIDs again from the merged EC image, because
+                    # ec_rw_section doesn't contain the FMAP layout.
+                    ec.firmware_ids = self._ExtractFirmwareIds(ec.file)
                 self._CopyTimestamp(ec_rw_source, ec.file)
         elif ec_rw:
             raise PackError("Need EC (RO) firmware image to merge EC RW")
@@ -1149,7 +1163,7 @@ class FirmwarePacker:
         image_files[key] = ImageFile(
             fw_source.file,
             build_target,
-            self._ExtractFirmwareIds(fw_source.file),
+            fw_source.firmware_ids,
             bios_ecrw_id,
         )
 
@@ -1211,7 +1225,8 @@ class FirmwarePacker:
         """Create an ImageSource for local image."""
         if not image_path:
             return None
-        return ImageSource(image_path, None)
+        firmware_ids = self._ExtractFirmwareIds(image_path)
+        return ImageSource(image_path, None, firmware_ids)
 
     def _ExtractUriVersion(self, uri):
         """Extract the firmware version from `uri`.
@@ -1238,6 +1253,7 @@ class FirmwarePacker:
         suffix="",
         fname=None,
         required=True,
+        extract_fwid=True,
     ):
         """Obtain a file based on provided information.
 
@@ -1261,6 +1277,7 @@ class FirmwarePacker:
             fname: The filename contained in `uri` to be extracted. This is
                 required when there are multiple files in `uri`.
             required: Whether the `fname` must exist in `uri`.
+            extract_fwid: Whether to extract FWIDs.
 
         Returns:
             Filename of the resulting image file or None if the file doesn't
@@ -1288,8 +1305,12 @@ class FirmwarePacker:
             fname=fname,
             required=required,
         )
+        if not path:
+            return None
+
         version = self._ExtractUriVersion(uri)
-        return ImageSource(path, version) if path else None
+        firmware_ids = self._ExtractFirmwareIds(path) if extract_fwid else None
+        return ImageSource(path, version, firmware_ids)
 
     def _VerifyEcComponentManifest(self, manifest_file, ec_version):
         """Verify the EC compoenent manifest file."""
@@ -1387,9 +1408,10 @@ class FirmwarePacker:
             dirname,
             fname=EC_COMPONENT_MANIFEST,
             required=False,
+            extract_fwid=False,
         )
         if ec_comp:
-            ec_rw_id = self._ExtractFirmwareIds(effective_ec_rw.file).rw_id
+            ec_rw_id = effective_ec_rw.firmware_ids.rw_id
             self._VerifyEcComponentManifest(ec_comp.file, ec_rw_id)
         elif (
             ec_comp_uri
