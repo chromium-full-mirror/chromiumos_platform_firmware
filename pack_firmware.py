@@ -772,16 +772,14 @@ class FirmwarePacker:
         return fw_source, bios_ecrw_id
 
     @staticmethod
-    def _ExtractEcVersion(fw_id):
-        """Extracts EC version from a firmware ID, swapping dots for dashes.
-
-        Returns empty string if fw_id is empty or malformed.
+    def _ExtractEcVersion(fw_id: str) -> FirmwareVersion:
+        """Extracts EC version from `fw_id`.
 
         Letting V denote [0-9], the expected version regex is "V+.V+.V+"
 
         Expected format is "<board>_vV.V.VVVV-<hash>" or "<board>-VVVV.VV.V".
-        For example, "reef_v1.1.5857-77f6ed7" becomes "1-1-5857" and
-        "rex-13579.24.0" becomes "13579-24-0".
+        For example, "reef_v1.1.5857-77f6ed7" becomes (1, 1, 5857) and
+        "rex-13579.24.0" becomes (13579, 24, 0).
 
         Args:
             fw_id: The firmware ID providing version information.
@@ -789,22 +787,20 @@ class FirmwarePacker:
         Returns:
             The version number.
         """
-        matched_version = re.search(r"((\d+\.){2}\d+)", fw_id)
-        if not matched_version:
-            raise PackError("Malformed EC firmware ID: %s" % fw_id)
-        return matched_version.group(1).replace(".", "-")
+        match = re.search(r"(\d+)\.(\d+)\.(\d+)", fw_id)
+        if not match:
+            raise PackError(f"Malformed EC firmware ID: {fw_id}")
+        return FirmwareVersion(
+            int(match.group(1)),
+            int(match.group(2)),
+            int(match.group(3)),
+        )
 
     @staticmethod
-    def _ExtractMainVersion(fw_id):
-        """Extracts main version from a firmware ID.
+    def _ExtractMainVersion(fw_id: str) -> FirmwareVersion:
+        """Extracts main version from `fw_id`.
 
-        Note this function also swaps periods for dashes, and removes
-        timestamps from local builds. Returns empty string if fw_id is empty
-        or malformed.
-
-        Letting V denote [0-9], the expected version regex is...
-            "V+.V+" for local builds
-            "V+.V+.V+" for official builds
+        Letting V denote [0-9], the expected version regex is "V+.V+.V+".
 
         Expected FW ID format is:
             "Google_<board>.<version>(_\\w+)*" in the general case, but most
@@ -813,8 +809,8 @@ class FirmwarePacker:
             "Google_<board>.<version>" for official builds
 
         For example...
-            "Google_Reef.9264.0.1_d2017_02_09_124025" becomes "9264-0-1"
-            "Google_Reef.9264.0.1" becomes "9264-0-1"
+            "Google_Reef.9264.0.1_d2017_02_09_124025" becomes (9264, 0, 1).
+            "Google_Reef.9264.0.1" becomes (9264, 0, 1).
 
         Args:
             fw_id: The firmware ID providing version information.
@@ -822,11 +818,14 @@ class FirmwarePacker:
         Returns:
             The version number.
         """
-        matched_version = re.search(r"(\d+\.\d+\.\d+)", fw_id)
-        if not matched_version:
-            raise PackError("Malformed coreboot firmware ID: %s" % fw_id)
-        version = matched_version.group(1)
-        return version.replace(".", "-")
+        match = re.search(r"(\d+)\.(\d+)\.(\d+)", fw_id)
+        if not match:
+            raise PackError("Malformed BIOS firmware ID: %s" % fw_id)
+        return FirmwareVersion(
+            int(match.group(1)),
+            int(match.group(2)),
+            int(match.group(3)),
+        )
 
     def _FirmwareImageOutput(
         self,
@@ -859,6 +858,10 @@ class FirmwarePacker:
         Returns:
             Filename of the output image.
         """
+
+        def to_string(v: FirmwareVersion) -> str:
+            return f"{v.major}-{v.minor}-{v.patch}"
+
         has_required_fields = fw_ids and all(
             [build_target, fw_ids.ro_id, fw_ids.rw_id, extract_version]
         )
@@ -868,10 +871,11 @@ class FirmwarePacker:
             if not has_required_fields:
                 return ""
             parts = [f"{tag}-{build_target}"]
-            parts.append("ro-%s" % extract_version(fw_ids.ro_id))
-            parts.append("rw-%s" % extract_version(fw_ids.rw_id))
+            parts.append("ro-%s" % to_string(extract_version(fw_ids.ro_id)))
+            parts.append("rw-%s" % to_string(extract_version(fw_ids.rw_id)))
             if bios_ecrw_id:
-                parts.append("ecrw-%s" % self._ExtractEcVersion(bios_ecrw_id))
+                bios_ecrw_version = self._ExtractEcVersion(bios_ecrw_id)
+                parts.append("ecrw-%s" % to_string(bios_ecrw_version))
             fname = ".".join(parts) + ".bin"
         return os.path.join(target_dir, fname) if target_dir else fname
 

@@ -306,24 +306,35 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
 
     def testExtractEcVersion(self):
         """Check extracting version from firmware ID."""
-        self.assertEqual(self.packer._ExtractEcVersion(EC_RO_FRID), "1-1-5857")
         self.assertEqual(
-            self.packer._ExtractEcVersion(EC_RO_FRID_NEW), "9264-0-0"
+            self.packer._ExtractEcVersion(EC_RO_FRID),
+            pack_firmware.FirmwareVersion(1, 1, 5857),
+        )
+        self.assertEqual(
+            self.packer._ExtractEcVersion(EC_RO_FRID_NEW),
+            pack_firmware.FirmwareVersion(9264, 0, 0),
         )
         with self.assertRaises(pack_firmware.PackError) as e:
-            self.assertEqual(self.packer._ExtractEcVersion("a_bad_id"), "")
+            self.packer._ExtractEcVersion("a_bad_id")
         self.assertIn("Malformed EC firmware ID", str(e.exception))
 
     def testExtractMainVersion(self):
         """Check extracting version from firmware ID."""
-        self.assertEqual(self.packer._ExtractMainVersion(RO_FRID), "9264-0-0")
-        self.assertEqual(self.packer._ExtractMainVersion(RW_FWID), "9264-0-0")
         self.assertEqual(
-            self.packer._ExtractMainVersion(NO_TIMESTAMP_RO_FRID), "9264-0-1"
+            self.packer._ExtractMainVersion(RO_FRID),
+            pack_firmware.FirmwareVersion(9264, 0, 0),
+        )
+        self.assertEqual(
+            self.packer._ExtractMainVersion(RW_FWID),
+            pack_firmware.FirmwareVersion(9264, 0, 0),
+        )
+        self.assertEqual(
+            self.packer._ExtractMainVersion(NO_TIMESTAMP_RO_FRID),
+            pack_firmware.FirmwareVersion(9264, 0, 1),
         )
         with self.assertRaises(pack_firmware.PackError) as e:
-            self.assertEqual(self.packer._ExtractMainVersion("a_bad_id"), "")
-        self.assertIn("Malformed coreboot firmware ID", str(e.exception))
+            self.packer._ExtractMainVersion("a_bad_id")
+        self.assertIn("Malformed BIOS firmware ID", str(e.exception))
 
     def testFirmwareImageOutput(self):
         """Check firmware image output name."""
@@ -335,7 +346,9 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         fw_ids = pack_firmware.FirmwareIds(EC_RO_FRID, EC_RW_FWID)
         bad_fw_ids = pack_firmware.FirmwareIds(EC_RO_FRID, None)
         version_fn = (
-            lambda fwid: "1-1-5857" if fwid == EC_RO_FRID else "1-1-5858"
+            lambda fwid: pack_firmware.FirmwareVersion(1, 1, 5857)
+            if fwid == EC_RO_FRID
+            else pack_firmware.FirmwareVersion(1, 1, 5858)
         )
         self.assertEqual(self.packer._FirmwareImageOutput(tag), "")
         self.assertEqual(
