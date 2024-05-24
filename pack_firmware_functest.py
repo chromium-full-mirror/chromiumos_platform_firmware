@@ -51,8 +51,8 @@ BIOS_IMAGES["electro"] = BIOS_IMAGES["reef"]
 BIOS_IMAGES["basking"] = BIOS_IMAGES["sand"]
 BIOS_IMAGES["clref"] = BIOS_IMAGES["reef"]
 EC_IMAGES = {
-    "reef": "ec-reef.ro-1-1-5857.rw-1-1-5857.bin",
-    "pyro": "ec-pyro.ro-1-1-5840.rw-1-1-5840.bin",
+    "reef": "ec-reef.ro-9042-50-0.rw-9042-50-0.bin",
+    "pyro": "ec-pyro.ro-9042-41-0.rw-9042-41-0.bin",
 }
 EC_IMAGES["sand"] = EC_IMAGES["reef"]
 EC_IMAGES["electro"] = EC_IMAGES["reef"]

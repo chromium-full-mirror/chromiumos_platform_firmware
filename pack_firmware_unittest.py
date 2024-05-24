@@ -367,15 +367,22 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         target = "reef"
         fw_ids = pack_firmware.FirmwareIds(EC_RO_FRID, EC_RW_FWID)
         bad_fw_ids = pack_firmware.FirmwareIds(EC_RO_FRID, None)
+        ro_uri_version = pack_firmware.FirmwareVersion(15555, 55, 0)
+        rw_uri_version = pack_firmware.FirmwareVersion(15555, 56, 0)
+        uri_versions = pack_firmware.FirmwareVersions(
+            ro_uri_version, rw_uri_version
+        )
         version_fn = (
             lambda fwid: pack_firmware.FirmwareVersion(1, 1, 5857)
             if fwid == EC_RO_FRID
             else pack_firmware.FirmwareVersion(1, 1, 5858)
         )
+
+        # Missing required fields..
         self.assertEqual(self.packer._FirmwareImageOutput(tag), "")
         self.assertEqual(
             self.packer._FirmwareImageOutput(
-                tag, fw_ids=fw_ids, extract_version=version_fn
+                tag, fw_ids=fw_ids, extract_cros_version=version_fn
             ),
             "",
         )
@@ -384,42 +391,61 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         )
         self.assertEqual(
             self.packer._FirmwareImageOutput(
-                tag, target, extract_version=version_fn
-            ),
-            "",
-        )
-        self.assertEqual(
-            self.packer._FirmwareImageOutput(
-                tag, target, bad_fw_ids, version_fn
+                tag, target, extract_cros_version=version_fn
             ),
             "",
         )
 
+        # Invalid FWIDs.
+        self.assertEqual(
+            self.packer._FirmwareImageOutput(
+                tag, target, fw_ids=bad_fw_ids, extract_cros_version=version_fn
+            ),
+            "",
+        )
+
+        # CrOS versions extracted by version_fn (uri_versions ignored).
         expected_fname = "ec-reef.ro-1-1-5857.rw-1-1-5858.bin"
         self.assertEqual(
-            self.packer._FirmwareImageOutput(tag, target, fw_ids, version_fn),
+            self.packer._FirmwareImageOutput(
+                "ec", "reef", fw_ids=fw_ids, extract_cros_version=version_fn
+            ),
             expected_fname,
         )
         self.assertEqual(
             self.packer._FirmwareImageOutput(
-                tag,
-                target,
-                fw_ids,
-                version_fn,
-                None,
+                "ec",
+                "reef",
+                fw_ids=fw_ids,
+                uri_versions=uri_versions,
+                extract_cros_version=version_fn,
+                bios_ecrw_id=None,
                 target_dir=self.packer._tmpdir,
             ),
             os.path.join(self.packer._tmpdir, expected_fname),
         )
 
+        # CrOS versions extracted from uri_versions.
         self.assertEqual(
             self.packer._FirmwareImageOutput(
                 "bios",
                 "rex",
-                pack_firmware.FirmwareIds(
+                fw_ids=fw_ids,
+                uri_versions=uri_versions,
+                extract_cros_version=lambda fwid: None,
+            ),
+            "bios-rex.ro-15555-55-0.rw-15555-56-0.bin",
+        )
+
+        # CrOS versions extracted from FWIDs, with bios_ecrw_id specified.
+        self.assertEqual(
+            self.packer._FirmwareImageOutput(
+                "bios",
+                "rex",
+                fw_ids=pack_firmware.FirmwareIds(
                     "Google_Rex.15555.55.0", "Google_Rex.15555.56.0"
                 ),
-                self.packer._ExtractMainVersion,
+                extract_cros_version=self.packer._ExtractMainVersion,
                 bios_ecrw_id="rex-16666.66.0",
             ),
             "bios-rex.ro-15555-55-0.rw-15555-56-0.ecrw-16666-66-0.bin",
