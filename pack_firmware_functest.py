@@ -582,6 +582,20 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             }
         )
 
+    def testFirmwareUpdateWrongFirmwareVersion(self):
+        """Test with firmware packer with mismatched FWID and URI versions."""
+        extra_args = [
+            "-c",
+            "test/config_wrong_firmware_version.yaml",
+            "-i",
+            self.IMAGE_DIR,
+        ]
+        with self.assertRaisesRegex(
+            pack_firmware.PackError,
+            "FWID .* doesn't match BCS URI version .*",
+        ):
+            self._RunPackFirmware(extra_args)
+
     def testFirmwareUpdateUnibuildWrongHash(self):
         """Test the firmware packer with merging RW firmware."""
         extra_args = ["-c", "test/config_wrong_hash.yaml", "-i", self.IMAGE_DIR]

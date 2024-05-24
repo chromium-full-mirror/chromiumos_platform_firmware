@@ -310,6 +310,11 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             self.packer._ExtractEcVersion("reef_v1.1.5857-77f6ed7"),
             pack_firmware.FirmwareVersion(1, 1, 5857),
         )
+        self.assertIsNone(
+            self.packer._ExtractEcVersion(
+                "reef_v1.1.5857-77f6ed7", cros_version_only=True
+            )
+        )
         # Old format with multiple hashes.
         self.assertEqual(
             self.packer._ExtractEcVersion("geralt_v3.5.119161-ec:dc7985,os"),

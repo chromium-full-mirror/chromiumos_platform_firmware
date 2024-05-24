@@ -13,6 +13,7 @@ It requires:
 import collections
 import dataclasses
 import filecmp
+import functools
 import glob
 import hashlib
 import io
@@ -25,7 +26,7 @@ import struct
 import sys
 import tarfile
 import tempfile
-from typing import Dict
+from typing import Callable, Dict
 
 # pylint: disable=import-error
 from cros_config_host import libcros_config_host
@@ -772,24 +773,37 @@ class FirmwarePacker:
         return fw_source, bios_ecrw_id
 
     @staticmethod
-    def _ExtractEcVersion(fw_id: str) -> FirmwareVersion:
+    def _ExtractEcVersion(
+        fw_id: str, cros_version_only: bool = False
+    ) -> FirmwareVersion:
         """Extracts EC version from `fw_id`.
 
         Letting V denote [0-9], the expected version regex is "V+.V+.V+"
 
-        Expected format is "<board>_vV.V.VVVV-<hash>" or "<board>-VVVV.VV.V".
-        For example, "reef_v1.1.5857-77f6ed7" becomes (1, 1, 5857) and
-        "rex-13579.24.0" becomes (13579, 24, 0).
+        For older EC images, the expected format is "<board>_vV.V.VVVV-<hash>".
+        For newer EC images, the expected format is "<board>-VVVVV.VV.V", where
+        "VVVVV.VV.V" comes from ChromeOS build version.
+
+        For example...
+            "reef_v1.1.5857-77f6ed7" becomes (1, 1, 5857).
+            "rex-13579.24.0" becomes (13579, 24, 0).
 
         Args:
             fw_id: The firmware ID providing version information.
+            cros_version_only: Extract the ChromeOS version only. If this is
+                set and an old format is found, then `None` will be returned.
 
         Returns:
             The version number.
         """
-        match = re.fullmatch(
-            r"[\w-]+(?:_v|-)(\d+)\.(\d+)\.(\d+)(?:-\S+)?", fw_id, flags=re.ASCII
-        )
+        flags = re.ASCII
+        match = re.fullmatch(r"[\w-]+-(\d+)\.(\d+)\.(\d+)", fw_id, flags=flags)
+        if not match:
+            if cros_version_only:
+                return None
+            match = re.fullmatch(
+                r"[\w-]+_v(\d+)\.(\d+)\.(\d+)-\S+", fw_id, flags=flags
+            )
         if not match:
             raise PackError(f"Malformed EC firmware ID: {fw_id}")
         return FirmwareVersion(
@@ -1432,6 +1446,69 @@ class FirmwarePacker:
 
         return FirmwareSource(bios, bios_rw, ec, ec_rw, ec_comp)
 
+    def _CheckFirmwareIds(
+        self,
+        image: ImageSource,
+        extract_cros_version: Callable[[str], FirmwareVersion],
+    ) -> None:
+        """Check the FWIDs in `image`.
+
+        Args:
+            image: The source image to be checked.
+            extract_cros_version: Function to extract image CrOS version from
+                the firmware ID.
+        """
+        # RO_FRID and RW_FWID must be the same for source images.
+        ro_id = image.firmware_ids.ro_id
+        rw_id = image.firmware_ids.rw_id
+        if ro_id != rw_id:
+            raise PackError(
+                f"Mismatched RO_FRID and RW_FWID in {image.file}:"
+                f" {ro_id}, {rw_id}"
+            )
+
+        # Check FWID against BCS URI version.
+        uri_version = image.uri_version
+        fwid_version = extract_cros_version(ro_id)
+        # FWID in old EC image doesn't contain the ChromeOS version.
+        if not uri_version or not fwid_version:
+            return
+        # The "patch" versions are allowed to be different, because the BCS URI
+        # patch version is incremented whenever people need to re-upload the BCS
+        # tarball to fix issues such as missing component_manifest.json.
+        if (
+            fwid_version.major != uri_version.major
+            or fwid_version.minor != uri_version.minor
+        ):
+            raise PackError(
+                f"FWID {ro_id} doesn't match BCS URI version {uri_version}"
+            )
+
+    def _CheckFirmwareSource(self, fw_source: FirmwareSource) -> None:
+        """Check firmware source images.
+
+        Args:
+            fw_source: Firmware source images.
+        """
+        # Due to the design of mocking reading firmware IDs in unit tests, the
+        # check for 'RO_FRID == RW_FWID_A' will fail. Therefore skip this
+        # function for unit tests.
+        if self._args.testing:
+            return
+
+        for image in (fw_source.bios, fw_source.bios_rw):
+            if image:
+                self._CheckFirmwareIds(image, self._ExtractMainVersion)
+
+        for image in (fw_source.ec, fw_source.ec_rw):
+            if image:
+                self._CheckFirmwareIds(
+                    image,
+                    functools.partial(
+                        self._ExtractEcVersion, cros_version_only=True
+                    ),
+                )
+
     def _WriteFirmwareImages(self, firmware_info, devices_fw_target):
         """Extract and build all firmware images, then copy to the shellball.
 
@@ -1466,6 +1543,7 @@ class FirmwarePacker:
             if not fw_source.bios and not fw_source.ec:
                 continue
 
+            self._CheckFirmwareSource(fw_source)
             images[fw_target] = self._ProcessFirmware(
                 fw_source,
                 self._BaseDirPath(IMG_DIR),
