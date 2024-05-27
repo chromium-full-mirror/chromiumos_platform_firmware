@@ -1060,13 +1060,13 @@ class FirmwarePacker:
             target_dir=target_dir,
         )
 
-    def _CopyFirmwareFile(self, src, dst, check=True):
+    def _CopyFirmwareFile(self, src, dst):
         """Copy `src` to `dst` if `dst` does not exist.
 
         If `dst` already exists and its content differs from `src`, PackError
         will be raised.
         """
-        if check and os.path.exists(dst):
+        if os.path.exists(dst):
             if not filecmp.cmp(src, dst, shallow=False):
                 raise PackError(
                     f"Attempting to copy {src} to {dst} (which exists), "
@@ -1093,20 +1093,8 @@ class FirmwarePacker:
             bios_output = self._MainImageOutput(bios, target_dir)
             self._CopyFirmwareFile(bios.filename, bios_output)
         if ec:
-            # TODO(yupingso): Enable "check" for EC image.
-            #
-            # Old EC image's version format is "blipper_v2.0.11644-1892ef4217"
-            # (see CL:5027710), so EC images from different build versions
-            # (such as 13606.421.0) may have the same version string (if the EC
-            # code doesn't change), resulting in the same output file here.
-            # However the file content may be different.
-            #
-            # For example, the EC build versions of dedede's blipper and beetley
-            # are 13606.421.0 and 13606.422.0, respectively, but their version
-            # strings are both "blipper_v2.0.11644-1892ef4217", and their output
-            # file names are both "ec-blipper.ro-2-0-11644.rw-2-0-13496.bin".
             ec_output = self._EcImageOutput(ec, target_dir)
-            self._CopyFirmwareFile(ec.filename, ec_output, check=False)
+            self._CopyFirmwareFile(ec.filename, ec_output)
         return bios_output, ec_output
 
     def _WriteVersions(self, model, image_files):
