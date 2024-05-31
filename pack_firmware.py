@@ -1436,7 +1436,8 @@ class FirmwarePacker:
             ec_rw_id = effective_ec_rw.firmware_ids.rw_id
             self._VerifyEcComponentManifest(ec_comp.file, ec_rw_id)
         elif (
-            ec_comp_uri
+            not self._args.local
+            and ec_comp_uri
             and firmware.is_zephyr_ec
             and self._RequireEcComponentManifest(ec_comp_uri)
         ):
