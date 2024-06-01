@@ -38,7 +38,6 @@ RW_FWID = "Google_Reef.9264.0.0_d2017_02_09_1250"
 NO_TIMESTAMP_RO_FRID = "Google_Reef.9264.0.1"
 EC_RO_FRID = "reef_v1.1.5857-77f6ed7"
 EC_RW_FWID = "reef_v1.1.5858-77f6ed7"
-EC_RO_FRID_NEW = "reef-9264.0.0"
 
 
 # Expected output from 'futility dump_fmap -p' for main image.
@@ -306,32 +305,50 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
 
     def testExtractEcVersion(self):
         """Check extracting version from firmware ID."""
+        # Old format with single hash.
         self.assertEqual(
-            self.packer._ExtractEcVersion(EC_RO_FRID),
+            self.packer._ExtractEcVersion("reef_v1.1.5857-77f6ed7"),
             pack_firmware.FirmwareVersion(1, 1, 5857),
         )
+        # Old format with multiple hashes.
         self.assertEqual(
-            self.packer._ExtractEcVersion(EC_RO_FRID_NEW),
+            self.packer._ExtractEcVersion("geralt_v3.5.119161-ec:dc7985,os"),
+            pack_firmware.FirmwareVersion(3, 5, 119161),
+        )
+        # New format.
+        self.assertEqual(
+            self.packer._ExtractEcVersion("reef-9264.0.0"),
             pack_firmware.FirmwareVersion(9264, 0, 0),
         )
+        self.assertEqual(
+            self.packer._ExtractEcVersion("rex-ish-ec-15709.72.0"),
+            pack_firmware.FirmwareVersion(15709, 72, 0),
+        )
+        # Malformed FWID.
         with self.assertRaises(pack_firmware.PackError) as e:
             self.packer._ExtractEcVersion("a_bad_id")
         self.assertIn("Malformed EC firmware ID", str(e.exception))
 
     def testExtractMainVersion(self):
         """Check extracting version from firmware ID."""
+        # Local build.
         self.assertEqual(
-            self.packer._ExtractMainVersion(RO_FRID),
+            self.packer._ExtractMainVersion(
+                "Google_Reef.9264.0.0_d2017_02_09_1240"
+            ),
             pack_firmware.FirmwareVersion(9264, 0, 0),
         )
+        # Official build.
         self.assertEqual(
-            self.packer._ExtractMainVersion(RW_FWID),
-            pack_firmware.FirmwareVersion(9264, 0, 0),
-        )
-        self.assertEqual(
-            self.packer._ExtractMainVersion(NO_TIMESTAMP_RO_FRID),
+            self.packer._ExtractMainVersion("Google_Reef.9264.0.1"),
             pack_firmware.FirmwareVersion(9264, 0, 1),
         )
+        # Official build for Volteer2.
+        self.assertEqual(
+            self.packer._ExtractMainVersion("Google_Volteer2.13672.328.0"),
+            pack_firmware.FirmwareVersion(13672, 328, 0),
+        )
+        # Malformed FWID.
         with self.assertRaises(pack_firmware.PackError) as e:
             self.packer._ExtractMainVersion("a_bad_id")
         self.assertIn("Malformed BIOS firmware ID", str(e.exception))

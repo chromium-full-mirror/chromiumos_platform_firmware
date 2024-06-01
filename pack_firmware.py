@@ -787,7 +787,9 @@ class FirmwarePacker:
         Returns:
             The version number.
         """
-        match = re.search(r"(\d+)\.(\d+)\.(\d+)", fw_id)
+        match = re.fullmatch(
+            r"[\w-]+(?:_v|-)(\d+)\.(\d+)\.(\d+)(?:-\S+)?", fw_id, flags=re.ASCII
+        )
         if not match:
             raise PackError(f"Malformed EC firmware ID: {fw_id}")
         return FirmwareVersion(
@@ -818,7 +820,9 @@ class FirmwarePacker:
         Returns:
             The version number.
         """
-        match = re.search(r"(\d+)\.(\d+)\.(\d+)", fw_id)
+        match = re.fullmatch(
+            r"\w+\.(\d+)\.(\d+)\.(\d+)(?:_\w+)?", fw_id, flags=re.ASCII
+        )
         if not match:
             raise PackError("Malformed BIOS firmware ID: %s" % fw_id)
         return FirmwareVersion(
