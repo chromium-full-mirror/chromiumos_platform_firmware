@@ -560,6 +560,17 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         for fname in ["RO_FRID", "RW_FWID"]:
             shutil.copy2(os.path.join("test", fname), destdir)
 
+    @staticmethod
+    def _CopyEcSections(_, **kwargs):
+        destdir = kwargs["cwd"]
+        for fname, section in [
+            ("EC_RO_FRID", "RO_FRID"),
+            ("EC_RW_FWID", "RW_FWID"),
+        ]:
+            shutil.copy2(
+                os.path.join("test", fname), os.path.join(destdir, section)
+            )
+
     @classmethod
     def _AddMocks(cls, rc):
         rc.AddCmdResult(
@@ -583,7 +594,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         rc.AddCmdResult(partial_mock.ListRegex("--repack"), returncode=0)
         rc.AddCmdResult(
             partial_mock.ListRegex(r"futility dump_fmap -x .*ec\.bin"),
-            side_effect=cls._CopySections,
+            side_effect=cls._CopyEcSections,
             returncode=0,
         )
 
@@ -717,8 +728,8 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             f"BIOS version: +{RO_FRID}",
             rf"BIOS \(RW\) version: +{RW_FWID}",
             r"EC image: +\w+ \*/images-merged/.*/ec.bin",
-            f"EC version: +{RO_FRID}",
-            rf"EC \(RW\) version: +{RW_FWID}",
+            f"EC version: +{EC_RO_FRID}",
+            rf"EC \(RW\) version: +{EC_RW_FWID}",
         ]
         self._testMockedRunWithMerge(FMAP_OUTPUT, expected_versions)
 
@@ -729,8 +740,8 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             f"BIOS version: +{RO_FRID}",
             rf"BIOS \(RW\) version: +{RW_FWID}",
             r"EC image: +\w+ \*/images-merged/.*/ec.bin",
-            f"EC version: +{RO_FRID}",
-            rf"EC \(RW\) version: +{RW_FWID}",
+            f"EC version: +{EC_RO_FRID}",
+            rf"EC \(RW\) version: +{EC_RW_FWID}",
         ]
         self._testMockedRunWithMerge(FMAP_OUTPUT_LEGACY, expected_versions)
 
@@ -802,8 +813,8 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
                     rf"BIOS \(RW\) version: +{RW_FWID}",
                     "EC image: +60c08e5aefa3a660687c7027d1358df0"
                     r" \*.*/reef/ec.bin",
-                    f"EC version: +{RO_FRID}",
-                    rf"EC \(RW\) version: +{RW_FWID}",
+                    f"EC version: +{EC_RO_FRID}",
+                    rf"EC \(RW\) version: +{EC_RW_FWID}",
                 ],
             )
 
