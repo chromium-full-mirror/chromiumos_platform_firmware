@@ -183,9 +183,9 @@ class FirmwarePacker:
             "--local",
             action="store_true",
             help="Build a local firmware image. With this option you must "
-            "provide -b, -e and -p flags to indicate where to find the images "
-            "for each model. You can use MODEL in the filenames as a "
-            "placeholder for the model name. For example "
+            "provide -b or -e flags to indicate where to find the images "
+            "for each model. You can use BUILD_TARGET in the filenames as a "
+            "placeholder for the build target. For example "
             '-b "${root}/firmware/image-BUILD_TARGET.bin"',
         )
         parser.add_argument(
@@ -1268,32 +1268,30 @@ class FirmwarePacker:
 
     def _ExtractFile(
         self,
-        build_target,
-        fname_template,
-        uri,
-        dirname,
-        suffix="",
-        fname=None,
-        required=True,
-        extract_fwid=True,
-    ):
+        build_target: str,
+        fname_template: str,
+        uri: str,
+        dirname: str,
+        suffix: str = "",
+        fname: str = None,
+        required: bool = True,
+        extract_fwid: bool = True,
+    ) -> ImageSource:
         """Obtain a file based on provided information.
 
-        This obtains the file in one of two ways:
-        - if we are building local firmware, it creates a filename using the
-            provided template, with MODEL replaced with the current model.
-            This is used to build a firmware update from the firmware ebuilds.
-            The file is only used if there is a valid property value, since
-            that is what indicates that the file is needed in the update.
-        - otherwise it finds a tar file, unpacks it and returns the filename
-            of the resulting unpacked file. This is used to build the firmware
-            updater from the configured firmware versions, downloaded from BCS.
+        This obtains the file in one of the two ways:
+        - If we are building local firmware (--local), it creates an image
+            source using `fname_template`, with BUILD_TARGET replaced with the
+            current build target name.
+        - Otherwise, it finds a tar file specified in `uri`, unpacks it, and
+            returns an image source of the resulting unpacked file. This is used
+            to build the official firmware updater from the BCS firmware images.
 
         Args:
             build_target: The name of the build target uses, driving the file
                 output.
             fname_template: Filename template to use in local model.
-            uri: URI containing the file.
+            uri: BCS URI of the tar file containing the image file.
             dirname: Output directory where the unpacked file should be placed.
             suffix: String to append to output filename.
             fname: The filename contained in `uri` to be extracted. This is
@@ -1302,16 +1300,13 @@ class FirmwarePacker:
             extract_fwid: Whether to extract FWIDs.
 
         Returns:
-            Filename of the resulting image file or None if the file doesn't
-                exist.
+            Image source object of the extracted image file, or None if the file
+                doesn't exist.
         """
         if self._args.local:
             if not fname_template:
                 return None
-            # TODO(shapiroc): Remove MODEL after cros-firmware.eclass is updated
-            real_path = fname_template.replace("MODEL", build_target).replace(
-                "BUILD_TARGET", build_target
-            )
+            real_path = fname_template.replace("BUILD_TARGET", build_target)
             if not os.path.exists(real_path):
                 return None
             return self._CreateLocalImageSource(real_path)
