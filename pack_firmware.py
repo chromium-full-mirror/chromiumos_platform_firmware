@@ -510,7 +510,7 @@ class FirmwarePacker:
             dst, src, dst_section.offset, src_section.offset, src_section.size
         )
 
-    def _MergeRwMainFirmware(self, ro_fname, rw_fname):
+    def _MergeBIOSFile(self, ro_fname, rw_fname):
         """Merge RW sections from main RW firmware to main RO firmware.
 
         The RO image is cloned to a temporary directory before the RW image
@@ -615,9 +615,7 @@ class FirmwarePacker:
             cwd=self._tmpdir,
         )
 
-    def _MergeRwEcFirmware(
-        self, ec_fname, ec_rw_section_fname, check_size=False
-    ):
+    def _MergeEcFile(self, ec_fname, ec_rw_section_fname, check_size=False):
         """Merge EC RW section from `ec_rw_section_fname` to `ec_fname`.
 
         Args:
@@ -660,6 +658,99 @@ class FirmwarePacker:
                     f"expected {rw_cbfs_hash.digest}"
                 )
 
+    def _MergeBIOSFirmware(
+        self,
+        fw_source: FirmwareSource,
+        use_ec_rw_from_ec_source: bool,
+    ) -> str:
+        """Merge BIOS RO and RW images into one.
+
+        Args:
+            fw_source: Firmware source images.
+            use_ec_rw_from_ec_source: If true, the "ecrw" CBFS file stored in
+                BIOS RW will be swapped with a source EC image (either ec or
+                ec_rw). Otherwise, the source of truth of EC RW is the "ecrw"
+                file in the source BIOS RW image, and therefore there will be no
+                need to swap the "ecrw" file.
+
+        Returns:
+            The EC FWID of the new "ecrw" in BIOS RW, if it has been swapped.
+            Otherwise None.
+        """
+        bios = fw_source.bios
+        bios_rw = fw_source.bios_rw
+
+        if not bios:
+            if bios_rw:
+                raise PackError(
+                    "Need main (RO) firmware image to merge BIOS RW"
+                )
+            return None
+
+        bios_ecrw_id = None
+        if bios_rw:
+            self._MergeBIOSFile(bios.file, bios_rw.file)
+            bios.firmware_ids = FirmwareIds(
+                bios.firmware_ids.ro_id,
+                bios_rw.firmware_ids.rw_id,
+            )
+        if use_ec_rw_from_ec_source:
+            effective_ec_rw = fw_source.ec_rw or fw_source.ec
+            if effective_ec_rw:
+                self._SwapEcRwInBIOS(bios.file, effective_ec_rw.file)
+                bios_ecrw_id = effective_ec_rw.firmware_ids.rw_id
+        if bios_rw:
+            self._CopyTimestamp(bios_rw.file, bios.file)
+        return bios_ecrw_id
+
+    def _MergeEcFirmware(
+        self,
+        fw_source: FirmwareSource,
+        use_ec_rw_from_ec_source: bool,
+    ) -> None:
+        """Merge EC RO and RW images into one.
+
+        Args:
+            fw_source: Firmware source images.
+            use_ec_rw_from_ec_source: If true, the resulting EC RW will come
+                from a source EC image (either ec or ec_rw). Otherwise, the
+                "ecrw" CBFS file stored in the source BIOS RW image will be used
+                for EC RW.
+        """
+        ec = fw_source.ec
+        ec_rw = fw_source.ec_rw
+
+        if not ec:
+            if ec_rw:
+                raise PackError("Need EC (RO) firmware image to merge EC RW")
+            return
+
+        ec_rw_section = None
+        ec_rw_fwid = None
+        ec_rw_source = None
+        if use_ec_rw_from_ec_source:
+            if ec_rw:
+                ec_rw_section = os.path.join(self._tmpdir, "ecrw_from_ec")
+                self._ExtractFMAPSection(ec_rw.file, "EC_RW", ec_rw_section)
+                ec_rw_fwid = ec_rw.firmware_ids.rw_id
+                ec_rw_source = ec_rw.file
+        elif fw_source.bios_rw:
+            ec_rw_section = os.path.join(self._tmpdir, "ecrw_from_bios")
+            # The EC RW stored in BIOS might be either EC's EC_RW (CrOS EC)
+            # or RW_FW (Zephyr EC) FMAP section.
+            self._ExtractEcRwFromBIOS(fw_source.bios_rw.file, ec_rw_section)
+            ec_rw_source = fw_source.bios_rw.file
+        if ec_rw_section:
+            self._MergeEcFile(ec.file, ec_rw_section)
+            if ec_rw_fwid:
+                ec.firmware_ids = FirmwareIds(ec.firmware_ids.ro_id, ec_rw_fwid)
+            else:
+                # When ec_rw_section comes from bios_rw, we need to extract
+                # FWIDs again from the merged EC image, because
+                # ec_rw_section doesn't contain the FMAP layout.
+                ec.firmware_ids = self._ExtractFirmwareIds(ec.file)
+            self._CopyTimestamp(ec_rw_source, ec.file)
+
     def _MergeRwFirmware(self, fw_source, merge_dir, fw_main_a_hash):
         """Merge all RW firmware into corresponding RO images.
 
@@ -688,10 +779,7 @@ class FirmwarePacker:
                 )
 
         bios = fw_source.bios
-        bios_rw = fw_source.bios_rw
         ec = fw_source.ec
-        ec_rw = fw_source.ec_rw
-        bios_ecrw_id = None
 
         # Decide the source of truth for EC RW.
         # - If ec_rw is specified, always use the EC RW from ec_rw.
@@ -699,7 +787,7 @@ class FirmwarePacker:
         #   from different branches. Otherwise use the EC RW stored in BIOS RW.
         # The branch is determined by the major version.
         use_ec_rw_from_ec_source = False
-        if ec_rw:
+        if fw_source.ec_rw:
             use_ec_rw_from_ec_source = True
         elif bios and bios.uri_version and ec and ec.uri_version:
             if bios.uri_version.major != ec.uri_version.major:
@@ -716,55 +804,10 @@ class FirmwarePacker:
                     f"AP {bios.uri_version}, EC {ec.uri_version}"
                 )
 
-        # Merge BIOS firmware
-        if bios:
-            if bios_rw:
-                self._MergeRwMainFirmware(bios.file, bios_rw.file)
-                bios.firmware_ids = FirmwareIds(
-                    bios.firmware_ids.ro_id,
-                    bios_rw.firmware_ids.rw_id,
-                )
-            if use_ec_rw_from_ec_source:
-                effective_ec_rw = ec_rw or ec
-                if effective_ec_rw:
-                    self._SwapEcRwInBIOS(bios.file, effective_ec_rw.file)
-                    bios_ecrw_id = effective_ec_rw.firmware_ids.rw_id
-            if bios_rw:
-                self._CopyTimestamp(bios_rw.file, bios.file)
-        elif bios_rw:
-            raise PackError("Need main (RO) firmware image to merge BIOS RW")
-
-        # Merge EC firmware
-        if ec:
-            ec_rw_section = None
-            ec_rw_fwid = None
-            ec_rw_source = None
-            if use_ec_rw_from_ec_source:
-                if ec_rw:
-                    ec_rw_section = os.path.join(self._tmpdir, "ecrw_from_ec")
-                    self._ExtractFMAPSection(ec_rw.file, "EC_RW", ec_rw_section)
-                    ec_rw_fwid = ec_rw.firmware_ids.rw_id
-                    ec_rw_source = ec_rw.file
-            elif bios_rw:
-                ec_rw_section = os.path.join(self._tmpdir, "ecrw_from_bios")
-                # The EC RW stored in BIOS might be either EC's EC_RW (CrOS EC)
-                # or RW_FW (Zephyr EC) FMAP section.
-                self._ExtractEcRwFromBIOS(bios_rw.file, ec_rw_section)
-                ec_rw_source = bios_rw.file
-            if ec_rw_section:
-                self._MergeRwEcFirmware(ec.file, ec_rw_section)
-                if ec_rw_fwid:
-                    ec.firmware_ids = FirmwareIds(
-                        ec.firmware_ids.ro_id, ec_rw_fwid
-                    )
-                else:
-                    # When ec_rw_section comes from bios_rw, we need to extract
-                    # FWIDs again from the merged EC image, because
-                    # ec_rw_section doesn't contain the FMAP layout.
-                    ec.firmware_ids = self._ExtractFirmwareIds(ec.file)
-                self._CopyTimestamp(ec_rw_source, ec.file)
-        elif ec_rw:
-            raise PackError("Need EC (RO) firmware image to merge EC RW")
+        bios_ecrw_id = self._MergeBIOSFirmware(
+            fw_source, use_ec_rw_from_ec_source
+        )
+        self._MergeEcFirmware(fw_source, use_ec_rw_from_ec_source)
 
         # Verify BIOS RW CBFS where "ecrw" is stored.
         if use_ec_rw_from_ec_source and fw_main_a_hash:
