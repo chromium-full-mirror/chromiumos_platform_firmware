@@ -662,7 +662,8 @@ class FirmwarePacker:
         self,
         fw_source: FirmwareSource,
         use_ec_rw_from_ec_source: bool,
-    ) -> str:
+        build_target: str,
+    ) -> ImageFile:
         """Merge BIOS RO and RW images into one.
 
         Args:
@@ -672,10 +673,10 @@ class FirmwarePacker:
                 ec_rw). Otherwise, the source of truth of EC RW is the "ecrw"
                 file in the source BIOS RW image, and therefore there will be no
                 need to swap the "ecrw" file.
+            build_target: BIOS build target.
 
         Returns:
-            The EC FWID of the new "ecrw" in BIOS RW, if it has been swapped.
-            Otherwise None.
+            Merged BIOS image file.
         """
         bios = fw_source.bios
         bios_rw = fw_source.bios_rw
@@ -687,27 +688,30 @@ class FirmwarePacker:
                 )
             return None
 
+        merged_file = bios.file
+        ro_fwid = bios.firmware_ids.ro_id
+        rw_fwid = bios.firmware_ids.rw_id
         bios_ecrw_id = None
         if bios_rw:
-            self._MergeBIOSFile(bios.file, bios_rw.file)
-            bios.firmware_ids = FirmwareIds(
-                bios.firmware_ids.ro_id,
-                bios_rw.firmware_ids.rw_id,
-            )
+            self._MergeBIOSFile(merged_file, bios_rw.file)
+            rw_fwid = bios_rw.firmware_ids.rw_id
         if use_ec_rw_from_ec_source:
             effective_ec_rw = fw_source.ec_rw or fw_source.ec
             if effective_ec_rw:
-                self._SwapEcRwInBIOS(bios.file, effective_ec_rw.file)
+                self._SwapEcRwInBIOS(merged_file, effective_ec_rw.file)
                 bios_ecrw_id = effective_ec_rw.firmware_ids.rw_id
         if bios_rw:
-            self._CopyTimestamp(bios_rw.file, bios.file)
-        return bios_ecrw_id
+            self._CopyTimestamp(bios_rw.file, merged_file)
+
+        firmware_ids = FirmwareIds(ro_fwid, rw_fwid)
+        return ImageFile(merged_file, build_target, firmware_ids, bios_ecrw_id)
 
     def _MergeEcFirmware(
         self,
         fw_source: FirmwareSource,
         use_ec_rw_from_ec_source: bool,
-    ) -> None:
+        build_target: str,
+    ) -> ImageFile:
         """Merge EC RO and RW images into one.
 
         Args:
@@ -716,6 +720,10 @@ class FirmwarePacker:
                 from a source EC image (either ec or ec_rw). Otherwise, the
                 "ecrw" CBFS file stored in the source BIOS RW image will be used
                 for EC RW.
+            build_target: EC build target.
+
+        Returns:
+            Merged EC image file.
         """
         ec = fw_source.ec
         ec_rw = fw_source.ec_rw
@@ -723,8 +731,11 @@ class FirmwarePacker:
         if not ec:
             if ec_rw:
                 raise PackError("Need EC (RO) firmware image to merge EC RW")
-            return
+            return None
 
+        merged_file = ec.file
+        ro_fwid = ec.firmware_ids.ro_id
+        rw_fwid = ec.firmware_ids.rw_id
         ec_rw_section = None
         ec_rw_fwid = None
         ec_rw_source = None
@@ -741,17 +752,22 @@ class FirmwarePacker:
             self._ExtractEcRwFromBIOS(fw_source.bios_rw.file, ec_rw_section)
             ec_rw_source = fw_source.bios_rw.file
         if ec_rw_section:
-            self._MergeEcFile(ec.file, ec_rw_section)
+            self._MergeEcFile(merged_file, ec_rw_section)
             if ec_rw_fwid:
-                ec.firmware_ids = FirmwareIds(ec.firmware_ids.ro_id, ec_rw_fwid)
+                rw_fwid = ec_rw_fwid
             else:
                 # When ec_rw_section comes from bios_rw, we need to extract
                 # FWIDs again from the merged EC image, because
                 # ec_rw_section doesn't contain the FMAP layout.
-                ec.firmware_ids = self._ExtractFirmwareIds(ec.file)
-            self._CopyTimestamp(ec_rw_source, ec.file)
+                rw_fwid = self._ExtractFirmwareIds(merged_file).rw_id
+            self._CopyTimestamp(ec_rw_source, merged_file)
 
-    def _MergeRwFirmware(self, fw_source, merge_dir, fw_main_a_hash):
+        firmware_ids = FirmwareIds(ro_fwid, rw_fwid)
+        return ImageFile(merged_file, build_target, firmware_ids, None)
+
+    def _MergeRwFirmware(
+        self, fw_source, merge_dir, bios_target, ec_target, fw_main_a_hash
+    ):
         """Merge all RW firmware into corresponding RO images.
 
         RO images are cloned to a given directory before being modified.
@@ -759,13 +775,14 @@ class FirmwarePacker:
         Args:
             fw_source: Locations of original images.
             merge_dir: Directory in which to perform the merge.
+            bios_target: BIOS build target.
+            ec_target: EC build target.
             fw_main_a_hash: Expected hash of FW_MAIN_A in hex.
 
         Returns:
-            tuple: (fw_source, bios_ecrw_id)
-                fw_source: FirmwareSource of merged firmware images.
-                bios_ecrw_id: The RW_FWID of the "ecrw" CBFS file in the merged
-                    BIOS image, if it has been swapped; otherwise None.
+            tuple: (bios_image, ec_image)
+                bios_image: ImageFile of BIOS image.
+                ec_image: ImageFile of EC image.
         """
         for image in (
             fw_source.bios,
@@ -804,16 +821,18 @@ class FirmwarePacker:
                     f"AP {bios.uri_version}, EC {ec.uri_version}"
                 )
 
-        bios_ecrw_id = self._MergeBIOSFirmware(
-            fw_source, use_ec_rw_from_ec_source
+        bios_image = self._MergeBIOSFirmware(
+            fw_source, use_ec_rw_from_ec_source, bios_target
         )
-        self._MergeEcFirmware(fw_source, use_ec_rw_from_ec_source)
+        ec_image = self._MergeEcFirmware(
+            fw_source, use_ec_rw_from_ec_source, ec_target
+        )
 
         # Verify BIOS RW CBFS where "ecrw" is stored.
         if use_ec_rw_from_ec_source and fw_main_a_hash:
-            self._VerifyBIOSRwCBFS(bios.file, fw_main_a_hash)
+            self._VerifyBIOSRwCBFS(bios_image.filename, fw_main_a_hash)
 
-        return fw_source, bios_ecrw_id
+        return bios_image, ec_image
 
     @staticmethod
     def _ExtractEcVersion(
@@ -1203,35 +1222,6 @@ class FirmwarePacker:
             for fname in glob.glob(self._BaseDirPath("VERSION*")):
                 print(osutils.ReadFile(fname))
 
-    def _AddImageFile(
-        self,
-        image_files,
-        key,
-        build_target,
-        fw_source,
-        bios_ecrw_id=None,
-    ):
-        """Adds an ImageFile to the given dict if possible.
-
-        Does nothing in ro_image not provided.
-
-        Args:
-            image_files: Dictionary in which to insert ImageFile.
-            key: Dictionary key for the new ImageFile.
-            build_target: The firmware build target.
-            fw_source: ImageSource for the image.
-            bios_ecrw_id: The firmware ID of "ecrw" CBFS file in BIOS, if it
-                has been swapped with the RW_FW section of an EC image.
-        """
-        if not fw_source:
-            return
-        image_files[key] = ImageFile(
-            fw_source.file,
-            build_target,
-            fw_source.firmware_ids,
-            bios_ecrw_id,
-        )
-
     def _ProcessFirmware(
         self,
         fw_source,
@@ -1268,21 +1258,19 @@ class FirmwarePacker:
         # should not exist. If it does, something is broken and we want to know.
         # This prevents FirmwarePacker from silently reusing dirty images.
         os.mkdir(merge_dir)
-        fw_source, bios_ecrw_id = self._MergeRwFirmware(
+        bios_image, ec_image = self._MergeRwFirmware(
             fw_source,
             merge_dir,
+            main_target,
+            ec_target,
             fw_main_a_hash,
         )
 
         image_files = {}
-        self._AddImageFile(
-            image_files,
-            MAIN,
-            main_target,
-            fw_source.bios,
-            bios_ecrw_id=bios_ecrw_id,
-        )
-        self._AddImageFile(image_files, EC, ec_target, fw_source.ec)
+        if bios_image:
+            image_files[MAIN] = bios_image
+        if ec_image:
+            image_files[EC] = ec_image
         self._CopyFirmwareFiles(image_files, target_dir)
         return image_files
 
