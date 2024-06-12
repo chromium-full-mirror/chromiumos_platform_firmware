@@ -306,19 +306,12 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     def testExtractEcVersion(self):
         """Check extracting version from firmware ID."""
         # Old format with single hash.
-        self.assertEqual(
-            self.packer._ExtractEcVersion("reef_v1.1.5857-77f6ed7"),
-            pack_firmware.FirmwareVersion(1, 1, 5857),
-        )
         self.assertIsNone(
-            self.packer._ExtractEcVersion(
-                "reef_v1.1.5857-77f6ed7", cros_version_only=True
-            )
+            self.packer._ExtractEcVersion("reef_v1.1.5857-77f6ed7"),
         )
         # Old format with multiple hashes.
-        self.assertEqual(
+        self.assertIsNone(
             self.packer._ExtractEcVersion("geralt_v3.5.119161-ec:dc7985,os"),
-            pack_firmware.FirmwareVersion(3, 5, 119161),
         )
         # New format.
         self.assertEqual(

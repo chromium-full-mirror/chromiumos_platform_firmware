@@ -13,7 +13,6 @@ It requires:
 import collections
 import dataclasses
 import filecmp
-import functools
 import glob
 import hashlib
 import io
@@ -26,7 +25,7 @@ import struct
 import sys
 import tarfile
 import tempfile
-from typing import Callable, Dict
+from typing import Callable, Dict, Union
 
 # pylint: disable=import-error
 from cros_config_host import libcros_config_host
@@ -856,48 +855,43 @@ class FirmwarePacker:
         return bios_image, ec_image
 
     @staticmethod
-    def _ExtractEcVersion(
-        fw_id: str, cros_version_only: bool = False
-    ) -> FirmwareVersion:
-        """Extracts EC version from `fw_id`.
+    def _ExtractEcVersion(fw_id: str) -> Union[FirmwareVersion, None]:
+        """Extracts ChromeOS version from EC `fw_id`.
 
         Letting V denote [0-9], the expected version regex is "V+.V+.V+"
 
-        For older EC images, the expected format is "<board>_vV.V.VVVV-<hash>".
-        For newer EC images, the expected format is "<board>-VVVVV.VV.V", where
-        "VVVVV.VV.V" comes from ChromeOS build version.
+        The expected format is "<board>-VVVVV.VV.V", where "VVVVV.VV.V" comes
+        from ChromeOS build version. Older EC images' FWID (of format
+        "<board>_vV.V.VVVV-<hash>") doesn't contain the ChromeOS version, so
+        None will be returned.
 
         For example...
-            "reef_v1.1.5857-77f6ed7" becomes (1, 1, 5857).
             "rex-13579.24.0" becomes (13579, 24, 0).
 
         Args:
             fw_id: The firmware ID providing version information.
-            cros_version_only: Extract the ChromeOS version only. If this is
-                set and an old format is found, then `None` will be returned.
 
         Returns:
-            The version number.
+            The ChromeOS version, if present in `fw_id`. Otherwise None.
         """
         flags = re.ASCII
         match = re.fullmatch(r"[\w-]+-(\d+)\.(\d+)\.(\d+)", fw_id, flags=flags)
-        if not match:
-            if cros_version_only:
-                return None
-            match = re.fullmatch(
-                r"[\w-]+_v(\d+)\.(\d+)\.(\d+)-\S+", fw_id, flags=flags
+        if match:
+            return FirmwareVersion(
+                int(match.group(1)),
+                int(match.group(2)),
+                int(match.group(3)),
             )
+
+        # If CrOS version cannot be extracted, FWID must be of the old format.
+        match = re.fullmatch(r"[\w-]+_v\d+\.\d+\.\d+-\S+", fw_id, flags=flags)
         if not match:
             raise PackError(f"Malformed EC firmware ID: {fw_id}")
-        return FirmwareVersion(
-            int(match.group(1)),
-            int(match.group(2)),
-            int(match.group(3)),
-        )
+        return None
 
     @staticmethod
     def _ExtractMainVersion(fw_id: str) -> FirmwareVersion:
-        """Extracts main version from `fw_id`.
+        """Extracts ChromeOS version from BIOS `fw_id`.
 
         Letting V denote [0-9], the expected version regex is "V+.V+.V+".
 
@@ -915,7 +909,7 @@ class FirmwarePacker:
             fw_id: The firmware ID providing version information.
 
         Returns:
-            The version number.
+            The ChromeOS version.
         """
         match = re.fullmatch(
             r"\w+\.(\d+)\.(\d+)\.(\d+)(?:_\w+)?", fw_id, flags=re.ASCII
@@ -1006,9 +1000,7 @@ class FirmwarePacker:
                 # The "ecrw" CBFS file being placed into BIOS RW should come
                 # from a release branch, where the EC FWID should contain the
                 # CrOS version.
-                bios_ecrw_version = self._ExtractEcVersion(
-                    bios_ecrw_id, cros_version_only=True
-                )
+                bios_ecrw_version = self._ExtractEcVersion(bios_ecrw_id)
                 if not bios_ecrw_version:
                     raise PackError(
                         "Cannot extract CrOS version from bios_ecrw_id"
@@ -1028,15 +1020,12 @@ class FirmwarePacker:
         Returns:
             Filename of the output image.
         """
-        extract_version = functools.partial(
-            self._ExtractEcVersion, cros_version_only=True
-        )
         return self._FirmwareImageOutput(
             "ec",
             build_target=image_file.build_target,
             fw_ids=image_file.firmware_ids,
             uri_versions=image_file.uri_versions,
-            extract_cros_version=extract_version,
+            extract_cros_version=self._ExtractEcVersion,
             target_dir=target_dir,
         )
 
@@ -1581,12 +1570,7 @@ class FirmwarePacker:
 
         for image in (fw_source.ec, fw_source.ec_rw):
             if image:
-                self._CheckFirmwareIds(
-                    image,
-                    functools.partial(
-                        self._ExtractEcVersion, cros_version_only=True
-                    ),
-                )
+                self._CheckFirmwareIds(image, self._ExtractEcVersion)
 
     def _WriteFirmwareImages(self, firmware_info, devices_fw_target):
         """Extract and build all firmware images, then copy to the shellball.
