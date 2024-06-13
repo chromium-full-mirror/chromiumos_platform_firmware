@@ -453,7 +453,12 @@ class FirmwarePacker:
 
     @staticmethod
     def _MergeFile(
-        large_path, small_path, large_offset, small_offset=0, size=None
+        large_path,
+        small_path,
+        large_offset,
+        small_offset=0,
+        size=None,
+        padding=None,
     ):
         """Merges file in small_path to large_path in given offset.
 
@@ -463,14 +468,24 @@ class FirmwarePacker:
             large_offset: The offset to write in large_path.
             small_offset: The offset to read in small_path.
             size: Count of bytes to read/write. None to read whole small_path.
+            padding: Byte value for padding.
         """
+        with open(small_path, "rb") as source:
+            source.seek(small_offset)
+            if size is None:
+                data = source.read()
+            else:
+                data = source.read(size)
+
+        padding_data = b""
+        if size is not None and len(data) < size and padding is not None:
+            padding_data = bytes([padding] * (size - len(data)))
+
         with open(large_path, "rb+") as output:
             output.seek(large_offset)
-            with open(small_path, "rb") as source:
-                source.seek(small_offset)
-                output.write(
-                    source.read() if size is None else source.read(size)
-                )
+            output.write(data)
+            if padding_data:
+                output.write(padding_data)
 
     def _CloneFirmwareSection(self, dst, src, section, optional=False):
         """Clone a section in one file from another.
@@ -637,8 +652,14 @@ class FirmwarePacker:
                 f"New EC RW size {ec_rw_size:#x} is larger than FMAP"
                 f" EC_RW section size {section.size:#x}"
             )
-        # TODO(yupingso): Add 0xff paddings if ec_rw_size < section.size.
-        self._MergeFile(ec_fname, ec_rw_section_fname, section.offset)
+
+        self._MergeFile(
+            ec_fname,
+            ec_rw_section_fname,
+            section.offset,
+            size=section.size,
+            padding=0xFF,
+        )
 
     def _VerifyBIOSRwCBFS(self, bios_fname, rw_cbfs_hash):
         """Verify RW CBFS (FW_MAIN_A and FW_MAIN_B) of `bios_fname`."""
