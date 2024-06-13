@@ -63,7 +63,7 @@ EC_IMAGE = "ec.bin"
 EC_COMPONENT_MANIFEST = "component_manifest.json"
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class ImageSource:
     """File path and info of a firmware image."""
 
@@ -662,6 +662,7 @@ class FirmwarePacker:
         fw_source: FirmwareSource,
         use_ec_rw_from_ec_source: bool,
         build_target: str,
+        merge_dir: str,
     ) -> ImageFile:
         """Merge BIOS RO and RW images into one.
 
@@ -673,6 +674,7 @@ class FirmwarePacker:
                 file in the source BIOS RW image, and therefore there will be no
                 need to swap the "ecrw" file.
             build_target: BIOS build target.
+            merge_dir: Directory to put the merged image files.
 
         Returns:
             Merged BIOS image file.
@@ -687,7 +689,8 @@ class FirmwarePacker:
                 )
             return None
 
-        merged_file = bios.file
+        merged_file = self._CopyFile(bios.file, merge_dir, preserve_path=True)
+
         ro_fwid = bios.firmware_ids.ro_id
         rw_fwid = bios.firmware_ids.rw_id
         ro_uri_version = bios.uri_version
@@ -716,6 +719,7 @@ class FirmwarePacker:
         fw_source: FirmwareSource,
         use_ec_rw_from_ec_source: bool,
         build_target: str,
+        merge_dir: str,
     ) -> ImageFile:
         """Merge EC RO and RW images into one.
 
@@ -726,6 +730,7 @@ class FirmwarePacker:
                 "ecrw" CBFS file stored in the source BIOS RW image will be used
                 for EC RW.
             build_target: EC build target.
+            merge_dir: Directory to put the merged image files.
 
         Returns:
             Merged EC image file.
@@ -738,7 +743,8 @@ class FirmwarePacker:
                 raise PackError("Need EC (RO) firmware image to merge EC RW")
             return None
 
-        merged_file = ec.file
+        merged_file = self._CopyFile(ec.file, merge_dir, preserve_path=True)
+
         ro_fwid = ec.firmware_ids.ro_id
         rw_fwid = ec.firmware_ids.rw_id
         ro_uri_version = ec.uri_version
@@ -786,7 +792,7 @@ class FirmwarePacker:
 
         Args:
             fw_source: Locations of original images.
-            merge_dir: Directory in which to perform the merge.
+            merge_dir: Directory to put the merged image files.
             bios_target: BIOS build target.
             ec_target: EC build target.
             fw_main_a_hash: Expected hash of FW_MAIN_A in hex.
@@ -796,17 +802,6 @@ class FirmwarePacker:
                 bios_image: ImageFile of BIOS image.
                 ec_image: ImageFile of EC image.
         """
-        for image in (
-            fw_source.bios,
-            fw_source.bios_rw,
-            fw_source.ec,
-            fw_source.ec_rw,
-        ):
-            if image:
-                image.file = self._CopyFile(
-                    image.file, merge_dir, preserve_path=True
-                )
-
         bios = fw_source.bios
         ec = fw_source.ec
 
@@ -834,10 +829,10 @@ class FirmwarePacker:
                 )
 
         bios_image = self._MergeBIOSFirmware(
-            fw_source, use_ec_rw_from_ec_source, bios_target
+            fw_source, use_ec_rw_from_ec_source, bios_target, merge_dir
         )
         ec_image = self._MergeEcFirmware(
-            fw_source, use_ec_rw_from_ec_source, ec_target
+            fw_source, use_ec_rw_from_ec_source, ec_target, merge_dir
         )
 
         # Verify BIOS RW CBFS where "ecrw" is stored.

@@ -699,7 +699,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         )
         rc.AddCmdResult(
             partial_mock.ListRegex(
-                r"futility dump_fmap -p .*/images-merged/.*image_rw\.bin$"
+                r"futility dump_fmap -p .*/.*image_rw\.bin$"
             ),
             returncode=0,
             stdout=mocked_dump_fmap_output,
