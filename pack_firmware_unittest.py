@@ -346,6 +346,13 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             self.packer._ExtractMainVersion("Google_Volteer2.13672.328.0"),
             pack_firmware.FirmwareVersion(13672, 328, 0),
         )
+        # Official build for Alder Lake Client.
+        self.assertEqual(
+            self.packer._ExtractMainVersion(
+                "Google_Alder Lake Client.15920.0.0"
+            ),
+            pack_firmware.FirmwareVersion(15920, 0, 0),
+        )
         # Malformed FWID.
         with self.assertRaises(pack_firmware.PackError) as e:
             self.packer._ExtractMainVersion("a_bad_id")

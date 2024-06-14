@@ -875,7 +875,7 @@ class FirmwarePacker:
             The ChromeOS version, if present in `fw_id`. Otherwise None.
         """
         flags = re.ASCII
-        match = re.fullmatch(r"[\w-]+-(\d+)\.(\d+)\.(\d+)", fw_id, flags=flags)
+        match = re.fullmatch(r"[\w -]+-(\d+)\.(\d+)\.(\d+)", fw_id, flags=flags)
         if match:
             return FirmwareVersion(
                 int(match.group(1)),
@@ -884,7 +884,7 @@ class FirmwarePacker:
             )
 
         # If CrOS version cannot be extracted, FWID must be of the old format.
-        match = re.fullmatch(r"[\w-]+_v\d+\.\d+\.\d+-\S+", fw_id, flags=flags)
+        match = re.fullmatch(r"[\w -]+_v\d+\.\d+\.\d+-\S+", fw_id, flags=flags)
         if not match:
             raise PackError(f"Malformed EC firmware ID: {fw_id}")
         return None
@@ -912,7 +912,7 @@ class FirmwarePacker:
             The ChromeOS version.
         """
         match = re.fullmatch(
-            r"\w+\.(\d+)\.(\d+)\.(\d+)(?:_\w+)?", fw_id, flags=re.ASCII
+            r"[\w -]+\.(\d+)\.(\d+)\.(\d+)(?:_\w+)?", fw_id, flags=re.ASCII
         )
         if not match:
             raise PackError("Malformed BIOS firmware ID: %s" % fw_id)
