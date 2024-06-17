@@ -106,14 +106,6 @@ CHMOD_ALL_EXEC = 0o555
 # For testing
 packer = None
 
-# Variables that we replace in pack/setvars_template.
-REPLACE_VARS = [
-    "TARGET_RO_FWID",
-    "TARGET_FWID",
-    "TARGET_ECID",
-    "TARGET_PLATFORM",
-]
-
 
 class PackError(Exception):
     """Exception returned by FirmwarePacker when something goes wrong."""
