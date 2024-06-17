@@ -28,9 +28,9 @@ def ReadManifest(folder):
     result = {}
     for k, v in data.items():
         model = {}
-        model["TARGET_RO_FWID"] = v["host"]["versions"]["ro"]
-        model["TARGET_FWID"] = v["host"]["versions"]["rw"]
-        model["TARGET_ECID"] = v.get("ec", {}).get("versions", {}).get("ro", "")
+        model["MAIN_RO_FWID"] = v["host"]["versions"]["ro"]
+        model["MAIN_RW_FWID"] = v["host"]["versions"]["rw"]
+        model["EC_RO_FWID"] = v.get("ec", {}).get("versions", {}).get("ro", "")
         model["TARGET_PLATFORM"] = v["host"]["versions"]["ro"].partition(".")[0]
         model["IMAGE_MAIN"] = v["host"]["image"]
         model["IMAGE_EC"] = v.get("ec", {}).get("image", "")
@@ -62,9 +62,9 @@ def ReadVersions(fname):
         ro_fwid = rw_fwid = platform = ec_id = ""
 
     versions = {
-        "TARGET_RO_FWID": ro_fwid,
-        "TARGET_FWID": rw_fwid,
-        "TARGET_ECID": ec_id,
+        "MAIN_RO_FWID": ro_fwid,
+        "MAIN_RW_FWID": rw_fwid,
+        "EC_RO_FWID": ec_id,
         "TARGET_PLATFORM": platform,
     }
     return versions

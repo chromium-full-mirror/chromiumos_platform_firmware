@@ -322,9 +322,9 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
 
         # Check versions.
         versions = result.versions
-        self.assertEqual("Google_Reef.9042.50.0", versions["TARGET_RO_FWID"])
-        self.assertEqual("Google_Reef.9042.50.0", versions["TARGET_FWID"])
-        self.assertEqual("", versions["TARGET_ECID"])
+        self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RO_FWID"])
+        self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RW_FWID"])
+        self.assertEqual("", versions["EC_RO_FWID"])
         self.assertEqual("Google_Reef", versions["TARGET_PLATFORM"])
 
     def _CheckVersionsReef(self, versions):
@@ -335,9 +335,9 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
                 key: Shell variable name..
                 value: Value of that variable.
         """
-        self.assertEqual("Google_Reef.9042.50.0", versions["TARGET_FWID"])
-        self.assertEqual("Google_Reef.9042.50.0", versions["TARGET_RO_FWID"])
-        self.assertEqual("reef_v1.1.5857-77f6ed7", versions["TARGET_ECID"])
+        self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RO_FWID"])
+        self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RW_FWID"])
+        self.assertEqual("reef_v1.1.5857-77f6ed7", versions["EC_RO_FWID"])
         self.assertEqual("Google_Reef", versions["TARGET_PLATFORM"])
 
     def _CheckVars(self, model, versions, signature_id):
@@ -464,7 +464,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self._CheckVars("electro", versions, "electro")
 
         versions = manifest["pyro"]
-        self.assertEqual("Google_Pyro.9042.41.0", versions["TARGET_FWID"])
+        self.assertEqual("Google_Pyro.9042.41.0", versions["MAIN_RW_FWID"])
         self._CheckVars("pyro", versions, "pyro")
 
         lines = osutils.ReadFile(
@@ -699,9 +699,9 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         outfile = result.outfile
 
         versions = result.versions
-        self.assertEqual("Google_Reef.9042.50.0", versions["TARGET_RO_FWID"])
-        self.assertEqual("Google_Reef.9042.50.0", versions["TARGET_FWID"])
-        self.assertEqual("", versions["TARGET_ECID"])
+        self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RO_FWID"])
+        self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RW_FWID"])
+        self.assertEqual("", versions["EC_RO_FWID"])
 
         # Extract the file into a directory, then overwrite various files with
         # new images with a different IDs.
@@ -720,9 +720,9 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             [outfile, "--repack", self.unpackdir], capture_output=True
         )
         versions = pack_firmware_utils.ReadVersions(outfile)
-        self.assertEqual(ro_id, versions["TARGET_RO_FWID"])
-        self.assertEqual(rw_id, versions["TARGET_FWID"])
-        self.assertEqual(ec_id, versions["TARGET_ECID"])
+        self.assertEqual(ro_id, versions["MAIN_RO_FWID"])
+        self.assertEqual(rw_id, versions["MAIN_RW_FWID"])
+        self.assertEqual(ec_id, versions["EC_RO_FWID"])
 
     def testFilesSorted(self):
         """Files in the shellball should be sorted by filename."""
@@ -994,7 +994,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         versions = pack_firmware_utils.ReadManifest(self.unpackdir)[
             "customlabel_test"
         ]
-        self.assertEqual("Google_Reef.9042.50.0", versions["TARGET_FWID"])
+        self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RW_FWID"])
         self._CheckVars("sand", versions, "customlabel_test")
 
         # Check the signer instructions - the last line should be for
@@ -1049,7 +1049,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
 
         # Check that the manifest is correct (points to sand).
         versions = pack_firmware_utils.ReadManifest(self.unpackdir)[model]
-        self.assertEqual("Google_Reef.9042.50.0", versions["TARGET_FWID"])
+        self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RW_FWID"])
         self._CheckVars("reef", versions, "sig-id-in-customization-id")
 
         # Check the signer instructions - we should get keys for the two
