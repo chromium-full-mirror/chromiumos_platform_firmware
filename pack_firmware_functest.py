@@ -531,6 +531,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
                 "Google_Ciri.15706.0.0",
                 "ciri-15705.0.0",
                 "ciri-15821.0.0",
+                "ciri-15821.0.0",
             ),
             # main-ro-image version differs from ec-ro-image.
             # No ec-rw-image specified, so EC RW comes from ec-ro-image.
@@ -540,12 +541,14 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
                 "Google_Ciri.15705.0.0",
                 "ciri-15820.0.0",
                 "ciri-15820.0.0",
+                "ciri-15820.0.0",
             ),
             # main-ro-image version differs from ec-ro-image.
             # No ec-rw-image specified, so EC RW comes from ec-ro-image.
             "emhyr": pack_firmware_utils.ModelVersion(
                 "Google_Ciri.15705.0.0",
                 "Google_Ciri.15706.0.0",
+                "ciri-15820.0.0",
                 "ciri-15820.0.0",
                 "ciri-15820.0.0",
             ),
@@ -557,6 +560,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
                 "Google_Ciri.15705.0.0",
                 "ciri-15820.0.0",
                 "ciri-15821.0.0",
+                "ciri-15821.0.0",
             ),
             # main-ro-image version differs from ec-ro-image.
             # EC RW comes from ec-rw-image.
@@ -564,6 +568,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
                 "Google_Ciri.15705.0.0",
                 "Google_Ciri.15706.0.0",
                 "ciri-15820.0.0",
+                "ciri-15821.0.0",
                 "ciri-15821.0.0",
             ),
             # main-ro-image and ec-ro-image have the same version.

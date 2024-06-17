@@ -21,6 +21,7 @@ class ModelVersion:
     bios_rw_id: str
     ec_ro_id: str
     ec_rw_id: str
+    bios_ecrw_id: str = ""
 
 
 def ReadManifest(folder):
@@ -73,6 +74,7 @@ def ReadVersions(fname):
         host_versions = v["host"]["versions"]
         main_ro_fwid = host_versions["ro"]
         main_rw_fwid = host_versions["rw"]
+        main_ecrw_fwid = host_versions.get("ecrw", "")
 
         ec_versions = v.get("ec", {}).get("versions", {})
         ec_ro_fwid = ec_versions.get("ro", "")
@@ -83,6 +85,7 @@ def ReadVersions(fname):
             bios_rw_id=main_rw_fwid,
             ec_ro_id=ec_ro_fwid,
             ec_rw_id=ec_rw_fwid,
+            bios_ecrw_id=main_ecrw_fwid,
         )
     return versions
 
