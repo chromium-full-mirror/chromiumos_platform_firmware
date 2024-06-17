@@ -320,14 +320,16 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             ]
         )
 
-        # Check versions.
-        versions = result.versions
-        self.assertEqual(["reef"], sorted(versions.keys()))
-        versions = versions["reef"]
-        self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RO_FWID"])
-        self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RW_FWID"])
-        self.assertEqual("", versions["EC_RO_FWID"])
-        self.assertEqual("", versions["EC_RW_FWID"])
+        # Check manifest versions.
+        expected_versions = {
+            "reef": pack_firmware_utils.ModelVersion(
+                "Google_Reef.9042.50.0",
+                "Google_Reef.9042.50.0",
+                "",
+                "",
+            ),
+        }
+        self.assertEqual(expected_versions, result.versions)
 
     def _CheckVersionsReef(self, versions):
         """Check the versions match expectations for reef.
@@ -700,13 +702,15 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         result = self._RunPackFirmware(extra_args)
         outfile = result.outfile
 
-        versions = result.versions
-        self.assertEqual(["reef"], sorted(versions.keys()))
-        versions = versions["reef"]
-        self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RO_FWID"])
-        self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RW_FWID"])
-        self.assertEqual("", versions["EC_RO_FWID"])
-        self.assertEqual("", versions["EC_RW_FWID"])
+        expected_versions = {
+            "reef": pack_firmware_utils.ModelVersion(
+                "Google_Reef.9042.50.0",
+                "Google_Reef.9042.50.0",
+                "",
+                "",
+            ),
+        }
+        self.assertEqual(expected_versions, result.versions)
 
         # Extract the file into a directory, then overwrite various files with
         # new images with a different IDs.
@@ -726,12 +730,15 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             [outfile, "--repack", self.unpackdir], capture_output=True
         )
         versions = pack_firmware_utils.ReadVersions(outfile)
-        self.assertEqual(["veyron_mickey"], sorted(versions.keys()))
-        versions = versions["veyron_mickey"]
-        self.assertEqual(ro_id, versions["MAIN_RO_FWID"])
-        self.assertEqual(rw_id, versions["MAIN_RW_FWID"])
-        self.assertEqual(ec_ro_id, versions["EC_RO_FWID"])
-        self.assertEqual(ec_rw_id, versions["EC_RW_FWID"])
+        expected_versions = {
+            "veyron_mickey": pack_firmware_utils.ModelVersion(
+                ro_id,
+                rw_id,
+                ec_ro_id,
+                ec_rw_id,
+            ),
+        }
+        self.assertEqual(expected_versions, versions)
 
     def testFilesSorted(self):
         """Files in the shellball should be sorted by filename."""

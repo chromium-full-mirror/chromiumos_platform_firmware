@@ -7,9 +7,20 @@
 This includes a few useful functions shared among unit and functional tests.
 """
 
+import dataclasses
 import json
 import os
 import subprocess
+
+
+@dataclasses.dataclass(frozen=True)
+class ModelVersion:
+    """BIOS and EC versions of a model."""
+
+    bios_ro_id: str
+    bios_rw_id: str
+    ec_ro_id: str
+    ec_rw_id: str
 
 
 def ReadManifest(folder):
@@ -53,7 +64,7 @@ def ReadVersions(fname):
     Returns:
         Dict with:
             key: Model name.
-            value: Dict containing versions of that model.
+            value: ModelVersion object.
     """
     raw_data = subprocess.check_output(["sh", fname, "--manifest"])
     data = json.loads(raw_data)
@@ -67,13 +78,12 @@ def ReadVersions(fname):
         ec_ro_fwid = ec_versions.get("ro", "")
         ec_rw_fwid = ec_versions.get("rw", "")
 
-        model = {
-            "MAIN_RO_FWID": main_ro_fwid,
-            "MAIN_RW_FWID": main_rw_fwid,
-            "EC_RO_FWID": ec_ro_fwid,
-            "EC_RW_FWID": ec_rw_fwid,
-        }
-        versions[k] = model
+        versions[k] = ModelVersion(
+            bios_ro_id=main_ro_fwid,
+            bios_rw_id=main_rw_fwid,
+            ec_ro_id=ec_ro_fwid,
+            ec_rw_id=ec_rw_fwid,
+        )
     return versions
 
 
