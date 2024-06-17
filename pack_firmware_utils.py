@@ -53,30 +53,30 @@ def ReadVersions(fname):
 
     Returns:
         Dict with:
-            key: Version name.
-            value: Version value.
+            key: Model name.
+            value: Dict containing versions of that model.
     """
     raw_data = subprocess.check_output(["sh", fname, "--manifest"])
     data = json.loads(raw_data)
-    if len(data) == 1:
-        data = next(iter(data.values()))
-        host_versions = data["host"]["versions"]
+    versions = {}
+    for k, v in data.items():
+        host_versions = v["host"]["versions"]
         main_ro_fwid = host_versions["ro"]
         main_rw_fwid = host_versions["rw"]
-        ec_versions = data.get("ec", {}).get("versions", {})
+
+        ec_versions = v.get("ec", {}).get("versions", {})
         ec_ro_fwid = ec_versions.get("ro", "")
         ec_rw_fwid = ec_versions.get("rw", "")
-        platform = main_ro_fwid.partition(".")[0]
-    else:
-        main_ro_fwid = main_rw_fwid = ec_ro_fwid = ec_rw_fwid = platform = ""
 
-    versions = {
-        "MAIN_RO_FWID": main_ro_fwid,
-        "MAIN_RW_FWID": main_rw_fwid,
-        "EC_RO_FWID": ec_ro_fwid,
-        "EC_RW_FWID": ec_rw_fwid,
-        "TARGET_PLATFORM": platform,
-    }
+        platform = main_ro_fwid.partition(".")[0]
+        model = {
+            "MAIN_RO_FWID": main_ro_fwid,
+            "MAIN_RW_FWID": main_rw_fwid,
+            "EC_RO_FWID": ec_ro_fwid,
+            "EC_RW_FWID": ec_rw_fwid,
+            "TARGET_PLATFORM": platform,
+        }
+        versions[k] = model
     return versions
 
 

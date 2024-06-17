@@ -322,6 +322,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
 
         # Check versions.
         versions = result.versions
+        self.assertEqual(["reef"], sorted(versions.keys()))
+        versions = versions["reef"]
         self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RO_FWID"])
         self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RW_FWID"])
         self.assertEqual("", versions["EC_RO_FWID"])
@@ -701,6 +703,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         outfile = result.outfile
 
         versions = result.versions
+        self.assertEqual(["reef"], sorted(versions.keys()))
+        versions = versions["reef"]
         self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RO_FWID"])
         self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RW_FWID"])
         self.assertEqual("", versions["EC_RO_FWID"])
@@ -724,6 +728,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             [outfile, "--repack", self.unpackdir], capture_output=True
         )
         versions = pack_firmware_utils.ReadVersions(outfile)
+        self.assertEqual(["veyron_mickey"], sorted(versions.keys()))
+        versions = versions["veyron_mickey"]
         self.assertEqual(ro_id, versions["MAIN_RO_FWID"])
         self.assertEqual(rw_id, versions["MAIN_RW_FWID"])
         self.assertEqual(ec_ro_id, versions["EC_RO_FWID"])
