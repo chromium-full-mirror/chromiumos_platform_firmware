@@ -328,7 +328,6 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RW_FWID"])
         self.assertEqual("", versions["EC_RO_FWID"])
         self.assertEqual("", versions["EC_RW_FWID"])
-        self.assertEqual("Google_Reef", versions["TARGET_PLATFORM"])
 
     def _CheckVersionsReef(self, versions):
         """Check the versions match expectations for reef.
@@ -342,7 +341,6 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RW_FWID"])
         self.assertEqual("reef_v1.1.5857-77f6ed7", versions["EC_RO_FWID"])
         self.assertEqual("reef_v1.1.5857-77f6ed7", versions["EC_RW_FWID"])
-        self.assertEqual("Google_Reef", versions["TARGET_PLATFORM"])
 
     def _CheckVars(self, model, versions, signature_id):
         """Check the versions match expectations.

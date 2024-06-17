@@ -37,7 +37,6 @@ def ReadManifest(folder):
         model["EC_RO_FWID"] = ec_versions.get("ro", "")
         model["EC_RW_FWID"] = ec_versions.get("rw", "")
 
-        model["TARGET_PLATFORM"] = host_versions["ro"].partition(".")[0]
         model["IMAGE_MAIN"] = v["host"]["image"]
         model["IMAGE_EC"] = v.get("ec", {}).get("image", "")
         model["SIGNATURE_ID"] = v.get("signature_id", k or "")
@@ -68,13 +67,11 @@ def ReadVersions(fname):
         ec_ro_fwid = ec_versions.get("ro", "")
         ec_rw_fwid = ec_versions.get("rw", "")
 
-        platform = main_ro_fwid.partition(".")[0]
         model = {
             "MAIN_RO_FWID": main_ro_fwid,
             "MAIN_RW_FWID": main_rw_fwid,
             "EC_RO_FWID": ec_ro_fwid,
             "EC_RW_FWID": ec_rw_fwid,
-            "TARGET_PLATFORM": platform,
         }
         versions[k] = model
     return versions
