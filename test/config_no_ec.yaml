@@ -1,0 +1,30 @@
+{
+  "chromeos": {
+    "configs": [
+      {
+        "brand-code": "ZZCR",
+        "firmware": {
+          "bcs-overlay": "overlay-fake-private",
+          "build-targets": {
+            "bmpblk": "fake",
+            "coreboot": "fake",
+            "depthcharge": "fake",
+            "libpayload": "fake"
+          },
+          "firmware-config": 0,
+          "image-name": "fake",
+          "main-ro-image": "bcs://Reef.9000.0.0.tbz2",
+        },
+        "firmware-signing": {
+          "key-id": "DEFAULT",
+          "signature-id": "fake"
+        },
+        "identity": {
+          "frid": "Google_Fake",
+          "platform-name": "Generic"
+        },
+        "name": "fake"
+      }
+    ]
+  }
+}

@@ -16,6 +16,7 @@ import pprint
 import shutil
 import struct
 import sys
+from typing import Iterable, List
 from unittest import mock
 
 import pack_firmware
@@ -24,7 +25,6 @@ import pack_firmware_utils
 from chromite.lib import cros_test_lib
 from chromite.lib import osutils
 from chromite.lib import partial_mock
-from chromite.signing.lib import firmware_unittest
 
 
 # We need to poke around in internal members of PackFirmware.
@@ -77,43 +77,6 @@ DEVICE_EXTENSION 16248832 524288
 UNUSED_HOLE 16773120 4096
 """
 
-# Expected output from 'futility dump_fmap -p' for alternate main image.
-# This FMAP contains EC_MAIN_A sections, which will alter
-# the behavior of repack. A similar FMAP is used on some legacy Chrome OS
-# devices.
-FMAP_OUTPUT_LEGACY = """SI_ALL 0 2097152
-SI_DESC 0 4096
-SI_ME 4096 2093056
-SI_BIOS 2097152 6291456
-RW_SECTION_A 2097152 983040
-VBLOCK_A 2097152 65536
-FW_MAIN_A 2162688 720896
-EC_MAIN_A 2949120 131008
-RW_FWID_A 3080128 64
-RW_SECTION_B 3080192 983040
-VBLOCK_B 3080192 65536
-FW_MAIN_B 3145728 720896
-EC_MAIN_B 3932160 131008
-RW_FWID_B 4063168 64
-RW_MRC_CACHE 4063232 65536
-RW_ELOG 4128768 16384
-RW_SHARED 4145152 16384
-SHARED_DATA 4145152 8192
-VBLOCK_DEV 4153344 8192
-RW_VPD 4161536 8192
-RW_UNUSED 4169728 24576
-RW_LEGACY 4194304 2097152
-WP_RO 6291456 2097152
-RO_VPD 6291456 16384
-RO_UNUSED 6307840 49152
-RO_SECTION 6356992 2031616
-FMAP 6356992 2048
-RO_FRID 6359040 64
-RO_FRID_PAD 6359104 1984
-GBB 6361088 978944
-BOOT_STUB 7340032 1048576
-"""
-
 # Size of dummy 'ecrw' file.
 ECRW_SIZE = 0x38000
 
@@ -155,16 +118,6 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         self.output = os.path.join(self.tempdir, "out")
         self.image_output = os.path.join(self.tempdir, "images")
         self.ec_comp_output = os.path.join(self.tempdir, "ec_comp_out")
-        self.common_flags = [
-            "-b",
-            "test/image.bin",
-            "-q",
-            "-o",
-            self.output,
-            "--image_output",
-            self.image_output,
-        ]
-
         self.packer = pack_firmware.FirmwarePacker(".")
         self._ExtractFrid = pack_firmware.FirmwarePacker._ExtractFrid
 
@@ -197,12 +150,6 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             with self.assertRaises(pack_firmware.PackError) as e:
                 pack_firmware.main(["."])
             self.assertIn("'zip'", str(e.exception))
-
-        # Should complain if we don't provide at least one image.
-        with self.assertRaises(pack_firmware.PackError) as e:
-            args = [".", "-L", "-o", "out"]
-            pack_firmware.main(args)
-        self.assertIn("Must assign at least one", str(e.exception))
 
     def testArgParse(self):
         """Test some basic argument parsing as a validity check."""
@@ -451,22 +398,6 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             "bios-rex.ro-15555-55-0.rw-15555-56-0.ecrw-16666-66-0.bin",
         )
 
-        self.packer._RemoveTmpdirs()
-
-    def testFirmwareImageOutputLegacy(self):
-        """Check firmware image output name when legacy is set."""
-        self.packer._args = self.packer.ParseArgs(["-L"])
-        self.packer._tmpdir = self.packer._CreateTmpDir()
-        self.assertEqual(self.packer._FirmwareImageOutput("bios"), "bios.bin")
-        self.assertEqual(
-            self.packer._FirmwareImageOutput("bios", "reef"), "bios.bin"
-        )
-        self.assertEqual(
-            self.packer._FirmwareImageOutput(
-                tag="bios", target_dir=self.packer._tmpdir
-            ),
-            os.path.join(self.packer._tmpdir, "bios.bin"),
-        )
         self.packer._RemoveTmpdirs()
 
     def testUntarFile(self):
@@ -733,66 +664,6 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             side_effect=cls._CreateDumpfmapFile,
         )
 
-    def testMockedRun(self):
-        """Start up with a valid updater script and BIOS."""
-        args = [".", "-L", "-e", "test/ec.bin"] + self.common_flags
-        with cros_test_lib.RunCommandMock() as rc:
-            self._AddMocks(rc)
-            firmware_unittest.MockFirmwareSigner(rc)
-            pack_firmware.main(args)
-            pack_firmware.packer._versions.getvalue().splitlines()
-
-    def _testMockedRunWithMerge(
-        self, mocked_dump_fmap_output, expected_versions
-    ):
-        args = [
-            "--bios_rw_image",
-            "test/image_rw.bin",
-            "-L",
-            "-e",
-            "test/ec.bin",
-        ] + self.common_flags
-        with cros_test_lib.RunCommandMock() as rc:
-            self._AddMocks(rc)
-            self._AddMergeMocks(rc, mocked_dump_fmap_output)
-            self.packer.Start(args, remove_tmpdirs=False)
-        self._AssertVersionsEqual(
-            self.packer._versions.getvalue(), expected_versions
-        )
-        rw_fname = self.packer._BaseDirPath("ec.bin")
-        self.assertAlmostEqual(
-            os.stat(rw_fname).st_mtime, os.stat("test/image_rw.bin").st_mtime
-        )
-        ec_fname = self.packer._BaseDirPath("ec.bin")
-        self.assertAlmostEqual(
-            os.stat(ec_fname).st_mtime, os.stat("test/image_rw.bin").st_mtime
-        )
-        self.packer._RemoveTmpdirs()
-
-    def testMockedRunWithMerge(self):
-        """Start up with a valid updater script and merge the RW BIOS."""
-        expected_versions = [
-            r"BIOS image: +\w+ \*/images-merged/.*/image.bin",
-            f"BIOS version: +{RO_FRID}",
-            rf"BIOS \(RW\) version: +{RW_FWID}",
-            r"EC image: +\w+ \*/images-merged/.*/ec.bin",
-            f"EC version: +{EC_RO_FRID}",
-            rf"EC \(RW\) version: +{EC_RW_FWID}",
-        ]
-        self._testMockedRunWithMerge(FMAP_OUTPUT, expected_versions)
-
-    def testMockedRunWithMergeLegacyFmap(self):
-        """Repeat merge test with alternate FMAP used on legacy devices."""
-        expected_versions = [
-            r"BIOS image: +\w+ \*/images-merged/.*/image.bin",
-            f"BIOS version: +{RO_FRID}",
-            rf"BIOS \(RW\) version: +{RW_FWID}",
-            r"EC image: +\w+ \*/images-merged/.*/ec.bin",
-            f"EC version: +{EC_RO_FRID}",
-            rf"EC \(RW\) version: +{EC_RW_FWID}",
-        ]
-        self._testMockedRunWithMerge(FMAP_OUTPUT_LEGACY, expected_versions)
-
     def testMockedRunUnibuildBad(self):
         """Try unified build options with invalid arguments."""
 
@@ -801,11 +672,16 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             pack_firmware.main(args)
         self.assertIn("Missing model configuration file", str(e.exception))
 
-    def SetupRunWithUnibuild(self, config_fname):
+    def SetupRunWithUnibuild(
+        self,
+        config_fname: str,
+        models: Iterable[str] = ("reef", "pyro"),
+    ) -> List[str]:
         """Set up to run with a valid updater script and BIOS.
 
         Args:
             config_fname: Model configuration file to use.
+            models: List of models to filter to.
 
         Returns:
             List of arguments to pass to pack_firmware.main()
@@ -813,10 +689,6 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
 
         args = [
             ".",
-            "-m",
-            "reef",
-            "-m",
-            "pyro",
             "-q",
             "-o",
             self.output,
@@ -830,6 +702,9 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             "functest",
             "-t",
         ]
+
+        for model in models:
+            args.extend(["--model", model])
 
         os.environ["SYSROOT"] = "test"
         os.environ["FILESDIR"] = "test"
@@ -880,36 +755,23 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             pack_firmware.main(args)
             pack_firmware.packer._versions.getvalue().splitlines()
 
-    def _FindLineInList(self, lines, start_text):
-        """Find a single line starting with the given text and return it.
-
-        Args:
-            lines: List of lines to check.
-            start_text: Text to find.
-
-        Returns:
-            Line found, as a string (or assertion failure if exactly one
-                matching line was not found).
-        """
-        found = [line for line in lines if line.strip().startswith(start_text)]
-        self.assertEqual(len(found), 1)
-        return found[0]
-
     def testNoECFirmware(self):
         """Simple test of creating firmware without an EC image."""
-        args = self.common_flags + ["-L"]
+        args = self.SetupRunWithUnibuild("config_no_ec.yaml", models=[])
+
         with cros_test_lib.RunCommandMock() as rc:
             self._AddMocks(rc)
-            self.packer.Start(args)
+            pack_firmware.main(args)
 
         # There should be only BIOS version in the VERSION file.
         expected_versions = [
-            r"BIOS image: +\w+ \*/.*/image.bin",
+            "Model: +fake",
+            r"BIOS image: +\w+ \*/.*/fake/image.bin",
             f"BIOS version: +{RO_FRID}",
             rf"BIOS \(RW\) version: +{RW_FWID}",
         ]
         self._AssertVersionsEqual(
-            self.packer._versions.getvalue(), expected_versions
+            pack_firmware.packer._versions.getvalue(), expected_versions
         )
 
 

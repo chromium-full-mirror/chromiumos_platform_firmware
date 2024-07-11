@@ -158,12 +158,6 @@ class FirmwarePacker:
         """
         parser = commandline.ArgumentParser(description=__doc__)
         parser.add_argument(
-            "-L",
-            "--legacy",
-            action="store_true",
-            help="Legacy mode for use with boards not using " "unified builds",
-        )
-        parser.add_argument(
             "-m",
             "--model",
             type=str,
@@ -943,11 +937,9 @@ class FirmwarePacker:
         """Creates output file name for some firmware image.
 
         Filename will have the form...
-            "<target_dir>/<tag>.<ro_version>.<rw_version>.bin",
+            "<target_dir>/<tag>-<build_target>.<ro_version>.<rw_version>.bin",
 
         If versions or model are not provided, returns empty string.
-        If legacy is set, returns a generic name of the form
-        <target_dir>/<tag>.bin.
 
         Args:
             tag: Type of image (e.g, "bios").
@@ -992,30 +984,27 @@ class FirmwarePacker:
         has_required_fields = fw_ids and all(
             [build_target, fw_ids.ro_id, fw_ids.rw_id, extract_cros_version]
         )
-        if self._args.legacy:
-            fname = f"{tag}.bin"
-        else:
-            if not has_required_fields:
-                return ""
-            parts = [f"{tag}-{build_target}"]
-            parts.append(
-                "ro-%s" % get_version_string(fw_ids.ro_id, uri_versions.ro)
-            )
-            parts.append(
-                "rw-%s" % get_version_string(fw_ids.rw_id, uri_versions.rw)
-            )
-            if bios_ecrw_id:
-                # The "ecrw" CBFS file being placed into BIOS RW should come
-                # from a release branch, where the EC FWID should contain the
-                # CrOS version.
-                bios_ecrw_version = self._ExtractEcVersion(bios_ecrw_id)
-                if not bios_ecrw_version:
-                    raise PackError(
-                        "Cannot extract CrOS version from bios_ecrw_id"
-                        f" {bios_ecrw_id}"
-                    )
-                parts.append("ecrw-%s" % to_string(bios_ecrw_version))
-            fname = ".".join(parts) + ".bin"
+        if not has_required_fields:
+            return ""
+        parts = [f"{tag}-{build_target}"]
+        parts.append(
+            "ro-%s" % get_version_string(fw_ids.ro_id, uri_versions.ro)
+        )
+        parts.append(
+            "rw-%s" % get_version_string(fw_ids.rw_id, uri_versions.rw)
+        )
+        if bios_ecrw_id:
+            # The "ecrw" CBFS file being placed into BIOS RW should come
+            # from a release branch, where the EC FWID should contain the
+            # CrOS version.
+            bios_ecrw_version = self._ExtractEcVersion(bios_ecrw_id)
+            if not bios_ecrw_version:
+                raise PackError(
+                    "Cannot extract CrOS version from bios_ecrw_id"
+                    f" {bios_ecrw_id}"
+                )
+            parts.append("ecrw-%s" % to_string(bios_ecrw_version))
+        fname = ".".join(parts) + ".bin"
         return os.path.join(target_dir, fname) if target_dir else fname
 
     def _EcImageOutput(self, image_file=None, target_dir=None):
@@ -1104,8 +1093,7 @@ class FirmwarePacker:
                 value: ImageFile object containing filename and version.
         """
         print(file=self._versions)  # Blank line.
-        if model:
-            print("Model:        %s" % model, file=self._versions)
+        print("Model:        %s" % model, file=self._versions)
         for name, image in sorted(image_files.items()):
             filename = image.filename
             ro_id, rw_id = image.firmware_ids
@@ -1275,10 +1263,10 @@ class FirmwarePacker:
         self,
         fw_source,
         target_dir,
-        main_target=None,
-        ec_target=None,
-        fw_name=None,
-        fw_main_a_hash=None,
+        main_target,
+        ec_target,
+        fw_name,
+        fw_main_a_hash,
     ):
         """Prepares firmware to be copied into shellball, then copies it.
 
@@ -1287,8 +1275,8 @@ class FirmwarePacker:
         Args:
             fw_source: Locations of original images.
             target_dir: Output location for firmware images.
-            main_target: The build target for main firmware, if available.
-            ec_target: The build target for ec firmware, if available.
+            main_target: The build target for main firmware.
+            ec_target: The build target for ec firmware.
             fw_name: Name for this firmware.
             fw_main_a_hash: Expected hash of FW_MAIN_A in hex.
 
@@ -1804,97 +1792,84 @@ class FirmwarePacker:
             self._basedir = self._CreateTmpDir()
             self._tmpdir = self._CreateTmpDir()
             model_details = collections.OrderedDict()
-            if not args.legacy:
-                # Most of the arguments are meaningless with unified builds
-                # since we get the information from the model configuration.
-                # Add checks here to avoid confusion. We could possibly do some
-                # of this using mutual exclusivity in the argparser, but I'm not
-                # sure it is better.
-                image_args = [args.bios_image, args.ec_image]
-                if any(image_args) and not args.local:
-                    raise PackError("Cannot use -b/-p/-e with -m")
-                if args.local and not any(image_args):
-                    raise PackError("Must provide one of -b, -e, -p with -l")
-                if not args.config:
-                    raise PackError("Missing model configuration file (use -c)")
 
-                conf = libcros_config_host.CrosConfig(args.config)
-                osutils.SafeMakedirs(self._BaseDirPath(MODELS_DIR))
-                osutils.SafeMakedirs(self._BaseDirPath(IMG_DIR))
+            image_args = [args.bios_image, args.ec_image]
+            if any(image_args) and not args.local:
+                raise PackError("Cannot use -b/-p/-e with -m")
+            if args.local and not any(image_args):
+                raise PackError("Must provide one of -b, -e, -p with -l")
+            if not args.config:
+                raise PackError("Missing model configuration file (use -c)")
 
-                devices_fw_target = conf.GetFirmwareConfigsByDevice()
+            conf = libcros_config_host.CrosConfig(args.config)
+            osutils.SafeMakedirs(self._BaseDirPath(MODELS_DIR))
+            osutils.SafeMakedirs(self._BaseDirPath(IMG_DIR))
 
-                # TODO(yshaul): delete this once the api migration is complete.
-                firmware_info = conf.GetFirmwareInfo()
-                # TODO: Ignore the passed-in model list and use the list from
-                # libcros_config_host always. For now the passed-in list is used
-                # for testing.
-                if args.models:
-                    # tests depend on exact ordering
-                    devices_fw_target = collections.OrderedDict(
-                        (model, devices_fw_target[model])
-                        for model in args.models
-                    )
+            devices_fw_target = conf.GetFirmwareConfigsByDevice()
 
-                images, ec_component_manifests = self._WriteFirmwareImages(
-                    firmware_info, devices_fw_target
+            # TODO(yshaul): delete this once the api migration is complete.
+            firmware_info = conf.GetFirmwareInfo()
+            # TODO: Ignore the passed-in model list and use the list from
+            # libcros_config_host always. For now the passed-in list is used
+            # for testing.
+            if args.models:
+                # tests depend on exact ordering
+                devices_fw_target = collections.OrderedDict(
+                    (model, devices_fw_target[model]) for model in args.models
                 )
 
-                if not images:
-                    if not args.quiet:
-                        print("No image created\n")
-                    return
+            images, ec_component_manifests = self._WriteFirmwareImages(
+                firmware_info, devices_fw_target
+            )
 
-                for device, fw_target in devices_fw_target.items():
-                    fw = firmware_info[device]
-                    if fw_target not in images:
-                        # It is possible that some devices have images and
-                        # others do not. Do validity checks and continue past
-                        # this device.
-                        assert not args.local, (
-                            "Target %s must have an image if args.local is set."
-                            % fw_target
-                        )
-                        assert not any(
-                            (
-                                fw.main_image_uri,
-                                fw.main_rw_image_uri,
-                                fw.ec_image_uri,
-                                fw.ec_rw_image_uri,
-                            )
-                        ), (
-                            "Expected an image for %s if any image_uri is set."
-                            % device
-                        )
+            if not images:
+                if not args.quiet:
+                    print("No image created\n")
+                return
 
-                        continue
-
-                    image_files = images[fw_target]
-                    model_details[device] = ModelDetails(
-                        image_files, fw.key_id, fw.brand_code
+            for device, fw_target in devices_fw_target.items():
+                fw = firmware_info[device]
+                if fw_target not in images:
+                    # It is possible that some devices have images and
+                    # others do not. Do validity checks and continue past
+                    # this device.
+                    assert not args.local, (
+                        "Target %s must have an image if args.local is set."
+                        % fw_target
                     )
-                    if not fw.have_image:
-                        continue
-                    self._WriteVersions(device, image_files)
-                    self._GenerateSetVars(fw, image_files)
-                if not args.local:
-                    self._SaveRawImageFiles(
-                        devices_fw_target,
-                        images,
-                        args.image_output,
+                    assert not any(
+                        (
+                            fw.main_image_uri,
+                            fw.main_rw_image_uri,
+                            fw.ec_image_uri,
+                            fw.ec_rw_image_uri,
+                        )
+                    ), (
+                        "Expected an image for %s if any image_uri is set."
+                        % device
                     )
-                self._SaveEcComponentManifests(ec_component_manifests)
-            else:
-                bios = self._CreateLocalImageSource(args.bios_image)
-                bios_rw = self._CreateLocalImageSource(args.bios_rw_image)
-                ec = self._CreateLocalImageSource(args.ec_image)
-                ec_rw = self._CreateLocalImageSource(args.ec_rw_image)
-                image_files = self._ProcessFirmware(
-                    FirmwareSource(bios, bios_rw, ec, ec_rw, None),
-                    self._basedir,
+
+                    continue
+
+                image_files = images[fw_target]
+                model_details[device] = ModelDetails(
+                    image_files, fw.key_id, fw.brand_code
                 )
-                self._WriteVersions("", image_files)
+                if not fw.have_image:
+                    continue
+                self._WriteVersions(device, image_files)
+                self._GenerateSetVars(fw, image_files)
+
+            if not args.local:
+                self._SaveRawImageFiles(
+                    devices_fw_target,
+                    images,
+                    args.image_output,
+                )
+
+            self._SaveEcComponentManifests(ec_component_manifests)
             self._WriteVersionFile()
+
             if model_details:
                 self._WriteSignerInstructions(model_details)
             self._BuildShellball()

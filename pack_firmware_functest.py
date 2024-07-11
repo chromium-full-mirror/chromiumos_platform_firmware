@@ -301,36 +301,6 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
                     f"{pprint.pformat(raw_lines)}"
                 )
 
-    def testFirmwareUpdate(self):
-        """Run the firmware packer, unpack the result and check it."""
-        extra_args = ["-b", os.path.join(self.indir, "image.bin"), "-L"]
-        result = self._RunPackFirmware(extra_args)
-
-        # Check that we got the right files.
-        files = result.files
-        self.assertEqual(3, len(files))
-        self.assertEqual(self._ExpectedFiles(["bios.bin"]), files)
-
-        # Check VERSION file.
-        self._AssertVersionLines(
-            [
-                "BIOS image: +99a6fc64e45596aa2c1a9911cddce952 "
-                r"\*/.*/image\.bin",
-                r"BIOS version: Google_Reef\.9042\.50\.0",
-            ]
-        )
-
-        # Check manifest versions.
-        expected_versions = {
-            "reef": pack_firmware_utils.ModelVersion(
-                "Google_Reef.9042.50.0",
-                "Google_Reef.9042.50.0",
-                "",
-                "",
-            ),
-        }
-        self.assertEqual(expected_versions, result.versions)
-
     def _CheckVersionsReef(self, versions):
         """Check the versions match expectations for reef.
 
@@ -668,77 +638,9 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         )
         self.assertEqual(set(expected_files), set(packer_result.files))
 
-    def _MakeImage(self, outfile, ro_id, rw_id=""):
-        """Create a new firmware image with the given IDs.
-
-        This uses the existing flashmap defined in functest/base.fmd. It has two
-        256-byte ID sections followed by an FMAP section. We can easily create a
-        file that conforms to this map by padding our ID strings to 256 bytes.
-
-        Note fmap.bin can be created with:
-            $ fmaptool functest/base.fmd functtest.fmap.bin
-
-        The binary file is checked in since fmaptool is not installed by the
-        coreboot-utils ebuild.
-
-        Args:
-            outfile: Destination file (within the unpack directory) for output
-                image.
-            ro_id: Read-only firmware ID to use.
-            rw_id: Read-write firmware ID to use, empty string if none.
-        """
-        with open(os.path.join(self.unpackdir, outfile), "wb") as fd:
-            fd.write(ro_id.encode("utf-8") + b"\x00" * (256 - len(ro_id)))
-            fd.write(rw_id.encode("utf-8") + b"\x00" * (256 - len(rw_id)))
-            fd.write(osutils.ReadFile("functest/fmap.bin", mode="rb"))
-
-    def testRepack(self):
-        """Repacking the shellball with new images should update versions."""
-        extra_args = ["-b", os.path.join(self.indir, "image.bin"), "-L"]
-        result = self._RunPackFirmware(extra_args)
-        outfile = result.outfile
-
-        expected_versions = {
-            "reef": pack_firmware_utils.ModelVersion(
-                "Google_Reef.9042.50.0",
-                "Google_Reef.9042.50.0",
-                "",
-                "",
-            ),
-        }
-        self.assertEqual(expected_versions, result.versions)
-
-        # Extract the file into a directory, then overwrite various files with
-        # new images with a different IDs.
-        cros_build_lib.dbg_run(
-            [outfile, "--unpack", self.unpackdir], capture_output=True
-        )
-        ro_id = "Google_Veyron_Mickey.6588.197.0"
-        rw_id = "Google_Veyron_Mickey.6588.197.1"
-        ec_ro_id = "GoogleEC_Veyron_Mickey.6588.197.0"
-        ec_rw_id = "GoogleEC_Veyron_Mickey.6588.197.1"
-
-        self._MakeImage("bios.bin", ro_id, rw_id)
-        self._MakeImage("ec.bin", ec_ro_id, ec_rw_id)
-
-        # Repack the file and make sure that the versions update.
-        cros_build_lib.dbg_run(
-            [outfile, "--repack", self.unpackdir], capture_output=True
-        )
-        versions = pack_firmware_utils.ReadVersions(outfile)
-        expected_versions = {
-            "veyron_mickey": pack_firmware_utils.ModelVersion(
-                ro_id,
-                rw_id,
-                ec_ro_id,
-                ec_rw_id,
-            ),
-        }
-        self.assertEqual(expected_versions, versions)
-
     def testFilesSorted(self):
         """Files in the shellball should be sorted by filename."""
-        extra_args = ["-b", os.path.join(self.indir, "image.bin"), "-L"]
+        extra_args, _ = self._SetupArgs()
         result = self._RunPackFirmware(extra_args)
         files = result.files
 
