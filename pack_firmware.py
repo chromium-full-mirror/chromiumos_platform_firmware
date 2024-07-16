@@ -1311,13 +1311,6 @@ class FirmwarePacker:
         self._CopyFirmwareFiles(image_files, target_dir)
         return image_files
 
-    def _CreateLocalImageSource(self, image_path):
-        """Create an ImageSource for local image."""
-        if not image_path:
-            return None
-        firmware_ids = self._ExtractFirmwareIds(image_path)
-        return ImageSource(image_path, None, firmware_ids)
-
     def _ExtractUriVersion(self, uri):
         """Extract the firmware version from `uri`.
 
@@ -1377,7 +1370,8 @@ class FirmwarePacker:
             real_path = fname_template.replace("BUILD_TARGET", build_target)
             if not os.path.exists(real_path):
                 return None
-            return self._CreateLocalImageSource(real_path)
+            firmware_ids = self._ExtractFirmwareIds(real_path)
+            return ImageSource(real_path, None, firmware_ids)
 
         if not uri:
             return None
