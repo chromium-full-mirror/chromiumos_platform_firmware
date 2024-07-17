@@ -14,12 +14,7 @@ The SFX stub program is [sfx2.sh](./sfx2.sh).
 -   The package file will always start with the SFX stub program.
 -   The [packer](../pack_firmware.py) program will put firmware images and
     extra tools or files into package.
--   For package with single target platform (i.e., no Unified Build),
-    all firmware images should be put in top level, named as:
-    -   `bios.bin`: AP (host) firmware image
-    -   `ec.bin`: Embedded Controller firmware image
--   For package with multiple target platforms (i.e., Unified Build),
-    each platform will have its signing instruction file `signer_config.csv`
+-   The package will contain a signing instruction file `signer_config.csv`
     with at least following columns:
     -   `model_name`: Platform model name.
     -   `firmware_image`: Path to the AP (host) firmware image.
@@ -27,7 +22,7 @@ The SFX stub program is [sfx2.sh](./sfx2.sh).
     -   `ec_image`: Path to the Embedded Controller firmware image.
 -   For platforms that supports Custom Label (LOEM), the keys for each LOEM
     must be put in `keyset` folder, with a `customlabel_tag` as suffix
-    (which `${model}-${loem}` in Unified Build, otherwise just `${loem}`):
+    (`${model}-${loem}`):
     -   `rootkey.$CLTAG`: The firmware root key
     -   `vblock_A.$CLTAG`: The vblock in A section
     -   `vblock_B.$CLTAG`: The vblock in A section

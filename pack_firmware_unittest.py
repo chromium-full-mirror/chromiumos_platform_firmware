@@ -664,15 +664,14 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             side_effect=cls._CreateDumpfmapFile,
         )
 
-    def testMockedRunUnibuildBad(self):
-        """Try unified build options with invalid arguments."""
-
+    def testMockedRunBad(self):
+        """Try invalid arguments."""
         args = [".", "-m", "reef", "-o", "output"]
         with self.assertRaises(pack_firmware.PackError) as e:
             pack_firmware.main(args)
         self.assertIn("Missing model configuration file", str(e.exception))
 
-    def SetupRunWithUnibuild(
+    def SetupRun(
         self,
         config_fname: str,
         models: Iterable[str] = ("reef", "pyro"),
@@ -710,17 +709,17 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         os.environ["FILESDIR"] = "test"
         return args
 
-    def testMockedRunWithUnibuild(self):
+    def testMockedRun(self):
         """Start up with a valid updater script and BIOS."""
-        args = self.SetupRunWithUnibuild("config.yaml")
+        args = self.SetupRun("config.yaml")
         with cros_test_lib.RunCommandMock() as rc:
             self._AddMocks(rc)
             pack_firmware.main(args)
             pack_firmware.packer._versions.getvalue().splitlines()
 
-    def testMockedRunWithUnibuildMixedUris(self):
+    def testMockedRunWithMixedUris(self):
         """Start up with config where a subset of devices have firmware uris."""
-        args = self.SetupRunWithUnibuild("config_mixed_uri.yaml")
+        args = self.SetupRun("config_mixed_uri.yaml")
         with cros_test_lib.RunCommandMock() as rc:
             self._AddMocks(rc)
             pack_firmware.main(args)
@@ -741,14 +740,14 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
                 ],
             )
 
-    def testMockedRunWithUnibuildMerge(self):
+    def testMockedRunWithMerge(self):
         """Start up with a valid updater script and both RO and RW BIOS."""
 
         # Due to a bug in the DT impl, the RW firmware image was never actually
         # present.
         # TODO(sjg): Change this to config_rw.json once the RW merge case if
         # correctly supported.
-        args = self.SetupRunWithUnibuild("config.yaml")
+        args = self.SetupRun("config.yaml")
         with cros_test_lib.RunCommandMock() as rc:
             self._AddMocks(rc)
             self._AddMergeMocks(rc, FMAP_OUTPUT)
@@ -757,7 +756,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
 
     def testNoECFirmware(self):
         """Simple test of creating firmware without an EC image."""
-        args = self.SetupRunWithUnibuild("config_no_ec.yaml", models=[])
+        args = self.SetupRun("config_no_ec.yaml", models=[])
 
         with cros_test_lib.RunCommandMock() as rc:
             self._AddMocks(rc)

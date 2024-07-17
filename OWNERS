@@ -1,6 +1,4 @@
-# For updater format, contents and logic please refer to hungte.
-# For unified build packaging, please use chromeos-config OWNERS.
-
+# For updater format, contents and logic.
 hungte@chromium.org
 yupingso@chromium.org
 

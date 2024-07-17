@@ -385,7 +385,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             brand_code,
         )
 
-    def testFirmwareUpdateUnibuild(self):
+    def testFirmwareUpdate(self):
         """Run the firmware packer, unpack the result and check it."""
         extra_args, expected_files = self._SetupArgs()
         result = self._RunPackFirmware(extra_args)
@@ -480,7 +480,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
                     capture_output=True,
                 )
 
-    def testFirmwareUpdateUnibuildMerge(self):
+    def testFirmwareUpdateMerge(self):
         """Test the firmware packer with merging RW firmware."""
         extra_args = ["-c", "test/geralt_config.yaml", "-i", self.IMAGE_DIR]
         result = self._RunPackFirmware(extra_args)
@@ -566,7 +566,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         ):
             self._RunPackFirmware(extra_args)
 
-    def testFirmwareUpdateUnibuildWrongHash(self):
+    def testFirmwareUpdateWrongHash(self):
         """Test the firmware packer with merging RW firmware."""
         extra_args = ["-c", "test/config_wrong_hash.yaml", "-i", self.IMAGE_DIR]
         with self.assertRaisesRegex(
