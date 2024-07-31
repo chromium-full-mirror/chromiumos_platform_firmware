@@ -34,7 +34,7 @@ class LocalSignerConfig:
         self._conf = None
 
     @staticmethod
-    def ParseArgs(argv):
+    def parse_args(argv):
         """Parse the available arguments.
 
         Invalid arguments or -h cause this function to print a message and exit.
@@ -64,7 +64,7 @@ class LocalSignerConfig:
         opts.Freeze()
         return opts
 
-    def GenerateSignerConfig(self, fd, stderr):
+    def generate_signer_config(self, fd, stderr):
         """Scans build files and generate the signer config."""
         print("model_name,firmware_image,key_id,ec_image,brand_code", file=fd)
 
@@ -92,16 +92,16 @@ class LocalSignerConfig:
                 f"{device},{ap_image},{key_id},{ec_image},{brand_code}", file=fd
             )
 
-    def Start(self, argv):
-        self._args = self.ParseArgs(argv)
+    def start(self, argv):
+        self._args = self.parse_args(argv)
         self._conf = libcros_config_host.CrosConfig(self._args.config)
         with open("signer_config.csv", "w", encoding="utf-8") as fd:
-            self.GenerateSignerConfig(fd, sys.stderr)
+            self.generate_signer_config(fd, sys.stderr)
 
 
 def main(argv):
     generator = LocalSignerConfig()
-    generator.Start(argv[1:])
+    generator.start(argv[1:])
 
 
 if __name__ == "__main__":

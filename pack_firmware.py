@@ -232,7 +232,7 @@ class FirmwarePacker:
         self._force_dash = False
 
     @staticmethod
-    def ParseArgs(argv):
+    def parse_args(argv):
         """Parse the available arguments.
 
         Invalid arguments or -h cause this function to print a message and exit.
@@ -331,7 +331,7 @@ class FirmwarePacker:
         return opts
 
     @staticmethod
-    def _EnsureCommand(cmd, package):
+    def _ensure_command(cmd, package):
         """Ensure that a command is available, raising an exception if not.
 
         Args:
@@ -341,7 +341,7 @@ class FirmwarePacker:
         if not osutils.Which(cmd):
             raise PackError("You need '%s' (package '%s')" % (cmd, package))
 
-    def _CreateTmpDir(self):
+    def _create_tmp_dir(self):
         """Create a temporary directory, and remember it for later removal.
 
         Returns:
@@ -351,13 +351,13 @@ class FirmwarePacker:
         self._tmp_dirs.append(fname)
         return fname
 
-    def _RemoveTmpdirs(self):
+    def _remove_tmpdirs(self):
         """Remove all the temporary directories."""
         for fname in self._tmp_dirs:
             shutil.rmtree(fname)
         self._tmp_dirs = []
 
-    def _AddVersionInfo(self, name, fname, version):
+    def _add_version_info(self, name, fname, version):
         """Add version info for a single file.
 
         Calculates the MD5 hash of the file and adds this and other file details
@@ -401,7 +401,7 @@ class FirmwarePacker:
                 file=self._versions,
             )
 
-    def _ExtractFMAPSection(self, image_file, section_name, output=None):
+    def _extract_fmap_section(self, image_file, section_name, output=None):
         """Extract FMAP section `section_name` from `image_file`.
 
         Args:
@@ -432,7 +432,7 @@ class FirmwarePacker:
             output = default_output
         return output
 
-    def _ExtractFrid(self, image_file, section_name="RO_FRID"):
+    def _extract_frid(self, image_file, section_name="RO_FRID"):
         """Extracts the firmware ID from an image file.
 
         Args:
@@ -443,7 +443,7 @@ class FirmwarePacker:
         Returns:
             Firmware ID as a string, if found, else ''
         """
-        fname = self._ExtractFMAPSection(image_file, section_name)
+        fname = self._extract_fmap_section(image_file, section_name)
         if not os.path.exists(fname):
             return ""
         raw_id = osutils.ReadFile(fname, mode="rb").split(b"\x00")[0]
@@ -456,7 +456,7 @@ class FirmwarePacker:
                 "Hex dump of the firmware ID: " + raw_id.hex()
             )
 
-    def _ExtractFirmwareIds(self, image_file):
+    def _extract_firmware_ids(self, image_file):
         """Extracts the RO/RW firmware IDs from image files.
 
         Args:
@@ -465,19 +465,19 @@ class FirmwarePacker:
         Returns:
             FirmwareIds object containing RO and RW firmware IDs.
         """
-        ro_id = self._ExtractFrid(image_file)
+        ro_id = self._extract_frid(image_file)
         if not ro_id:
             raise PackError(f"Failed to extract RO_FRID from {image_file}")
-        rw_id = self._ExtractFrid(image_file, "RW_FWID_A")
+        rw_id = self._extract_frid(image_file, "RW_FWID_A")
         if not rw_id:
-            rw_id = self._ExtractFrid(image_file, "RW_FWID")
+            rw_id = self._extract_frid(image_file, "RW_FWID")
         if not rw_id:
             raise PackError(
                 f"Failed to extract RW_FWID/RW_FWID_A from {image_file}"
             )
         return FirmwareIds(ro_id, rw_id)
 
-    def _BaseDirPath(self, basename):
+    def _base_dir_path(self, basename):
         """Build a filename in the temporary base directory.
 
         Args:
@@ -488,7 +488,7 @@ class FirmwarePacker:
         """
         return os.path.join(self._basedir, basename)
 
-    def _TmpDirPath(self, basename):
+    def _tmp_dir_path(self, basename):
         """Build a filename in the temporary directory.
 
         Args:
@@ -500,7 +500,7 @@ class FirmwarePacker:
         return os.path.join(self._tmpdir, basename)
 
     @staticmethod
-    def _CopyTimestamp(reference_fname, fname):
+    def _copy_timestamp(reference_fname, fname):
         """Copy the timestamp from a reference file to another file.
 
         reference_fname: Reference file for timestamp.
@@ -509,7 +509,7 @@ class FirmwarePacker:
         mtime = os.stat(reference_fname).st_mtime
         os.utime(fname, (mtime, mtime))
 
-    def _GetFMAP(self, fname):
+    def _get_fmap(self, fname):
         """Get the FMAP (flash map) from a firmware image.
 
         Args:
@@ -533,7 +533,7 @@ class FirmwarePacker:
         return sections
 
     @staticmethod
-    def _MergeFile(
+    def _merge_file(
         large_path,
         small_path,
         large_offset,
@@ -568,7 +568,7 @@ class FirmwarePacker:
             if padding_data:
                 output.write(padding_data)
 
-    def _CloneFirmwareSection(self, dst, src, section, optional=False):
+    def _clone_firmware_section(self, dst, src, section, optional=False):
         """Clone a section in one file from another.
 
         Args:
@@ -577,8 +577,8 @@ class FirmwarePacker:
             section: Section to clone.
             optional: Ignore if the section does not exist.
         """
-        src_section = self._GetFMAP(src).get(section, None)
-        dst_section = self._GetFMAP(dst).get(section, None)
+        src_section = self._get_fmap(src).get(section, None)
+        dst_section = self._get_fmap(dst).get(section, None)
 
         if src_section is None and dst_section is None and optional:
             if not self._args.quiet:
@@ -601,11 +601,11 @@ class FirmwarePacker:
                 "Firmware section '%s' is not in same location, cannot "
                 "clone" % section
             )
-        self._MergeFile(
+        self._merge_file(
             dst, src, dst_section.offset, src_section.offset, src_section.size
         )
 
-    def _MergeBIOSFile(self, ro_fname, rw_fname):
+    def _merge_bios_file(self, ro_fname, rw_fname):
         """Merge RW sections from main RW firmware to main RO firmware.
 
         The RO image is cloned to a temporary directory before the RW image
@@ -615,14 +615,16 @@ class FirmwarePacker:
             ro_fname: RO firmware image file (relative or absolute path).
             rw_fname: RW firmware image file (relative or absolute path).
         """
-        self._CloneFirmwareSection(ro_fname, rw_fname, "RW_SECTION_A")
-        self._CloneFirmwareSection(ro_fname, rw_fname, "RW_SECTION_B")
-        self._CloneFirmwareSection(
+        self._clone_firmware_section(ro_fname, rw_fname, "RW_SECTION_A")
+        self._clone_firmware_section(ro_fname, rw_fname, "RW_SECTION_B")
+        self._clone_firmware_section(
             ro_fname, rw_fname, "RW_LEGACY", optional=True
         )
-        self._CloneFirmwareSection(ro_fname, rw_fname, "RW_MISC", optional=True)
+        self._clone_firmware_section(
+            ro_fname, rw_fname, "RW_MISC", optional=True
+        )
 
-    def _ExtractEcRwUsingFMAP(self, fname, section_name, ecrw_fname):
+    def _extract_ec_rw_using_fmap(self, fname, section_name, ecrw_fname):
         """Use FMAP to extract section_name section containing an EC binary.
 
         Args:
@@ -644,12 +646,12 @@ class FirmwarePacker:
                 "Unexpected %s (%d, %d). Cannot merge EC RW"
                 % (section_name, count, offset)
             )
-        # To make sure files to be merged are both prepared, _MergeFile will
+        # To make sure files to be merged are both prepared, _merge_file will
         # only accept existing files, so we have to create ecrw now.
         osutils.Touch(ecrw_fname)
-        self._MergeFile(ecrw_fname, ec_main_a, 0, offset, size)
+        self._merge_file(ecrw_fname, ec_main_a, 0, offset, size)
 
-    def _ExtractEcRwUsingCBFS(self, fname, cbfs_name, ecrw_fname):
+    def _extract_ec_rw_using_cbfs(self, fname, cbfs_name, ecrw_fname):
         """Extract an EC binary from a CBFS image.
 
         Args:
@@ -674,7 +676,7 @@ class FirmwarePacker:
             cwd=self._tmpdir,
         )
 
-    def _ExtractEcRwFromBIOS(self, fname, ecrw_fname):
+    def _extract_ec_rw_from_bios(self, fname, ecrw_fname):
         """Extract the EC RW binary from BIOS image.
 
         If the BIOS image contains an FMAP section "EC_MAIN_A", then the EC
@@ -689,14 +691,14 @@ class FirmwarePacker:
         Raises:
             PackError or RunCommandError if an error occurs.
         """
-        if EC_RW_FMAP_SECTION_NAME in self._GetFMAP(fname):
-            self._ExtractEcRwUsingFMAP(
+        if EC_RW_FMAP_SECTION_NAME in self._get_fmap(fname):
+            self._extract_ec_rw_using_fmap(
                 fname, EC_RW_FMAP_SECTION_NAME, ecrw_fname
             )
         else:
-            self._ExtractEcRwUsingCBFS(fname, EC_RW_CBFS_NAME, ecrw_fname)
+            self._extract_ec_rw_using_cbfs(fname, EC_RW_CBFS_NAME, ecrw_fname)
 
-    def _SwapEcRwInBIOS(self, bios_fname, ec_fname):
+    def _swap_ec_rw_in_bios(self, bios_fname, ec_fname):
         """Swap out EC RW payload stored in BIOS.
 
         Args:
@@ -710,7 +712,7 @@ class FirmwarePacker:
             cwd=self._tmpdir,
         )
 
-    def _MergeEcFile(self, ec_fname, ec_rw_section_fname, check_size=False):
+    def _merge_ec_file(self, ec_fname, ec_rw_section_fname, check_size=False):
         """Merge EC RW section from `ec_rw_section_fname` to `ec_fname`.
 
         Args:
@@ -720,7 +722,7 @@ class FirmwarePacker:
             check_size: Whether to require the size of `ec_rw_section_fname` to
                 be the same as the EC_RW section of `ec_fname`.
         """
-        section = self._GetFMAP(ec_fname)["EC_RW"]
+        section = self._get_fmap(ec_fname)["EC_RW"]
         ec_rw_size = os.stat(ec_rw_section_fname).st_size
         if check_size:
             if ec_rw_size != section.size:
@@ -734,7 +736,7 @@ class FirmwarePacker:
                 f" EC_RW section size {section.size:#x}"
             )
 
-        self._MergeFile(
+        self._merge_file(
             ec_fname,
             ec_rw_section_fname,
             section.offset,
@@ -742,10 +744,10 @@ class FirmwarePacker:
             padding=0xFF,
         )
 
-    def _VerifyBIOSRwCBFS(self, bios_fname, rw_cbfs_hash):
+    def _verify_bios_rw_cbfs(self, bios_fname, rw_cbfs_hash):
         """Verify RW CBFS (FW_MAIN_A and FW_MAIN_B) of `bios_fname`."""
         for section in ("FW_MAIN_A", "FW_MAIN_B"):
-            fname = self._ExtractFMAPSection(bios_fname, section)
+            fname = self._extract_fmap_section(bios_fname, section)
             if rw_cbfs_hash.algorithm != "md5sum":
                 raise PackError(
                     f"Unsupported hash algorithm {rw_cbfs_hash.algorithm}"
@@ -759,7 +761,7 @@ class FirmwarePacker:
                     f"expected {rw_cbfs_hash.digest}"
                 )
 
-    def _MergeBIOSFirmware(
+    def _merge_bios_firmware(
         self,
         fw_source: FirmwareSource,
         use_ec_rw_from_ec_source: bool,
@@ -791,7 +793,7 @@ class FirmwarePacker:
                 )
             return None
 
-        merged_file = self._CopyFile(bios.file, merge_dir, preserve_path=True)
+        merged_file = self._copy_file(bios.file, merge_dir, preserve_path=True)
 
         ro_fwid = bios.firmware_ids.ro_id
         rw_fwid = bios.firmware_ids.rw_id
@@ -799,16 +801,16 @@ class FirmwarePacker:
         rw_uri_version = bios.uri_version
         bios_ecrw_id = None
         if bios_rw:
-            self._MergeBIOSFile(merged_file, bios_rw.file)
+            self._merge_bios_file(merged_file, bios_rw.file)
             rw_fwid = bios_rw.firmware_ids.rw_id
             rw_uri_version = bios_rw.uri_version
         if use_ec_rw_from_ec_source:
             effective_ec_rw = fw_source.ec_rw or fw_source.ec
             if effective_ec_rw:
-                self._SwapEcRwInBIOS(merged_file, effective_ec_rw.file)
+                self._swap_ec_rw_in_bios(merged_file, effective_ec_rw.file)
                 bios_ecrw_id = effective_ec_rw.firmware_ids.rw_id
         if bios_rw:
-            self._CopyTimestamp(bios_rw.file, merged_file)
+            self._copy_timestamp(bios_rw.file, merged_file)
 
         firmware_ids = FirmwareIds(ro_fwid, rw_fwid)
         uri_versions = FirmwareVersions(ro_uri_version, rw_uri_version)
@@ -816,7 +818,7 @@ class FirmwarePacker:
             merged_file, build_target, firmware_ids, uri_versions, bios_ecrw_id
         )
 
-    def _MergeEcFirmware(
+    def _merge_ec_firmware(
         self,
         fw_source: FirmwareSource,
         use_ec_rw_from_ec_source: bool,
@@ -845,7 +847,7 @@ class FirmwarePacker:
                 raise PackError("Need EC (RO) firmware image to merge EC RW")
             return None
 
-        merged_file = self._CopyFile(ec.file, merge_dir, preserve_path=True)
+        merged_file = self._copy_file(ec.file, merge_dir, preserve_path=True)
 
         ro_fwid = ec.firmware_ids.ro_id
         rw_fwid = ec.firmware_ids.rw_id
@@ -857,17 +859,17 @@ class FirmwarePacker:
         if use_ec_rw_from_ec_source:
             if ec_rw:
                 ec_rw_section = os.path.join(self._tmpdir, "ecrw_from_ec")
-                self._ExtractFMAPSection(ec_rw.file, "EC_RW", ec_rw_section)
+                self._extract_fmap_section(ec_rw.file, "EC_RW", ec_rw_section)
                 ec_rw_fwid = ec_rw.firmware_ids.rw_id
                 ec_rw_source = ec_rw.file
         elif fw_source.bios_rw:
             ec_rw_section = os.path.join(self._tmpdir, "ecrw_from_bios")
             # The EC RW stored in BIOS might be either EC's EC_RW (CrOS EC)
             # or RW_FW (Zephyr EC) FMAP section.
-            self._ExtractEcRwFromBIOS(fw_source.bios_rw.file, ec_rw_section)
+            self._extract_ec_rw_from_bios(fw_source.bios_rw.file, ec_rw_section)
             ec_rw_source = fw_source.bios_rw.file
         if ec_rw_section:
-            self._MergeEcFile(merged_file, ec_rw_section)
+            self._merge_ec_file(merged_file, ec_rw_section)
             if ec_rw_fwid:
                 rw_fwid = ec_rw_fwid
                 rw_uri_version = ec_rw.uri_version
@@ -875,9 +877,9 @@ class FirmwarePacker:
                 # When ec_rw_section comes from bios_rw, we need to extract
                 # FWIDs again from the merged EC image, because
                 # ec_rw_section doesn't contain the FMAP layout.
-                rw_fwid = self._ExtractFirmwareIds(merged_file).rw_id
+                rw_fwid = self._extract_firmware_ids(merged_file).rw_id
                 rw_uri_version = fw_source.bios_rw.uri_version
-            self._CopyTimestamp(ec_rw_source, merged_file)
+            self._copy_timestamp(ec_rw_source, merged_file)
 
         firmware_ids = FirmwareIds(ro_fwid, rw_fwid)
         uri_versions = FirmwareVersions(ro_uri_version, rw_uri_version)
@@ -885,7 +887,7 @@ class FirmwarePacker:
             merged_file, build_target, firmware_ids, uri_versions, None
         )
 
-    def _MergeRwFirmware(
+    def _merge_rw_firmware(
         self, fw_source, merge_dir, bios_target, ec_target, fw_main_a_hash
     ):
         """Merge all RW firmware into corresponding RO images.
@@ -930,21 +932,21 @@ class FirmwarePacker:
                     f"AP {bios.uri_version}, EC {ec.uri_version}"
                 )
 
-        bios_image = self._MergeBIOSFirmware(
+        bios_image = self._merge_bios_firmware(
             fw_source, use_ec_rw_from_ec_source, bios_target, merge_dir
         )
-        ec_image = self._MergeEcFirmware(
+        ec_image = self._merge_ec_firmware(
             fw_source, use_ec_rw_from_ec_source, ec_target, merge_dir
         )
 
         # Verify BIOS RW CBFS where "ecrw" is stored.
         if use_ec_rw_from_ec_source and fw_main_a_hash:
-            self._VerifyBIOSRwCBFS(bios_image.filename, fw_main_a_hash)
+            self._verify_bios_rw_cbfs(bios_image.filename, fw_main_a_hash)
 
         return bios_image, ec_image
 
     @staticmethod
-    def _ExtractEcVersion(fw_id: str) -> Optional[FirmwareVersion]:
+    def _extract_ec_version(fw_id: str) -> Optional[FirmwareVersion]:
         """Extracts ChromeOS version from EC `fw_id`.
 
         Letting V denote [0-9], the expected version regex is "V+.V+.V+"
@@ -979,7 +981,7 @@ class FirmwarePacker:
         return None
 
     @staticmethod
-    def _ExtractMainVersion(fw_id: str) -> FirmwareVersion:
+    def _extract_main_version(fw_id: str) -> FirmwareVersion:
         """Extracts ChromeOS version from BIOS `fw_id`.
 
         Letting V denote [0-9], the expected version regex is "V+.V+.V+".
@@ -1011,7 +1013,7 @@ class FirmwarePacker:
             int(match.group(3)),
         )
 
-    def _FirmwareImageOutput(
+    def _firmware_image_output(
         self,
         tag: str,
         build_target: str = None,
@@ -1084,7 +1086,7 @@ class FirmwarePacker:
             # The "ecrw" CBFS file being placed into BIOS RW should come
             # from a release branch, where the EC FWID should contain the
             # CrOS version.
-            bios_ecrw_version = self._ExtractEcVersion(bios_ecrw_id)
+            bios_ecrw_version = self._extract_ec_version(bios_ecrw_id)
             if not bios_ecrw_version:
                 raise PackError(
                     "Cannot extract CrOS version from bios_ecrw_id"
@@ -1094,7 +1096,7 @@ class FirmwarePacker:
         fname = ".".join(parts) + ".bin"
         return os.path.join(target_dir, fname) if target_dir else fname
 
-    def _EcImageOutput(self, image_file=None, target_dir=None):
+    def _ec_image_output(self, image_file=None, target_dir=None):
         """Creates output file name for given EC image.
 
         Args:
@@ -1104,16 +1106,16 @@ class FirmwarePacker:
         Returns:
             Filename of the output image.
         """
-        return self._FirmwareImageOutput(
+        return self._firmware_image_output(
             "ec",
             build_target=image_file.build_target,
             fw_ids=image_file.firmware_ids,
             uri_versions=image_file.uri_versions,
-            extract_cros_version=self._ExtractEcVersion,
+            extract_cros_version=self._extract_ec_version,
             target_dir=target_dir,
         )
 
-    def _MainImageOutput(self, image_file=None, target_dir=None):
+    def _main_image_output(self, image_file=None, target_dir=None):
         """Creates output file name for given main image.
 
         Args:
@@ -1123,17 +1125,17 @@ class FirmwarePacker:
         Returns:
             Filename of the output image.
         """
-        return self._FirmwareImageOutput(
+        return self._firmware_image_output(
             "bios",
             build_target=image_file.build_target,
             fw_ids=image_file.firmware_ids,
             uri_versions=image_file.uri_versions,
-            extract_cros_version=self._ExtractMainVersion,
+            extract_cros_version=self._extract_main_version,
             bios_ecrw_id=image_file.bios_ecrw_id,
             target_dir=target_dir,
         )
 
-    def _CopyFirmwareFile(self, src, dst):
+    def _copy_firmware_file(self, src, dst):
         """Copy `src` to `dst` if `dst` does not exist.
 
         If `dst` already exists and its content differs from `src`, PackError
@@ -1148,7 +1150,7 @@ class FirmwarePacker:
         else:
             shutil.copy2(src, dst)
 
-    def _CopyFirmwareFiles(self, image_files, target_dir):
+    def _copy_firmware_files(self, image_files, target_dir):
         """Process firmware files and copy them into the working directory.
 
         Args:
@@ -1163,14 +1165,14 @@ class FirmwarePacker:
         bios, ec = [image_files.get(label, None) for label in [MAIN, EC]]
         bios_output, ec_output = None, None
         if bios:
-            bios_output = self._MainImageOutput(bios, target_dir)
-            self._CopyFirmwareFile(bios.filename, bios_output)
+            bios_output = self._main_image_output(bios, target_dir)
+            self._copy_firmware_file(bios.filename, bios_output)
         if ec:
-            ec_output = self._EcImageOutput(ec, target_dir)
-            self._CopyFirmwareFile(ec.filename, ec_output)
+            ec_output = self._ec_image_output(ec, target_dir)
+            self._copy_firmware_file(ec.filename, ec_output)
         return bios_output, ec_output
 
-    def _WriteVersions(self, model, image_files):
+    def _write_versions(self, model, image_files):
         """Write version information for all image files into the version file.
 
         Args:
@@ -1183,14 +1185,14 @@ class FirmwarePacker:
         print("Model:        %s" % model, file=self._versions)
         for name, image in sorted(image_files.items()):
             filename = image.filename
-            self._AddVersionInfo(name, filename, image.firmware_ids.ro_id)
+            self._add_version_info(name, filename, image.firmware_ids.ro_id)
             # Write the RW version only if it differs from RO version.
             if image.firmware_ids.rw_id != image.firmware_ids.ro_id:
-                self._AddVersionInfo(
+                self._add_version_info(
                     name + " (RW)", None, image.firmware_ids.rw_id
                 )
 
-    def _UntarFile(
+    def _untar_file(
         self, tar_path, dst_dirname, suffix="", fname=None, required=True
     ):
         """Unpack a file in a tar file.
@@ -1256,7 +1258,7 @@ class FirmwarePacker:
         return out_file
 
     @staticmethod
-    def _CopyFile(src, dst, mode=CHMOD_ALL_READ, preserve_path=False):
+    def _copy_file(src, dst, mode=CHMOD_ALL_READ, preserve_path=False):
         """Copy a file (to another file or into a directory) and set its mode.
 
         Fails if src/dst do not exist.
@@ -1281,7 +1283,7 @@ class FirmwarePacker:
         os.chmod(dst, os.stat(dst).st_mode | mode)
         return dst
 
-    def _GetReplaceDict(self, image_files):
+    def _get_replace_dict(self, image_files):
         """Build a dict of string replacements for use with the update script.
 
         Args:
@@ -1297,14 +1299,14 @@ class FirmwarePacker:
         empty = ImageFile("", "", FirmwareIds("", ""), None, None)
         bios, ec = [image_files.get(label, empty) for label in [MAIN, EC]]
         return {
-            "REPLACE_TARGET_IMAGE_RO_MAIN": self._MainImageOutput(
+            "REPLACE_TARGET_IMAGE_RO_MAIN": self._main_image_output(
                 bios, IMG_DIR
             ),
-            "REPLACE_TARGET_IMAGE_EC": self._EcImageOutput(ec, IMG_DIR),
+            "REPLACE_TARGET_IMAGE_EC": self._ec_image_output(ec, IMG_DIR),
         }
 
     @staticmethod
-    def _CreateFileFromTemplate(infile, outfile, replace_dict):
+    def _create_file_from_template(infile, outfile, replace_dict):
         """Create a new file based on a template and some string replacements.
 
         Args:
@@ -1324,30 +1326,30 @@ class FirmwarePacker:
         osutils.WriteFile(outfile, data)
         os.chmod(outfile, os.stat(outfile).st_mode | 0o555)
 
-    def _WriteVersionFile(self):
+    def _write_version_file(self):
         """Write out the VERSION file with our collected version information."""
         print(file=self._versions)
         osutils.WriteFile(
-            self._BaseDirPath("VERSION"), self._versions.getvalue()
+            self._base_dir_path("VERSION"), self._versions.getvalue()
         )
 
-    def _BuildShellball(self):
+    def _build_shellball(self):
         """Build a shell-ball containing the firmware update.
 
         Create a new shell-ball by copying from SFX file, add our files to the
         shell-ball, and display all version information.
         """
-        self._CopyFile(self._sfx_file, self._args.output, mode=CHMOD_ALL_EXEC)
+        self._copy_file(self._sfx_file, self._args.output, mode=CHMOD_ALL_EXEC)
         cros_build_lib.run(
             ["sh", self._args.output, "--repack", self._basedir],
             print_cmd=self._args.quiet,
             capture_output=self._args.quiet,
         )
         if not self._args.quiet:
-            for fname in glob.glob(self._BaseDirPath("VERSION*")):
+            for fname in glob.glob(self._base_dir_path("VERSION*")):
                 print(osutils.ReadFile(fname))
 
-    def _ProcessFirmware(
+    def _process_firmware(
         self,
         fw_source,
         target_dir,
@@ -1378,12 +1380,12 @@ class FirmwarePacker:
                 "Target '%s': Must assign at least one of BIOS or EC " % fw_name
             )
 
-        merge_dir = self._TmpDirPath("%s-merged" % (fw_name or "images"))
+        merge_dir = self._tmp_dir_path("%s-merged" % (fw_name or "images"))
         # We use os.mkdir instead of osutils.SafeMakedirs because merge_dir
         # should not exist. If it does, something is broken and we want to know.
         # This prevents FirmwarePacker from silently reusing dirty images.
         os.mkdir(merge_dir)
-        bios_image, ec_image = self._MergeRwFirmware(
+        bios_image, ec_image = self._merge_rw_firmware(
             fw_source,
             merge_dir,
             main_target,
@@ -1396,10 +1398,10 @@ class FirmwarePacker:
             image_files[MAIN] = bios_image
         if ec_image:
             image_files[EC] = ec_image
-        self._CopyFirmwareFiles(image_files, target_dir)
+        self._copy_firmware_files(image_files, target_dir)
         return image_files
 
-    def _ExtractUriVersion(self, uri):
+    def _extract_uri_version(self, uri):
         """Extract the firmware version from `uri`.
 
         `uri` is expected to be one of the form:
@@ -1415,7 +1417,7 @@ class FirmwarePacker:
             raise PackError(f"Failed to extract version from URI {uri}")
         return FirmwareVersion(*version)
 
-    def _ExtractFile(
+    def _extract_file(
         self,
         build_target: str,
         fname_template: str,
@@ -1458,14 +1460,14 @@ class FirmwarePacker:
             real_path = fname_template.replace("BUILD_TARGET", build_target)
             if not os.path.exists(real_path):
                 return None
-            firmware_ids = self._ExtractFirmwareIds(real_path)
+            firmware_ids = self._extract_firmware_ids(real_path)
             return ImageSource(real_path, None, firmware_ids)
 
         if not uri:
             return None
 
         tar_fname = uri.replace("bcs://", "")
-        path = self._UntarFile(
+        path = self._untar_file(
             os.path.join(self._args.imagedir, tar_fname),
             dirname,
             suffix=suffix,
@@ -1475,11 +1477,13 @@ class FirmwarePacker:
         if not path:
             return None
 
-        version = self._ExtractUriVersion(uri)
-        firmware_ids = self._ExtractFirmwareIds(path) if extract_fwid else None
+        version = self._extract_uri_version(uri)
+        firmware_ids = (
+            self._extract_firmware_ids(path) if extract_fwid else None
+        )
         return ImageSource(path, version, firmware_ids)
 
-    def _VerifyEcComponentManifest(self, manifest_file, ec_version):
+    def _verify_ec_component_manifest(self, manifest_file, ec_version):
         """Verify the EC compoenent manifest file."""
         with open(manifest_file, encoding="utf-8") as f:
             manifests = json.load(f)
@@ -1494,7 +1498,7 @@ class FirmwarePacker:
                 f"ec_version '{manifest_ec_version}' in {manifest_file!r}"
             )
 
-    def _RequireEcComponentManifest(self, ec_comp_uri):
+    def _require_ec_component_manifest(self, ec_comp_uri):
         """Whether the EC component manifest is required in `ec_comp_uri`.
 
         The component_manifest.json file is required if the firmware build
@@ -1505,7 +1509,7 @@ class FirmwarePacker:
         - 15217.397.0 (nissa)
         - 15696.0.0
         """
-        version = self._ExtractUriVersion(ec_comp_uri)
+        version = self._extract_uri_version(ec_comp_uri)
 
         # There are existing BCS EC tarballs (>= the landed versions) missing
         # the component manifest. Therefore, rule them out by increasing the
@@ -1522,7 +1526,7 @@ class FirmwarePacker:
                 return version.minor >= v[1]
         return version.major >= 15696
 
-    def _ExtractFirmware(self, firmware, dirname):
+    def _extract_firmware(self, firmware, dirname):
         """Extract all firmware images to a temporary directory.
 
         Args:
@@ -1532,27 +1536,27 @@ class FirmwarePacker:
         Returns:
             FirmwareSource object containing filenames of extracted files.
         """
-        bios = self._ExtractFile(
+        bios = self._extract_file(
             firmware.bios_build_target,
             self._args.bios_image,
             firmware.main_image_uri,
             dirname,
         )
-        bios_rw = self._ExtractFile(
+        bios_rw = self._extract_file(
             firmware.bios_build_target,
             None,
             firmware.main_rw_image_uri,
             dirname,
             suffix="rw",
         )
-        ec = self._ExtractFile(
+        ec = self._extract_file(
             firmware.ec_build_target,
             self._args.ec_image,
             firmware.ec_image_uri,
             dirname,
             fname=EC_IMAGE,
         )
-        ec_rw = self._ExtractFile(
+        ec_rw = self._extract_file(
             firmware.ec_build_target,
             self._args.ec_rw_image,
             firmware.ec_rw_image_uri,
@@ -1568,7 +1572,7 @@ class FirmwarePacker:
         else:
             ec_comp_uri = firmware.ec_image_uri
             effective_ec_rw = ec
-        ec_comp = self._ExtractFile(
+        ec_comp = self._extract_file(
             firmware.ec_build_target,
             None,  # Not supported for local updater (self._args.local)
             ec_comp_uri,
@@ -1579,12 +1583,12 @@ class FirmwarePacker:
         )
         if ec_comp:
             ec_rw_id = effective_ec_rw.firmware_ids.rw_id
-            self._VerifyEcComponentManifest(ec_comp.file, ec_rw_id)
+            self._verify_ec_component_manifest(ec_comp.file, ec_rw_id)
         elif (
             not self._args.local
             and ec_comp_uri
             and firmware.is_zephyr_ec
-            and self._RequireEcComponentManifest(ec_comp_uri)
+            and self._require_ec_component_manifest(ec_comp_uri)
         ):
             raise PackError(
                 f"Missing {EC_COMPONENT_MANIFEST!r} in {ec_comp_uri}\n"
@@ -1592,7 +1596,7 @@ class FirmwarePacker:
 
         return FirmwareSource(bios, bios_rw, ec, ec_rw, ec_comp)
 
-    def _CheckFirmwareIds(
+    def _check_firmware_ids(
         self,
         image: ImageSource,
         extract_cros_version: Callable[[str], FirmwareVersion],
@@ -1630,7 +1634,7 @@ class FirmwarePacker:
                 f"FWID {ro_id} doesn't match BCS URI version {uri_version}"
             )
 
-    def _CheckFirmwareSource(self, fw_source: FirmwareSource) -> None:
+    def _check_firmware_source(self, fw_source: FirmwareSource) -> None:
         """Check firmware source images.
 
         Args:
@@ -1644,13 +1648,13 @@ class FirmwarePacker:
 
         for image in (fw_source.bios, fw_source.bios_rw):
             if image:
-                self._CheckFirmwareIds(image, self._ExtractMainVersion)
+                self._check_firmware_ids(image, self._extract_main_version)
 
         for image in (fw_source.ec, fw_source.ec_rw):
             if image:
-                self._CheckFirmwareIds(image, self._ExtractEcVersion)
+                self._check_firmware_ids(image, self._extract_ec_version)
 
-    def _WriteFirmwareImages(self, firmware_info, devices_fw_target):
+    def _write_firmware_images(self, firmware_info, devices_fw_target):
         """Extract and build all firmware images, then copy to the shellball.
 
         Args:
@@ -1677,17 +1681,17 @@ class FirmwarePacker:
             if fw_target in images:
                 continue
 
-            unpack_dir = self._TmpDirPath(fw_target)
+            unpack_dir = self._tmp_dir_path(fw_target)
             osutils.SafeMakedirs(unpack_dir)
-            fw_source = self._ExtractFirmware(firmware, unpack_dir)
+            fw_source = self._extract_firmware(firmware, unpack_dir)
 
             if not fw_source.bios and not fw_source.ec:
                 continue
 
-            self._CheckFirmwareSource(fw_source)
-            images[fw_target] = self._ProcessFirmware(
+            self._check_firmware_source(fw_source)
+            images[fw_target] = self._process_firmware(
                 fw_source,
-                self._BaseDirPath(IMG_DIR),
+                self._base_dir_path(IMG_DIR),
                 firmware.bios_build_target,
                 firmware.ec_build_target,
                 fw_target,
@@ -1699,7 +1703,7 @@ class FirmwarePacker:
 
         return images, ec_component_manifests
 
-    def _GenerateSetVars(self, firmware, image_files):
+    def _generate_set_vars(self, firmware, image_files):
         """Generate the setvars.sh script for a single model.
 
         Args:
@@ -1708,11 +1712,11 @@ class FirmwarePacker:
                 key: Image type (e.g. BIOS).
                 value: ImageFile object for that image.
         """
-        setvars_dirname = self._BaseDirPath(
+        setvars_dirname = self._base_dir_path(
             os.path.join(MODELS_DIR, firmware.model)
         )
         osutils.SafeMakedirs(setvars_dirname)
-        setvars_dict = self._GetReplaceDict(image_files)
+        setvars_dict = self._get_replace_dict(image_files)
         setvars_dict["REPLACE_MODEL"] = firmware.model
 
         # For zero-touch customlabel devices tell the firmware updater to get
@@ -1720,11 +1724,11 @@ class FirmwarePacker:
         # TODO(sjg): Update this to say that it comes from mosys / cros_config.
         setvars_dict["REPLACE_SIGNATURE_ID"] = firmware.sig_id
         setvars_fname = os.path.join(setvars_dirname, "setvars.sh")
-        self._CreateFileFromTemplate(
+        self._create_file_from_template(
             self._setvars_template_file, setvars_fname, setvars_dict
         )
 
-    def _WriteSignerInstructions(self, model_details):
+    def _write_signer_instructions(self, model_details):
         """Write the signer instructions file.
 
         This file tells the signer the mapping between models and their images
@@ -1743,7 +1747,7 @@ class FirmwarePacker:
                 value: ModelDetails object for that model.
         """
         with open(
-            self._BaseDirPath("signer_config.csv"), "w", encoding="utf-8"
+            self._base_dir_path("signer_config.csv"), "w", encoding="utf-8"
         ) as fd:
             print(
                 "model_name,firmware_image,key_id,ec_image,brand_code", file=fd
@@ -1753,11 +1757,11 @@ class FirmwarePacker:
                     # Some models will not have a key. At present this is
                     # normally just the zero-touch customlabel devices.
                     continue
-                image_fname = self._MainImageOutput(
+                image_fname = self._main_image_output(
                     details.image_files[MAIN], IMG_DIR
                 )
                 if EC in details.image_files:
-                    ec_fname = self._EcImageOutput(
+                    ec_fname = self._ec_image_output(
                         details.image_files[EC], IMG_DIR
                     )
                 else:
@@ -1776,12 +1780,12 @@ class FirmwarePacker:
                 )
 
     @staticmethod
-    def _CreateSymlink(src, dst):
+    def _create_symlink(src, dst):
         """Create a symlink `dst` pointing to `src` as relative path."""
         rel_src = os.path.relpath(src, os.path.dirname(dst))
         os.symlink(rel_src, dst)
 
-    def _SaveRawImageFiles(
+    def _save_raw_image_files(
         self,
         devices_fw_target: Dict[str, str],
         images: Dict[str, Dict[str, ImageFile]],
@@ -1817,7 +1821,7 @@ class FirmwarePacker:
         os.mkdir(images_dir)
         fw_files = {}
         for fw_target, image_files in images.items():
-            bios_file, ec_file = self._CopyFirmwareFiles(
+            bios_file, ec_file = self._copy_firmware_files(
                 image_files,
                 images_dir,
             )
@@ -1830,14 +1834,14 @@ class FirmwarePacker:
             bios_file, ec_file = fw_files[fw_target]
             if bios_file:
                 bios_link = os.path.join(output_dir, f"image-{device}.bin")
-                self._CreateSymlink(bios_file, bios_link)
+                self._create_symlink(bios_file, bios_link)
             if ec_file:
                 ec_dir = os.path.join(output_dir, device)
                 os.mkdir(ec_dir)
                 ec_link = os.path.join(ec_dir, "ec.bin")
-                self._CreateSymlink(ec_file, ec_link)
+                self._create_symlink(ec_file, ec_link)
 
-    def _SaveEcComponentManifests(self, manifests: Dict[str, str]):
+    def _save_ec_component_manifests(self, manifests: Dict[str, str]):
         """Save EC component manifests.
 
         Args:
@@ -1855,7 +1859,7 @@ class FirmwarePacker:
             out_file = os.path.join(out_dir, "component_manifest.json")
             shutil.copy2(manifest_file, out_file)
 
-    def Start(self, argv, remove_tmpdirs=True):
+    def start(self, argv, remove_tmpdirs=True):
         """Handle the creation of a firmware shell-ball.
 
         argv: List of arguments (excluding the program name/argv[0]).
@@ -1863,16 +1867,16 @@ class FirmwarePacker:
         Raises:
             PackError if any error occurs.
         """
-        args = self._args = self.ParseArgs(argv)
+        args = self._args = self.parse_args(argv)
 
-        self._EnsureCommand("zip", "zip")
+        self._ensure_command("zip", "zip")
         if not os.path.exists(self._sfx_file):
             raise PackError("Cannot find required file '%s'" % self._sfx_file)
         try:
             if not args.output:
                 raise PackError("Missing output file")
-            self._basedir = self._CreateTmpDir()
-            self._tmpdir = self._CreateTmpDir()
+            self._basedir = self._create_tmp_dir()
+            self._tmpdir = self._create_tmp_dir()
             model_details = collections.OrderedDict()
 
             image_args = [args.bios_image, args.ec_image]
@@ -1884,8 +1888,8 @@ class FirmwarePacker:
                 raise PackError("Missing model configuration file (use -c)")
 
             conf = libcros_config_host.CrosConfig(args.config)
-            osutils.SafeMakedirs(self._BaseDirPath(MODELS_DIR))
-            osutils.SafeMakedirs(self._BaseDirPath(IMG_DIR))
+            osutils.SafeMakedirs(self._base_dir_path(MODELS_DIR))
+            osutils.SafeMakedirs(self._base_dir_path(IMG_DIR))
 
             devices_fw_target = conf.GetFirmwareConfigsByDevice()
 
@@ -1900,7 +1904,7 @@ class FirmwarePacker:
                     (model, devices_fw_target[model]) for model in args.models
                 )
 
-            images, ec_component_manifests = self._WriteFirmwareImages(
+            images, ec_component_manifests = self._write_firmware_images(
                 firmware_info, devices_fw_target
             )
 
@@ -1939,27 +1943,27 @@ class FirmwarePacker:
                 )
                 if not fw.have_image:
                     continue
-                self._WriteVersions(device, image_files)
-                self._GenerateSetVars(fw, image_files)
+                self._write_versions(device, image_files)
+                self._generate_set_vars(fw, image_files)
 
             if not args.local:
-                self._SaveRawImageFiles(
+                self._save_raw_image_files(
                     devices_fw_target,
                     images,
                     args.image_output,
                 )
 
-            self._SaveEcComponentManifests(ec_component_manifests)
-            self._WriteVersionFile()
+            self._save_ec_component_manifests(ec_component_manifests)
+            self._write_version_file()
 
             if model_details:
-                self._WriteSignerInstructions(model_details)
-            self._BuildShellball()
+                self._write_signer_instructions(model_details)
+            self._build_shellball()
             if not args.quiet:
                 print("Packed output image is: %s" % args.output)
         finally:
             if remove_tmpdirs:
-                self._RemoveTmpdirs()
+                self._remove_tmpdirs()
 
 
 # The style guide says that we cannot pass in sys.argv[0]. That makes testing
@@ -1969,7 +1973,7 @@ def main(argv):
     global packer
 
     packer = FirmwarePacker(argv[0])
-    packer.Start(argv[1:])
+    packer.start(argv[1:])
 
 
 if __name__ == "__main__":

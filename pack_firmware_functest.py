@@ -99,7 +99,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
     @classmethod
     def setUpClass(cls):
         # This will generate files in cls.IMAGE_DIR.
-        pack_firmware_utils.MakeTestFiles()
+        pack_firmware_utils.make_test_files()
 
     def setUp(self):
         # These are the named paths we use under self.tempdir.
@@ -121,7 +121,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.packer._force_dash = HAVE_DASH
 
     @staticmethod
-    def _GetFiles(dir_path):
+    def _get_files(dir_path):
         """Get the relative path of all files in `dir_path`."""
         files = []
         for root, _, fnames in os.walk(dir_path):
@@ -131,7 +131,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         return sorted(files)
 
     @staticmethod
-    def _ExpectedFiles(extra_files, models=()):
+    def _expected_files(extra_files, models=()):
         """Get a sorted list of files that we expect to see in the shellball.
 
         Args:
@@ -148,7 +148,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             expected_files.add(os.path.join(MODELS_DIR, model, "setvars.sh"))
         return sorted(expected_files)
 
-    def _RunScript(self, outfile, model, mode="output", customlabel_tag=""):
+    def _run_script(self, outfile, model, mode="output", customlabel_tag=""):
         """Run an autoupdate with the shellball and check that it works.
 
         This relies on fake tools, principally crossystem which is controlled by
@@ -201,7 +201,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.assertEqual(errors, [])
         return result.stdout.splitlines()
 
-    def _RunPackFirmware(self, extra_args):
+    def _run_pack_firmware(self, extra_args):
         """Run the FirmwarePacker process and read the resulting shellball.
 
         Args:
@@ -226,16 +226,16 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         # Create the shellball, extract it, and get a list of files it contains.
         os.environ["SYSROOT"] = "test"
         os.environ["FILESDIR"] = "test"
-        self.packer.Start(argv)
+        self.packer.start(argv)
         cros_build_lib.dbg_run(
             [outfile, "--unpack", self.unpackdir], capture_output=True
         )
-        files = self._GetFiles(self.unpackdir)
+        files = self._get_files(self.unpackdir)
 
         # EC component manifests.
-        ec_comp_files = self._GetFiles(ec_comp_outdir)
+        ec_comp_files = self._get_files(ec_comp_outdir)
 
-        versions = pack_firmware_utils.ReadVersions(outfile)
+        versions = pack_firmware_utils.read_versions(outfile)
         return PackerResult(
             outfile=outfile,
             files=files,
@@ -244,7 +244,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             versions=versions,
         )
 
-    def _AssertVersionLines(
+    def _assert_version_lines(
         self,
         expected_lines: typing.Union[dict, list],
         ignore_extra_model: bool = False,
@@ -301,7 +301,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
                     f"{pprint.pformat(raw_lines)}"
                 )
 
-    def _CheckVersionsReef(self, versions):
+    def _check_versions_reef(self, versions):
         """Check the versions match expectations for reef.
 
         Args:
@@ -314,7 +314,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.assertEqual("reef_v1.1.5857-77f6ed7", versions["EC_RO_FWID"])
         self.assertEqual("reef_v1.1.5857-77f6ed7", versions["EC_RW_FWID"])
 
-    def _CheckVars(self, model, versions, signature_id):
+    def _check_vars(self, model, versions, signature_id):
         """Check the versions match expectations.
 
         Args:
@@ -329,7 +329,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.assertEqual(base % EC_IMAGES[model], versions["IMAGE_EC"])
         self.assertEqual(signature_id, versions["SIGNATURE_ID"])
 
-    def _SetupArgs(self, extra_models=None):
+    def _setup_args(self, extra_models=None):
         """Set up the arguments to execute a functional test.
 
         This is a convenience function to hold common code.
@@ -350,7 +350,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         for model in all_models:
             extra_args += ["-m", model]
         extra_args += ["-c", "test/config.yaml", "-i", self.IMAGE_DIR]
-        expected_files = self._ExpectedFiles(
+        expected_files = self._expected_files(
             [
                 "models/electro/setvars.sh",
                 "models/basking/setvars.sh",
@@ -360,7 +360,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         )
         return extra_args, expected_files
 
-    def _CreateSignerLine(
+    def _create_signer_line(
         self, model, fw_target=None, key_id=None, brand_code=None
     ):
         """Creates an expected CSV line for signer_instructions.csv.
@@ -385,15 +385,15 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             brand_code,
         )
 
-    def testFirmwareUpdate(self):
+    def test_firmware_update(self):
         """Run the firmware packer, unpack the result and check it."""
-        extra_args, expected_files = self._SetupArgs()
-        result = self._RunPackFirmware(extra_args)
+        extra_args, expected_files = self._setup_args()
+        result = self._run_pack_firmware(extra_args)
 
         self.assertEqual(expected_files, result.files)
         self.assertEqual([], result.ec_comp_files)
 
-        self._AssertVersionLines(
+        self._assert_version_lines(
             {
                 "reef": [
                     r"reef/image\.bin",
@@ -428,18 +428,18 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             }
         )
 
-        manifest = pack_firmware_utils.ReadManifest(self.unpackdir)
+        manifest = pack_firmware_utils.read_manifest(self.unpackdir)
         versions = manifest["reef"]
-        self._CheckVersionsReef(versions)
-        self._CheckVars("reef", versions, "reef")
+        self._check_versions_reef(versions)
+        self._check_vars("reef", versions, "reef")
 
         versions = manifest["electro"]
-        self._CheckVersionsReef(versions)
-        self._CheckVars("electro", versions, "electro")
+        self._check_versions_reef(versions)
+        self._check_vars("electro", versions, "electro")
 
         versions = manifest["pyro"]
         self.assertEqual("Google_Pyro.9042.41.0", versions["MAIN_RW_FWID"])
-        self._CheckVars("pyro", versions, "pyro")
+        self._check_vars("pyro", versions, "pyro")
 
         lines = osutils.ReadFile(
             os.path.join(self.unpackdir, "signer_config.csv")
@@ -447,11 +447,11 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.assertEqual(
             "model_name,firmware_image,key_id,ec_image,brand_code", lines[0]
         )
-        self.assertEqual(self._CreateSignerLine("reef"), lines[1])
-        self.assertEqual(self._CreateSignerLine("pyro"), lines[2])
-        self.assertEqual(self._CreateSignerLine("sand"), lines[3])
-        self.assertEqual(self._CreateSignerLine("electro", "reef"), lines[4])
-        self.assertEqual(self._CreateSignerLine("basking", "sand"), lines[5])
+        self.assertEqual(self._create_signer_line("reef"), lines[1])
+        self.assertEqual(self._create_signer_line("pyro"), lines[2])
+        self.assertEqual(self._create_signer_line("sand"), lines[3])
+        self.assertEqual(self._create_signer_line("electro", "reef"), lines[4])
+        self.assertEqual(self._create_signer_line("basking", "sand"), lines[5])
 
         # Check the output image files.
         expected_bios_files = (
@@ -480,10 +480,10 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
                     capture_output=True,
                 )
 
-    def testFirmwareUpdateMerge(self):
+    def test_firmware_update_merge(self):
         """Test the firmware packer with merging RW firmware."""
         extra_args = ["-c", "test/geralt_config.yaml", "-i", self.IMAGE_DIR]
-        result = self._RunPackFirmware(extra_args)
+        result = self._run_pack_firmware(extra_args)
 
         expected_versions = {
             # main-ro-image and ec-ro-image have the same version.
@@ -552,7 +552,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         }
         self.assertEqual(expected_versions, result.versions)
 
-    def testFirmwareUpdateWrongFirmwareVersion(self):
+    def test_firmware_update_wrong_firmware_version(self):
         """Test with firmware packer with mismatched FWID and URI versions."""
         extra_args = [
             "-c",
@@ -564,21 +564,21 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             pack_firmware.PackError,
             "FWID .* doesn't match BCS URI version .*",
         ):
-            self._RunPackFirmware(extra_args)
+            self._run_pack_firmware(extra_args)
 
-    def testFirmwareUpdateWrongHash(self):
+    def test_firmware_update_wrong_hash(self):
         """Test the firmware packer with merging RW firmware."""
         extra_args = ["-c", "test/config_wrong_hash.yaml", "-i", self.IMAGE_DIR]
         with self.assertRaisesRegex(
             pack_firmware.PackError,
             "Wrong md5 digest",
         ):
-            self._RunPackFirmware(extra_args)
+            self._run_pack_firmware(extra_args)
 
-    def testFirmwareUpdateEcComponentManifests(self):
+    def test_firmware_update_ec_component_manifests(self):
         """Check the extracted EC component manifests."""
         extra_args = ["-c", "test/geralt_config.yaml", "-i", self.IMAGE_DIR]
-        ec_comp_files = self._RunPackFirmware(extra_args).ec_comp_files
+        ec_comp_files = self._run_pack_firmware(extra_args).ec_comp_files
         expected_files = [
             "braenn/component_manifest.json",
             "ciri/component_manifest.json",
@@ -590,7 +590,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         ]
         self.assertEqual(set(expected_files), set(ec_comp_files))
 
-    def testFirmwareUpdateEcComponentManifestsVersionNotMatch(self):
+    def test_firmware_update_ec_component_manifests_version_not_match(self):
         """Check the extracted EC component manifests version."""
         extra_args = [
             "-c",
@@ -603,9 +603,9 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             "EC version '.*' doesn't match "
             r"ec_version '.*' in .*/component_manifest\.json",
         ):
-            self._RunPackFirmware(extra_args)
+            self._run_pack_firmware(extra_args)
 
-    def testFirmwareUpdateEcComponentManifestsNotExist(self):
+    def test_firmware_update_ec_component_manifests_not_exist(self):
         """Check the extracted EC component manifests exist."""
         extra_args = [
             "-c",
@@ -617,12 +617,12 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             pack_firmware.PackError,
             "Missing 'component_manifest.json'",
         ):
-            self._RunPackFirmware(extra_args)
+            self._run_pack_firmware(extra_args)
 
-    def testVersionOutput(self):
+    def test_version_output(self):
         """Check that the -V option shows version information as expected."""
-        extra_args, expected_files = self._SetupArgs()
-        packer_result = self._RunPackFirmware(extra_args)
+        extra_args, expected_files = self._setup_args()
+        packer_result = self._run_pack_firmware(extra_args)
 
         cmd = [SHELL, packer_result.outfile, "-V"]
         result = cros_build_lib.run(
@@ -638,10 +638,10 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         )
         self.assertEqual(set(expected_files), set(packer_result.files))
 
-    def testFilesSorted(self):
+    def test_files_sorted(self):
         """Files in the shellball should be sorted by filename."""
-        extra_args, _ = self._SetupArgs()
-        result = self._RunPackFirmware(extra_args)
+        extra_args, _ = self._setup_args()
+        result = self._run_pack_firmware(extra_args)
         files = result.files
 
         # The shellball shows files in a comment with this format:
@@ -653,7 +653,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
                 files.append(m.group(1).decode("utf-8"))
         self.assertEqual(files, sorted(files))
 
-    def _AssertFileEqual(self, expect_fname, fname):
+    def _assert_file_equal(self, expect_fname, fname):
         """Check that two files have the same contents.
 
         This causes a test failure if the file contents do not match.
@@ -669,7 +669,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
                 "Contents of '%s' does not match '%s'" % (fname, expect_fname)
             )
 
-    def _GetUnequalRegions(
+    def _get_unequal_regions(
         self, expect_fname, fname, sig_id=None, expect_root_sum=None
     ):
         """Get a list of firmware regions which are not the same.
@@ -718,7 +718,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
                     os.path.join(actual_dir, basename), mode="rb"
                 )
                 if sig_id and basename in ["VBLOCK_A", "VBLOCK_B"]:
-                    expect = self._GetVblock(sig_id, basename[-1])
+                    expect = self._get_vblock(sig_id, basename[-1])
                 elif expect_root_sum and basename == "GBB":
                     result = cros_build_lib.dbg_run(
                         ["futility", "show", fname],
@@ -755,11 +755,11 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             osutils.RmDir(actual_dir)
         return differ
 
-    def testFirmwareOutput(self):
+    def test_firmware_output(self):
         """Check the --output feature."""
-        extra_args, _ = self._SetupArgs()
-        outfile = self._RunPackFirmware(extra_args).outfile
-        lines = self._RunScript(outfile, REEF_MODEL)
+        extra_args, _ = self._setup_args()
+        outfile = self._run_pack_firmware(extra_args).outfile
+        lines = self._run_script(outfile, REEF_MODEL)
         # TODO(evanhernandez): Consider changing futility so the image
         # names below align with those in the shellball. For now, too
         # much other code assumes the '{bios,ec,pd}.bin' naming  convention.
@@ -775,14 +775,14 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.assertIn(bios_file, files)
 
         # Now check that the file contents match.
-        self._AssertFileEqual(bios_file, "%s/image.bin" % self.indir)
-        self._AssertFileEqual(ec_file, "%s/ec.bin" % self.indir)
+        self._assert_file_equal(bios_file, "%s/image.bin" % self.indir)
+        self._assert_file_equal(ec_file, "%s/ec.bin" % self.indir)
 
         # Electro should be the same as reef
-        self._RunScript(outfile, "electro")
-        self._AssertFileEqual(bios_file, "%s/image.bin" % self.indir)
+        self._run_script(outfile, "electro")
+        self._assert_file_equal(bios_file, "%s/image.bin" % self.indir)
 
-    def _GetVblock(self, sig_id, a_or_b):
+    def _get_vblock(self, sig_id, a_or_b):
         """Get the contents of an A or B vblock for a given signature ID.
 
         Args:
@@ -797,7 +797,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         with gzip.GzipFile("functest/vblock_%s.%s.gz" % (a_or_b, sig_id)) as fd:
             return fd.read()
 
-    def _CopyVblock(self, keydir, sig_id, a_or_b):
+    def _copy_vblock(self, keydir, sig_id, a_or_b):
         """Copy a vblock file into the firmware-update key directory.
 
         Args:
@@ -806,9 +806,9 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             a_or_b: Either 'A' or 'B' to select which vblock to use
         """
         path = os.path.join(keydir, "vblock_%s.%s" % (a_or_b, sig_id))
-        osutils.WriteFile(path, self._GetVblock(sig_id, a_or_b), mode="wb")
+        osutils.WriteFile(path, self._get_vblock(sig_id, a_or_b), mode="wb")
 
-    def _AddKeys(self, keydir, sig_id):
+    def _add_keys(self, keydir, sig_id):
         """Add root key and vblock information for testing.
 
         Args:
@@ -820,8 +820,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         """
         rootkey = "functest/rootkey.%s" % sig_id
         shutil.copy(rootkey, keydir)
-        self._CopyVblock(keydir, sig_id, "A")
-        self._CopyVblock(keydir, sig_id, "B")
+        self._copy_vblock(keydir, sig_id, "A")
+        self._copy_vblock(keydir, sig_id, "B")
         result = cros_build_lib.dbg_run(
             ["futility", "show", rootkey], capture_output=True, encoding="utf-8"
         )
@@ -830,7 +830,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         #   Key sha1sum:         ac7c01b1bea84da486f30a52bba5eb67ff45f50f
         return result.stdout.splitlines()[-1].split()[2]
 
-    def _CheckOutput(
+    def _check_output(
         self, outfile, model, rootkey_sum, signature_id="", customlabel_tag=""
     ):
         """Check that the firmware updater can generate the correct output.
@@ -845,15 +845,15 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             signature_id: Value to return for signature_id from the fake mosys
             customlabel_tag: Value to return from the fake vpd
         """
-        self._RunScript(outfile, model, customlabel_tag=customlabel_tag)
+        self._run_script(outfile, model, customlabel_tag=customlabel_tag)
         expected_sig_id = signature_id or model
         bios_file = os.path.join(self.outdir, "bios.bin")
-        regions = self._GetUnequalRegions(
+        regions = self._get_unequal_regions(
             "%s/image.bin" % self.indir, bios_file, expected_sig_id, rootkey_sum
         )
         self.assertEqual([], regions)
 
-    def AddFakeKeys(self, outfile, key_ids):
+    def add_fake_keys(self, outfile, key_ids):
         """Add fake keys to an existing firmware update to allow testing.
 
         Args:
@@ -868,31 +868,31 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         )
         keydir = os.path.join(self.unpackdir, "keyset")
         osutils.SafeMakedirs(keydir)
-        key_sums = [self._AddKeys(keydir, x) for x in key_ids]
+        key_sums = [self._add_keys(keydir, x) for x in key_ids]
         cros_build_lib.dbg_run(
             [outfile, "--repack", self.unpackdir], capture_output=True
         )
         return key_sums
 
-    def testSignedFirmwareOutput(self):
+    def test_signed_firmware_output(self):
         """Check the --output feature with signed firmware."""
-        extra_args, _ = self._SetupArgs()
-        outfile = self._RunPackFirmware(extra_args).outfile
+        extra_args, _ = self._setup_args()
+        outfile = self._run_pack_firmware(extra_args).outfile
 
         # Add some fake root keys and vblocks for some of the models, to
         # simulate the action of the signer.
-        reef_sum, electro_sum = self.AddFakeKeys(outfile, ["reef", "electro"])
+        reef_sum, electro_sum = self.add_fake_keys(outfile, ["reef", "electro"])
 
-        self._CheckOutput(outfile, REEF_MODEL, reef_sum)
-        self._CheckOutput(outfile, "electro", electro_sum)
+        self._check_output(outfile, REEF_MODEL, reef_sum)
+        self._check_output(outfile, "electro", electro_sum)
 
-    def testCustomlabel(self):
+    def test_custom_label(self):
         """Test generation of firmware for a customlabel model."""
-        extra_args, _ = self._SetupArgs(["customlabel_test"])
-        self._RunPackFirmware(extra_args)
+        extra_args, _ = self._setup_args(["customlabel_test"])
+        self._run_pack_firmware(extra_args)
 
         # Check that the customlabel version output matches sand.
-        self._AssertVersionLines(
+        self._assert_version_lines(
             {
                 "customlabel_test": [
                     r"sand/image\.bin",
@@ -905,11 +905,11 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         )
 
         # Check that the manifest is correct (points to sand).
-        versions = pack_firmware_utils.ReadManifest(self.unpackdir)[
+        versions = pack_firmware_utils.read_manifest(self.unpackdir)[
             "customlabel_test"
         ]
         self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RW_FWID"])
-        self._CheckVars("sand", versions, "customlabel_test")
+        self._check_vars("sand", versions, "customlabel_test")
 
         # Check the signer instructions - the last line should be for
         # customlabel.
@@ -917,11 +917,11 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             os.path.join(self.unpackdir, "signer_config.csv")
         ).splitlines()
         self.assertEqual(
-            self._CreateSignerLine("customlabel_test", "sand", "CUSTOMLABEL"),
+            self._create_signer_line("customlabel_test", "sand", "CUSTOMLABEL"),
             lines[-1],
         )
 
-    def _CheckZeroTouchCustomlabel(self, model, cl_models, cl_tags):
+    def _check_zero_touch_custom_label(self, model, cl_models, cl_tags):
         """Test generation of firmware for a 'zero-touch' customlabel model.
 
         This is one where the device cannot tell its model name by hardware
@@ -938,12 +938,12 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
                 not cl_models
             ), "CL tags cannot be tested with multiple models"
             cl_models = ["%s-%s" % (model, cl_tag) for cl_tag in cl_tags]
-        extra_args, _ = self._SetupArgs([model] + cl_models)
+        extra_args, _ = self._setup_args([model] + cl_models)
 
-        result = self._RunPackFirmware(extra_args)
+        result = self._run_pack_firmware(extra_args)
 
         # Check that the customlabel version output matches reef.
-        self._AssertVersionLines(
+        self._assert_version_lines(
             {
                 model: [
                     r"reef/image\.bin",
@@ -962,9 +962,9 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             )
 
         # Check that the manifest is correct (points to sand).
-        versions = pack_firmware_utils.ReadManifest(self.unpackdir)[model]
+        versions = pack_firmware_utils.read_manifest(self.unpackdir)[model]
         self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RW_FWID"])
-        self._CheckVars("reef", versions, "sig-id-in-customization-id")
+        self._check_vars("reef", versions, "sig-id-in-customization-id")
 
         # Check the signer instructions - we should get keys for the two
         # zero-touch customlabels.
@@ -974,36 +974,36 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         # The signer instructions should be end by basking, clref, and
         # cl_models.
         self.assertEqual(
-            self._CreateSignerLine("basking", "sand"),
+            self._create_signer_line("basking", "sand"),
             lines[-2 - len(cl_models)],
         )
         self.assertEqual(
-            self._CreateSignerLine("clref", "reef", "REEF", ""),
+            self._create_signer_line("clref", "reef", "REEF", ""),
             lines[-1 - len(cl_models)],
         )
         for i, cl_model in enumerate(cl_models):
             self.assertEqual(
-                self._CreateSignerLine(cl_model, "reef"),
+                self._create_signer_line(cl_model, "reef"),
                 lines[i - len(cl_models)],
             )
 
         outfile = result.outfile
-        sums = self.AddFakeKeys(outfile, cl_models)
+        sums = self.add_fake_keys(outfile, cl_models)
 
         for i, cl_tag in enumerate(cl_tags):
-            self._CheckOutput(
+            self._check_output(
                 outfile, model, sums[i], "%s-%s" % (model, cl_tag), cl_tag
             )
 
-    def testZeroTouchCustomlabel(self):
+    def test_zero_touch_custom_label(self):
         """Test generation of firmware for a 'zero-touch' customlabel model.
 
         Customlabels use a single model with multiple 'customlabel' tags
         associated with it.
         """
-        self._CheckZeroTouchCustomlabel("clref", [], ["cltag1", "cltag2"])
+        self._check_zero_touch_custom_label("clref", [], ["cltag1", "cltag2"])
 
-    def testEmptyFirmwareOutput(self):
+    def test_empty_firmware_output(self):
         """Ensure no output is generated if not --local and no URIs."""
         args = ["-c", "test/config_no_uri.yaml", "-i", self.IMAGE_DIR]
 
@@ -1012,7 +1012,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
 
         os.environ["SYSROOT"] = "test"
         os.environ["FILESDIR"] = "test"
-        self.packer.Start(args)
+        self.packer.start(args)
 
         # Check that no files were written
         files = glob.glob("%s/*" % self.outdir)

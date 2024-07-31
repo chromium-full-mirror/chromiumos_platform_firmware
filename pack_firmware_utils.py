@@ -24,7 +24,7 @@ class ModelVersion:
     bios_ecrw_id: str = ""
 
 
-def ReadManifest(folder):
+def read_manifest(folder):
     """Read the manifest information from given folder.
 
     Args:
@@ -56,7 +56,7 @@ def ReadManifest(folder):
     return result
 
 
-def ReadVersions(fname):
+def read_versions(fname):
     """Read the version of images in an updater archive.
 
     Args:
@@ -90,6 +90,6 @@ def ReadVersions(fname):
     return versions
 
 
-def MakeTestFiles():
+def make_test_files():
     """Create test files that we need."""
     subprocess.check_call(["./make_test_files.sh"], shell=True)
