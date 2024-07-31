@@ -25,7 +25,7 @@ import struct
 import sys
 import tarfile
 import tempfile
-from typing import Callable, Dict, Union
+from typing import Callable, Dict, Optional
 
 # pylint: disable=import-error
 from cros_config_host import libcros_config_host
@@ -53,10 +53,61 @@ EC_RW_FMAP_SECTION_NAME = "EC_MAIN_A"
 EC_RW_CBFS_NAME = "ecrw"
 MODELS_DIR = "models"
 IMG_DIR = "images"
-Section = collections.namedtuple("Section", ["offset", "size"])
-FirmwareIds = collections.namedtuple("FirmwareIds", ["ro_id", "rw_id"])
-FirmwareVersion = collections.namedtuple("Version", ["major", "minor", "patch"])
-FirmwareVersions = collections.namedtuple("Versions", ["ro", "rw"])
+
+
+@dataclasses.dataclass(frozen=True)
+class Section:
+    """Information about a flashmap section.
+
+    Attributes:
+        offset: The offset to the section.
+        size: The size of the section.
+    """
+
+    offset: int
+    size: int
+
+
+@dataclasses.dataclass(frozen=True)
+class FirmwareIds:
+    """A FRID and FWID extracted from a firmware image.
+
+    Attributes:
+        ro_id: The FRID extracted from the image.
+        rw_id: The FWID extracted from the image.
+    """
+
+    ro_id: str
+    rw_id: str
+
+
+@dataclasses.dataclass(frozen=True)
+class FirmwareVersion:
+    """A firmware version extracted from a URI.
+
+    Attributes:
+        major: The most significant component of the ChromeOS version number.
+        minor: The middle component of the ChromeOS version number.
+        patch: The least significant component of the ChromeOS version number.
+    """
+
+    major: int
+    minor: int
+    patch: int
+
+
+@dataclasses.dataclass(frozen=True)
+class FirmwareVersions:
+    """Extracted versions from URIs for a firmware type.
+
+    Attributes:
+        ro: The extracted RO firmware version.
+        rw: The extracted RW firmware version.
+    """
+
+    ro: FirmwareVersion
+    rw: FirmwareVersion
+
 
 # File names in firmware tarball from BCS
 EC_IMAGE = "ec.bin"
@@ -65,39 +116,75 @@ EC_COMPONENT_MANIFEST = "component_manifest.json"
 
 @dataclasses.dataclass(frozen=True)
 class ImageSource:
-    """File path and info of a firmware image."""
+    """Information about a firmware image source.
 
+    Attributes:
+        file: File path to the firmware image.
+        uri_version: Version information extracted from the image URIs.
+        firmware_ids: FRID and FWID from the firmware image.
+    """
+
+    # TODO: file should be changed to Path type.
     file: str
     uri_version: FirmwareVersion
     firmware_ids: FirmwareIds
 
 
-# ImageSource for all firmware images.
-FirmwareSource = collections.namedtuple(
-    "FirmwareSource", ["bios", "bios_rw", "ec", "ec_rw", "ec_component"]
-)
+@dataclasses.dataclass(frozen=True)
+class FirmwareSource:
+    """Sources for each of the firmware images.
 
-# File path and info of a final (merged) firmware image.
-# Field bios_ecrw_id is only valid for BIOS image.
-ImageFile = collections.namedtuple(
-    "ImageFile",
-    [
-        "filename",
-        "build_target",
-        "firmware_ids",
-        "uri_versions",
-        "bios_ecrw_id",
-    ],
-)
+    Attributes:
+        bios: ImageSource for the RO BIOS firmware.
+        bios_rw: ImageSource for the RW BIOS firmware.
+        ec: ImageSource for the RO EC firmware.
+        ec_rw: ImageSource for the RW EC firmware.
+        ec_component: ImageSource for the EC component manifest.
+    """
 
-# image_files:  Dict containing information on the output image files for this
-#     model:
-#   key: Image name (e.g. 'BIOS (RW)' or 'EC').
-#   value: ImageFile, containing filename and version.
-# key_id: key ID to use to sign the image for this model
-ModelDetails = collections.namedtuple(
-    "ModelDetails", ["image_files", "key_id", "brand_code"]
-)
+    bios: ImageSource
+    bios_rw: ImageSource
+    ec: ImageSource
+    ec_rw: Optional[ImageSource] = None
+    ec_component: Optional[ImageSource] = None
+
+
+@dataclasses.dataclass(frozen=True)
+class ImageFile:
+    """File path and info of a final (merged) firmware image.
+
+    Attributes:
+        filename: Path to the merged firmware image.
+        build_target: The build target for the firmware.
+        firmware_ids: The FirmwareIds for the firmware.
+        uri_versions: The FirmwareVersions for the original firmware sources.
+        bios_ecrw_id: For a BIOS image, this may be set to the FWID of the EC
+            firmware in CBFS.  Not applicable for EC images.
+    """
+
+    # TODO: filename should be changed to Path type.
+    filename: str
+    build_target: str
+    firmware_ids: FirmwareIds
+    uri_versions: FirmwareVersions
+    bios_ecrw_id: Optional[str] = None
+
+
+@dataclasses.dataclass(frozen=True)
+class ModelDetails:
+    """Information about the output images for a specific model for signing.
+
+    Attributes:
+        image_files: A dictionary mapping the type of image (e.g., "BIOS (RW)")
+            to an ImageFile.
+        key_id: Key used for signing.
+        brand_code: RLZ brand code used for signing.
+    """
+
+    image_files: Dict[str, ImageFile]
+    key_id: str
+    brand_code: str
+
 
 # File execution permissions. We could use state.S_... but that's confusing.
 CHMOD_ALL_READ = 0o444
@@ -678,7 +765,7 @@ class FirmwarePacker:
         use_ec_rw_from_ec_source: bool,
         build_target: str,
         merge_dir: str,
-    ) -> ImageFile:
+    ) -> Optional[ImageFile]:
         """Merge BIOS RO and RW images into one.
 
         Args:
@@ -735,7 +822,7 @@ class FirmwarePacker:
         use_ec_rw_from_ec_source: bool,
         build_target: str,
         merge_dir: str,
-    ) -> ImageFile:
+    ) -> Optional[ImageFile]:
         """Merge EC RO and RW images into one.
 
         Args:
@@ -857,7 +944,7 @@ class FirmwarePacker:
         return bios_image, ec_image
 
     @staticmethod
-    def _ExtractEcVersion(fw_id: str) -> Union[FirmwareVersion, None]:
+    def _ExtractEcVersion(fw_id: str) -> Optional[FirmwareVersion]:
         """Extracts ChromeOS version from EC `fw_id`.
 
         Letting V denote [0-9], the expected version regex is "V+.V+.V+"
@@ -1096,11 +1183,12 @@ class FirmwarePacker:
         print("Model:        %s" % model, file=self._versions)
         for name, image in sorted(image_files.items()):
             filename = image.filename
-            ro_id, rw_id = image.firmware_ids
-            self._AddVersionInfo(name, filename, ro_id)
+            self._AddVersionInfo(name, filename, image.firmware_ids.ro_id)
             # Write the RW version only if it differs from RO version.
-            if rw_id != ro_id:
-                self._AddVersionInfo(name + " (RW)", None, rw_id)
+            if image.firmware_ids.rw_id != image.firmware_ids.ro_id:
+                self._AddVersionInfo(
+                    name + " (RW)", None, image.firmware_ids.rw_id
+                )
 
     def _UntarFile(
         self, tar_path, dst_dirname, suffix="", fname=None, required=True
@@ -1337,7 +1425,7 @@ class FirmwarePacker:
         fname: str = None,
         required: bool = True,
         extract_fwid: bool = True,
-    ) -> ImageSource:
+    ) -> Optional[ImageSource]:
         """Obtain a file based on provided information.
 
         This obtains the file in one of the two ways:
