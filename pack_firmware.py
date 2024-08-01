@@ -17,6 +17,7 @@ import glob
 import hashlib
 import io
 import json
+import logging
 import os
 import pathlib
 import re
@@ -1079,16 +1080,14 @@ class FirmwarePacker:
             "rw-%s" % get_version_string(fw_ids.rw_id, uri_versions.rw)
         )
         if bios_ecrw_id:
-            # The "ecrw" CBFS file being placed into BIOS RW should come
-            # from a release branch, where the EC FWID should contain the
-            # CrOS version.
             bios_ecrw_version = self._extract_ec_version(bios_ecrw_id)
-            if not bios_ecrw_version:
-                raise PackError(
-                    "Cannot extract CrOS version from bios_ecrw_id"
-                    f" {bios_ecrw_id}"
+            if bios_ecrw_version:
+                parts.append("ecrw-%s" % to_string(bios_ecrw_version))
+            else:
+                logging.warning(
+                    "bios_ecrw_id is in legacy format: %s", bios_ecrw_id
                 )
-            parts.append("ecrw-%s" % to_string(bios_ecrw_version))
+                parts.append(f"ecrw-{bios_ecrw_id}")
         fname = ".".join(parts) + ".bin"
         return os.path.join(target_dir, fname) if target_dir else fname
 
