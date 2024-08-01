@@ -20,6 +20,7 @@ import json
 import logging
 import os
 import pathlib
+from pathlib import Path
 import re
 import shutil
 import struct
@@ -44,9 +45,6 @@ from chromite.lib import osutils
 
 # pylint: enable=import-error
 
-
-# Script paths
-SWAP_EC_RW = "/usr/share/vboot/bin/swap_ec_rw"
 
 MAIN = "BIOS"
 EC = "EC"
@@ -703,8 +701,21 @@ class FirmwarePacker:
             ec_fname: Filename of EC image, whose RW will be added to BIOS RW to
                 replace the existing EC RW in BIOS.
         """
+        # Use the copy installed in the SDK if we are in the SDK.  Otherwise use
+        # the swap_ec_rw shell script in the source tree.
+        if cros_build_lib.IsInsideChroot():
+            script_path = Path("/usr/share/vboot/bin/swap_ec_rw")
+        else:
+            script_path = (
+                Path(self._script_base).resolve().parent
+                / "vboot_reference"
+                / "scripts"
+                / "image_signing"
+                / "swap_ec_rw"
+            )
+
         cros_build_lib.dbg_run(
-            [SWAP_EC_RW, "-i", bios_fname, "-e", ec_fname],
+            [script_path, "-i", bios_fname, "-e", ec_fname],
             capture_output=True,
             cwd=self._tmpdir,
         )
