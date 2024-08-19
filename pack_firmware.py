@@ -1779,12 +1779,6 @@ class FirmwarePacker:
                     file=fd,
                 )
 
-    @staticmethod
-    def _create_symlink(src, dst):
-        """Create a symlink `dst` pointing to `src` as relative path."""
-        rel_src = os.path.relpath(src, os.path.dirname(dst))
-        os.symlink(rel_src, dst)
-
     def _save_raw_image_files(
         self,
         devices_fw_target: Dict[str, str],
@@ -1798,9 +1792,6 @@ class FirmwarePacker:
             image-<DEVICE1>.bin
             <DEVICE0>/ec.bin
             <DEVICE1>/ec.bin
-        As different devices may share the same image, to avoid storing
-        duplicate images, the actual images are stored in the images/ directory,
-        and the above files are just symlinks to files in images/.
 
         Args:
             devices_fw_target:
@@ -1816,30 +1807,21 @@ class FirmwarePacker:
         # The output directory should not exist.
         os.makedirs(output_dir)
 
-        # Copy images to images/.
-        images_dir = os.path.join(output_dir, "images")
-        os.mkdir(images_dir)
-        fw_files = {}
-        for fw_target, image_files in images.items():
-            bios_file, ec_file = self._copy_firmware_files(
-                image_files,
-                images_dir,
-            )
-            fw_files[fw_target] = (bios_file, ec_file)
-
-        # Create symlinks.
+        # Copy files
         for device, fw_target in devices_fw_target.items():
-            if fw_target not in images:
+            image_files = images.get(fw_target)
+            if not image_files:
                 continue
-            bios_file, ec_file = fw_files[fw_target]
+            bios_file = image_files.get(MAIN)
+            ec_file = image_files.get(EC)
             if bios_file:
-                bios_link = os.path.join(output_dir, f"image-{device}.bin")
-                self._create_symlink(bios_file, bios_link)
+                bios_output = os.path.join(output_dir, f"image-{device}.bin")
+                self._copy_firmware_file(bios_file.filename, bios_output)
             if ec_file:
                 ec_dir = os.path.join(output_dir, device)
                 os.mkdir(ec_dir)
-                ec_link = os.path.join(ec_dir, "ec.bin")
-                self._create_symlink(ec_file, ec_link)
+                ec_output = os.path.join(ec_dir, "ec.bin")
+                self._copy_firmware_file(ec_file.filename, ec_output)
 
     def _save_ec_component_manifests(self, manifests: Dict[str, str]):
         """Save EC component manifests.
