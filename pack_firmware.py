@@ -51,7 +51,6 @@ MAIN = "BIOS"
 EC = "EC"
 EC_RW_FMAP_SECTION_NAME = "EC_MAIN_A"
 EC_RW_CBFS_NAME = "ecrw"
-MODELS_DIR = "models"
 IMG_DIR = "images"
 
 
@@ -222,9 +221,6 @@ class FirmwarePacker:
         self._script_base = os.path.dirname(progname)
         self._args = None
         self._sfx_file = os.path.join(self._script_base, "pack", "sfx2.sh")
-        self._setvars_template_file = os.path.join(
-            self._script_base, "pack", "setvars_template"
-        )
         self._basedir = None
         self._tmpdir = None
         self._tmp_dirs = []
@@ -1283,49 +1279,6 @@ class FirmwarePacker:
         os.chmod(dst, os.stat(dst).st_mode | mode)
         return dst
 
-    def _get_replace_dict(self, image_files):
-        """Build a dict of string replacements for use with the update script.
-
-        Args:
-            image_files: Dict with:
-                key: Image type (e.g. 'BIOS').
-                value: ImageFile object containing filename and version.
-
-        Returns:
-            Dict with:
-                key: String to replace.
-                value: Value to replace with.
-        """
-        empty = ImageFile("", "", FirmwareIds("", ""), None, None)
-        bios, ec = [image_files.get(label, empty) for label in [MAIN, EC]]
-        return {
-            "REPLACE_TARGET_IMAGE_RO_MAIN": self._main_image_output(
-                bios, IMG_DIR
-            ),
-            "REPLACE_TARGET_IMAGE_EC": self._ec_image_output(ec, IMG_DIR),
-        }
-
-    @staticmethod
-    def _create_file_from_template(infile, outfile, replace_dict):
-        """Create a new file based on a template and some string replacements.
-
-        Args:
-            infile: Input file (the template).
-            outfile: Output file.
-            replace_dict: Dict with:
-                key: String to replace.
-                value: Value to replace with.
-        """
-        # The template file is going to be ASCII everywhere, so we don't need to
-        # jump through binary mode hoops here.
-        data = osutils.ReadFile(infile)
-        rep = dict((re.escape(k), v) for k, v in replace_dict.items())
-        pattern = re.compile("|".join(rep.keys()))
-        data = pattern.sub(lambda m: rep[re.escape(m.group(0))], data)
-
-        osutils.WriteFile(outfile, data)
-        os.chmod(outfile, os.stat(outfile).st_mode | 0o555)
-
     def _write_version_file(self):
         """Write out the VERSION file with our collected version information."""
         print(file=self._versions)
@@ -1703,31 +1656,6 @@ class FirmwarePacker:
 
         return images, ec_component_manifests
 
-    def _generate_set_vars(self, firmware, image_files):
-        """Generate the setvars.sh script for a single model.
-
-        Args:
-            firmware: Firmware information to process (FirmwareInfo object)
-            image_files: Dict:
-                key: Image type (e.g. BIOS).
-                value: ImageFile object for that image.
-        """
-        setvars_dirname = self._base_dir_path(
-            os.path.join(MODELS_DIR, firmware.model)
-        )
-        osutils.SafeMakedirs(setvars_dirname)
-        setvars_dict = self._get_replace_dict(image_files)
-        setvars_dict["REPLACE_MODEL"] = firmware.model
-
-        # For zero-touch customlabel devices tell the firmware updater to get
-        # its signature ID from the VPD.
-        # TODO(sjg): Update this to say that it comes from mosys / cros_config.
-        setvars_dict["REPLACE_SIGNATURE_ID"] = firmware.sig_id
-        setvars_fname = os.path.join(setvars_dirname, "setvars.sh")
-        self._create_file_from_template(
-            self._setvars_template_file, setvars_fname, setvars_dict
-        )
-
     def _write_signer_instructions(self, model_details):
         """Write the signer instructions file.
 
@@ -1870,7 +1798,6 @@ class FirmwarePacker:
                 raise PackError("Missing model configuration file (use -c)")
 
             conf = libcros_config_host.CrosConfig(args.config)
-            osutils.SafeMakedirs(self._base_dir_path(MODELS_DIR))
             osutils.SafeMakedirs(self._base_dir_path(IMG_DIR))
 
             devices_fw_target = conf.GetFirmwareConfigsByDevice()
@@ -1926,7 +1853,6 @@ class FirmwarePacker:
                 if not fw.have_image:
                     continue
                 self._write_versions(device, image_files)
-                self._generate_set_vars(fw, image_files)
 
             if not args.local:
                 self._save_raw_image_files(

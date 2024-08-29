@@ -57,7 +57,6 @@ EC_IMAGES = {
 EC_IMAGES["sand"] = EC_IMAGES["reef"]
 EC_IMAGES["electro"] = EC_IMAGES["reef"]
 EC_IMAGES["basking"] = EC_IMAGES["reef"]
-MODELS_DIR = "models"
 IMG_DIR = "images"
 
 # Firmware update runs on the device using the dash shell. Try to use this if
@@ -145,7 +144,6 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         for model in models:
             expected_files.add(os.path.join(IMG_DIR, BIOS_IMAGES[model]))
             expected_files.add(os.path.join(IMG_DIR, EC_IMAGES[model]))
-            expected_files.add(os.path.join(MODELS_DIR, model, "setvars.sh"))
         return sorted(expected_files)
 
     def _run_script(self, outfile, model, mode="output", customlabel_tag=""):
@@ -350,14 +348,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         for model in all_models:
             extra_args += ["-m", model]
         extra_args += ["-c", "test/config.yaml", "-i", self.IMAGE_DIR]
-        expected_files = self._expected_files(
-            [
-                "models/electro/setvars.sh",
-                "models/basking/setvars.sh",
-                "signer_config.csv",
-            ],
-            models,
-        )
+        expected_files = self._expected_files(["signer_config.csv"], models)
         return extra_args, expected_files
 
     def _create_signer_line(
@@ -954,12 +945,6 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             },
             ignore_extra_model=True,
         )
-
-        # We should not create setvars.sh scripts for zero-touch customlabels.
-        for cl_model in cl_models:
-            self.assertNotExists(
-                os.path.join(self.unpackdir, MODELS_DIR, cl_model)
-            )
 
         # Check that the manifest is correct (points to sand).
         versions = pack_firmware_utils.read_manifest(self.unpackdir)[model]
