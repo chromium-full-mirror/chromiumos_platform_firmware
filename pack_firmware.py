@@ -29,8 +29,8 @@ import tarfile
 import tempfile
 from typing import Callable, Dict, Optional
 
+
 # pylint: disable=import-error
-from cros_config_host import libcros_config_host
 
 
 # Find chromite!  Assume this code only runs inside the SDK.
@@ -38,6 +38,8 @@ sys.path.insert(0, "/mnt/host/source")
 
 
 # pylint: disable=wrong-import-position
+import config_parser
+
 from chromite.lib import commandline
 from chromite.lib import cros_build_lib
 from chromite.lib import gs
@@ -259,13 +261,20 @@ class FirmwarePacker:
             "-c",
             "--config",
             type="str_path",
-            help="Filename of model configuration .json file",
+            help="Filename of model configuration .json file. If using "
+            "textproto config, this is the path to the directory of all "
+            "textproto configs.",
         )
         parser.add_bool_argument(
             "--download",
             default=False,
             enabled_desc="Download the tarball of firmware blobs.",
             disabled_desc="Do not download the tarballs of firmware blobs.",
+        )
+        parser.add_argument(
+            "--textproto",
+            action="store_true",
+            help="Use textproto config.",
         )
         parser.add_argument(
             "-l",
@@ -1512,7 +1521,8 @@ class FirmwarePacker:
         """Extract all firmware images to a temporary directory.
 
         Args:
-            firmware: FirmwareInfo object, describing what firmware to extract.
+            firmware: FirmwareUpdateInfo object, describing what firmware to
+                extract.
             dirname: Destination for extracted firmware.
 
         Returns:
@@ -1643,7 +1653,7 @@ class FirmwarePacker:
         Args:
             firmware_info: Dict:
                 key: Model name.
-                value: FirmwareInfo object for that model.
+                value: FirmwareUpdateInfo object for that model.
             devices_fw_target: Dict:
                 key: Device name.
                 value: Firmware target name.
@@ -1847,13 +1857,18 @@ class FirmwarePacker:
             if not args.config:
                 raise PackError("Missing model configuration file (use -c)")
 
-            conf = libcros_config_host.CrosConfig(args.config)
             osutils.SafeMakedirs(self._base_dir_path(IMG_DIR))
 
-            devices_fw_target = conf.GetFirmwareConfigsByDevice()
+            if args.textproto:
+                # args.config is dir for txtpb files.
+                conf = config_parser.parse_textproto_config(args.config)
+            else:
+                conf = config_parser.parse_cros_config(args.config)
+
+            devices_fw_target = conf.get_firmware_configs_by_device()
 
             # TODO(yshaul): delete this once the api migration is complete.
-            firmware_info = conf.GetFirmwareInfo()
+            firmware_info = conf.get_firmware_info()
             # TODO: Ignore the passed-in model list and use the list from
             # libcros_config_host always. For now the passed-in list is used
             # for testing.
