@@ -49,6 +49,7 @@ from chromite.lib import osutils
 MAIN = "BIOS"
 EC = "EC"
 EC_RW_FMAP_SECTION_NAME = "EC_MAIN_A"
+EC_ZEPHYR_RW_FMAP_SECTION_NAME = "ZEPHYR_RW"
 EC_RW_CBFS_NAME = "ecrw"
 IMG_DIR = "images"
 
@@ -1550,12 +1551,13 @@ class FirmwarePacker:
         elif (
             not self._args.local
             and ec_comp_uri
-            and firmware.is_zephyr_ec
             and self._require_ec_component_manifest(ec_comp_uri)
         ):
-            raise PackError(
-                f"Missing {EC_COMPONENT_MANIFEST!r} in {ec_comp_uri}\n"
-            )
+            # Component manifest is required only for Zephyr EC
+            if EC_ZEPHYR_RW_FMAP_SECTION_NAME in self._get_fmap(ec.file):
+                raise PackError(
+                    f"Missing {EC_COMPONENT_MANIFEST!r} in {ec_comp_uri}\n"
+                )
 
         return FirmwareSource(bios, bios_rw, ec, ec_rw, ec_comp)
 
