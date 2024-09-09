@@ -8,6 +8,9 @@
 It requires:
 - at least one firmware image (*.bin, should be AP or EC or ...)
 - pack/sfx?.sh as the self extraction (and installation) script
+- cbfstool and futility. If you are running out side of SDK, you can install it
+  by the following cipd command. Add the tmp/bin path to your PATH.
+  `cipd ensure -ensure-file cipd_manifest.txt -root tmp`
 """
 
 import collections
@@ -23,6 +26,7 @@ import pathlib
 from pathlib import Path
 import re
 import shutil
+import site
 import struct
 import sys
 import tarfile
@@ -33,9 +37,17 @@ from typing import Callable, Dict, Optional
 # pylint: disable=import-error
 
 
-# Find chromite!  Assume this code only runs inside the SDK.
-sys.path.insert(0, "/mnt/host/source")
-
+# Find chromite!  This code may run outside the SDK from the source tree,
+# where chromite is expected to be found in one of the parent directories.
+for search_path in [
+    Path("/mnt/host/source"),
+    *pathlib.Path(__file__).resolve().parents,
+]:
+    if (search_path / "chromite" / "__init__.py").is_file():
+        site.addsitedir(search_path)
+        break
+else:
+    raise RuntimeError("Unable to find chromite.")
 
 # pylint: disable=wrong-import-position
 import config_parser
@@ -349,15 +361,22 @@ class FirmwarePacker:
         return opts
 
     @staticmethod
-    def _ensure_command(cmd, package):
+    def _ensure_command(cmd, portage_package, cipd_package=None):
         """Ensure that a command is available, raising an exception if not.
 
         Args:
             cmd: Command to check (just the name, not the full path).
-            package: Name of package to install to obtain this tool.
+            portage_package: Name of portage package to install to obtain this
+                tool.
+            cipd_package: Name of cipd package to install to obtain this tool.
         """
         if not osutils.Which(cmd):
-            raise PackError("You need '%s' (package '%s')" % (cmd, package))
+            package_source = ["portage package '%s'" % (portage_package)]
+            if cipd_package:
+                package_source.append("cipd package '%s'" % (cipd_package))
+            raise PackError(
+                "You need '%s' (%s)" % (cmd, " or ".join(package_source))
+            )
 
     def _create_tmp_dir(self):
         """Create a temporary directory, and remember it for later removal.
@@ -1840,6 +1859,12 @@ class FirmwarePacker:
         args = self._args = self.parse_args(argv)
 
         self._ensure_command("zip", "zip")
+        self._ensure_command(
+            "cbfstool", "coreboot-utils", "chromiumos/infra/tools/cbfstool"
+        )
+        self._ensure_command(
+            "futility", "vboot_reference", "chromiumos/infra/tools/futility"
+        )
         if not os.path.exists(self._sfx_file):
             raise PackError("Cannot find required file '%s'" % self._sfx_file)
         try:
