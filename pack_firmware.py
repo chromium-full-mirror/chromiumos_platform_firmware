@@ -40,6 +40,7 @@ sys.path.insert(0, "/mnt/host/source")
 # pylint: disable=wrong-import-position
 from chromite.lib import commandline
 from chromite.lib import cros_build_lib
+from chromite.lib import gs
 from chromite.lib import osutils
 
 
@@ -108,7 +109,7 @@ class FirmwareVersions:
     rw: FirmwareVersion
 
 
-# File names in firmware tarball from BCS
+# File names in firmware tarball
 EC_IMAGE = "ec.bin"
 EC_COMPONENT_MANIFEST = "component_manifest.json"
 
@@ -185,6 +186,11 @@ class ModelDetails:
     brand_code: str
 
 
+def uri_filename(uri: str) -> str:
+    """Given an URI, extract the filename component."""
+    return uri.rsplit("/", 1)[1]
+
+
 # File execution permissions. We could use state.S_... but that's confusing.
 CHMOD_ALL_READ = 0o444
 CHMOD_ALL_EXEC = 0o555
@@ -226,6 +232,7 @@ class FirmwarePacker:
         self._tmp_dirs = []
         self._versions = io.StringIO()
         self._force_dash = False
+        self._gs_context = None
 
     @staticmethod
     def parse_args(argv):
@@ -253,6 +260,12 @@ class FirmwarePacker:
             "--config",
             type="str_path",
             help="Filename of model configuration .json file",
+        )
+        parser.add_bool_argument(
+            "--download",
+            default=False,
+            enabled_desc="Download the tarball of firmware blobs.",
+            disabled_desc="Do not download the tarballs of firmware blobs.",
         )
         parser.add_argument(
             "-l",
@@ -933,7 +946,7 @@ class FirmwarePacker:
                 # If the major version is the same but not the minor version,
                 # that probably indicates an incorrect version. The patch
                 # versions, however, are allowed to be different, because
-                # people may increment the patch version in order to fix BCS
+                # people may increment the patch version in order to fix
                 # tarball issues (such missing component_manifest.json).
                 raise PackError(
                     "AP and EC have same major version, "
@@ -1070,7 +1083,7 @@ class FirmwarePacker:
         # Here, the generated version string needs to be unique for each
         # firmware target, in order to have unique file names in the updater.
         # Therefore, when CrOS version cannot be extracted from the FWID, the
-        # BCS URI version (which is CrOS version) will be used.
+        # URI version (which is CrOS version) will be used.
         def get_version_string(fwid: str, uri_version: FirmwareVersion) -> str:
             v = extract_cros_version(fwid) or uri_version
             if not v:
@@ -1371,6 +1384,7 @@ class FirmwarePacker:
         `uri` is expected to be one of the form:
         1. bcs://Name.xxxxx.yy.tbz2
         2. bcs://Name.xxxxx.yy.z.tbz2
+        3. gs://path/name.xxxxx.yy.zz.tar.bz2
         """
         stem = pathlib.PosixPath(uri).stem
         version = [int(x) for x in stem.split(".")[1:]]
@@ -1400,13 +1414,13 @@ class FirmwarePacker:
             current build target name.
         - Otherwise, it finds a tar file specified in `uri`, unpacks it, and
             returns an image source of the resulting unpacked file. This is used
-            to build the official firmware updater from the BCS firmware images.
+            to build the official firmware updater from the firmware images.
 
         Args:
             build_target: The name of the build target uses, driving the file
                 output.
             fname_template: Filename template to use in local model.
-            uri: BCS URI of the tar file containing the image file.
+            uri: URI of the tar file containing the image file.
             dirname: Output directory where the unpacked file should be placed.
             suffix: String to append to output filename.
             fname: The filename contained in `uri` to be extracted. This is
@@ -1430,9 +1444,13 @@ class FirmwarePacker:
         if not uri:
             return None
 
-        tar_fname = uri.replace("bcs://", "")
+        output_path = os.path.join(self._args.imagedir, uri_filename(uri))
+
+        if self._args.download:
+            self._download_uri(uri, Path(output_path))
+
         path = self._untar_file(
-            os.path.join(self._args.imagedir, tar_fname),
+            output_path,
             dirname,
             suffix=suffix,
             fname=fname,
@@ -1582,21 +1600,21 @@ class FirmwarePacker:
                 f" {ro_id}, {rw_id}"
             )
 
-        # Check FWID against BCS URI version.
+        # Check FWID against URI version.
         uri_version = image.uri_version
         fwid_version = extract_cros_version(ro_id)
         # FWID in old EC image doesn't contain the ChromeOS version.
         if not uri_version or not fwid_version:
             return
-        # The "patch" versions are allowed to be different, because the BCS URI
-        # patch version is incremented whenever people need to re-upload the BCS
+        # The "patch" versions are allowed to be different, because the URI
+        # patch version is incremented whenever people need to re-upload the
         # tarball to fix issues such as missing component_manifest.json.
         if (
             fwid_version.major != uri_version.major
             or fwid_version.minor != uri_version.minor
         ):
             raise PackError(
-                f"FWID {ro_id} doesn't match BCS URI version {uri_version}"
+                f"FWID {ro_id} doesn't match URI version {uri_version}"
             )
 
     def _check_firmware_source(self, fw_source: FirmwareSource) -> None:
@@ -1780,6 +1798,26 @@ class FirmwarePacker:
             os.mkdir(out_dir)
             out_file = os.path.join(out_dir, "component_manifest.json")
             shutil.copy2(manifest_file, out_file)
+
+    def _download_uri(
+        self,
+        uri: str,
+        output_path: Path,
+    ) -> Path:
+        """Download a file from the URI.
+
+        Args:
+            uri: The URI spec to download.
+            output_path: The destination path.
+
+        Returns:
+            The path to the downloaded file.
+        """
+        if not self._gs_context:
+            self._gs_context = gs.GSContext()
+        self._gs_context.Copy(uri, output_path)
+
+        return output_path
 
     def start(self, argv, remove_tmpdirs=True):
         """Handle the creation of a firmware shell-ball.

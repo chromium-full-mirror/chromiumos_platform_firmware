@@ -566,7 +566,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         ]
         with self.assertRaisesRegex(
             pack_firmware.PackError,
-            "FWID .* doesn't match BCS URI version .*",
+            "FWID .* doesn't match URI version .*",
         ):
             self._run_pack_firmware(extra_args)
 

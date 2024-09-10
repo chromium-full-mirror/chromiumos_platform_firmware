@@ -105,6 +105,22 @@ def capture_sys_output():
         sys.stdout, sys.stderr = old_out, old_err
 
 
+class ModuleTestUnit(cros_test_lib.TestCase):
+    """Test cases for module functions."""
+
+    def test_uri_filename(self):
+        """Test uri_filename."""
+        bcs_scheme = "bcs://"
+        gs_scheme = "gs://dir1/dir2/"
+        filename = "brya.12345.123.0.tar.bz2"
+        self.assertEqual(
+            filename, pack_firmware.uri_filename(bcs_scheme + filename)
+        )
+        self.assertEqual(
+            filename, pack_firmware.uri_filename(gs_scheme + filename)
+        )
+
+
 class TestUnit(cros_test_lib.MockTempDirTestCase):
     """Test cases for common program flows."""
 
