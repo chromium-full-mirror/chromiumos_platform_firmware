@@ -19,6 +19,7 @@ import sys
 from typing import Iterable, List
 from unittest import mock
 
+import config_parser
 import pack_firmware
 import pack_firmware_utils
 
@@ -526,13 +527,20 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         # This should find the tar file in self.IMAGE_DIR, copy it to dirname
         # and return its filename.
         image = self.packer._extract_file(
-            None, None, "bcs://Reef.9042.50.0.tbz2", dirname
+            None,
+            None,
+            config_parser.ImageUriSource("bcs://Reef.9042.50.0.tbz2"),
+            dirname,
         )
         self.assertEqual(image.file, os.path.join(dirname, "image.bin"))
 
         # Specify the file name to be extracted.
         image = self.packer._extract_file(
-            None, None, "bcs://Reef_EC.9042.50.0.tbz2", dirname, fname="ec.bin"
+            None,
+            None,
+            config_parser.ImageUriSource("bcs://Reef_EC.9042.50.0.tbz2"),
+            dirname,
+            fname="ec.bin",
         )
         self.assertEqual(image.file, os.path.join(dirname, "ec.bin"))
 
@@ -540,7 +548,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         image = self.packer._extract_file(
             None,
             None,
-            "bcs://Reef_EC.9042.50.0.tbz2",
+            config_parser.ImageUriSource("bcs://Reef_EC.9042.50.0.tbz2"),
             dirname,
             fname="NO_SUCH",
             required=False,
@@ -552,7 +560,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         image = self.packer._extract_file(
             None,
             None,
-            "bcs://Ciri_EC.15705.0.0.tbz2",
+            config_parser.ImageUriSource("bcs://Ciri_EC.15705.0.0.tbz2"),
             dirname,
             fname="component_manifest.json",
             extract_fwid=False,

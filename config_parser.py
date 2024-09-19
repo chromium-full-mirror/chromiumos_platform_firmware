@@ -33,6 +33,19 @@ class ConfigParserError(Exception):
 
 
 @dataclasses.dataclass(frozen=True)
+class ImageUriSource:
+    """URI with the sha256 hash.
+
+    Attributes:
+        uri: The URI at which the firmware binary can be found.
+        sha256: The hex digest of SHA256 hash of the target file.
+    """
+
+    uri: str
+    sha256: str = ""
+
+
+@dataclasses.dataclass(frozen=True)
 class FirmwareUpdateInfo:
     """This contains the neccessary info for the firmware updater.
 
@@ -41,10 +54,10 @@ class FirmwareUpdateInfo:
         base_device: The base device for custom label devices.
         bios_build_target: Build target to use to build the BIOS.
         ec_build_target: Build target to use to build the EC.
-        main_image_uri: URI to used to obtain the AP firmware image.
-        main_rw_image_uri: URI used to obtain AP firmware RW image.
-        ec_image_uri: URI used to obtain the EC firmware image.
-        ec_rw_image_uri: URI used to obtain the EC RW firmware image.
+        main_image_source: URI to used to obtain the AP firmware image.
+        main_rw_image_source: URI used to obtain AP firmware RW image.
+        ec_image_source: URI used to obtain the EC firmware image.
+        ec_rw_image_source: URI used to obtain the EC RW firmware image.
         key_id: Key ID used to sign firmware for this device (e.g. "BRYAA").
         brand_code: Uniquely identifies a given brand (see go/chromeos-rlz).
         have_image: True if this base_device have dedicate image.
@@ -59,10 +72,10 @@ class FirmwareUpdateInfo:
 
     bios_build_target: str
     ec_build_target: str
-    main_image_uri: str
-    main_rw_image_uri: str
-    ec_image_uri: str
-    ec_rw_image_uri: str
+    main_image_source: ImageUriSource
+    main_rw_image_source: ImageUriSource
+    ec_image_source: ImageUriSource
+    ec_rw_image_source: ImageUriSource
 
     key_id: str
     brand_code: str
@@ -86,10 +99,14 @@ class CrOSConfig:
             base_device=cros_firmware_info.shared_model,
             bios_build_target=cros_firmware_info.bios_build_target,
             ec_build_target=cros_firmware_info.ec_build_target,
-            main_image_uri=cros_firmware_info.main_image_uri,
-            main_rw_image_uri=cros_firmware_info.main_rw_image_uri,
-            ec_image_uri=cros_firmware_info.ec_image_uri,
-            ec_rw_image_uri=cros_firmware_info.ec_rw_image_uri,
+            main_image_source=ImageUriSource(cros_firmware_info.main_image_uri),
+            main_rw_image_source=ImageUriSource(
+                cros_firmware_info.main_rw_image_uri
+            ),
+            ec_image_source=ImageUriSource(cros_firmware_info.ec_image_uri),
+            ec_rw_image_source=ImageUriSource(
+                cros_firmware_info.ec_rw_image_uri
+            ),
             key_id=cros_firmware_info.key_id,
             brand_code=cros_firmware_info.brand_code,
             have_image=cros_firmware_info.have_image,
@@ -156,10 +173,18 @@ class TextprotoConfig:
                 have_image=True,
                 bios_build_target=bios_build_target,
                 ec_build_target=ec_build_target,
-                main_image_uri=ap_firmware.ro_firmware.uri,
-                main_rw_image_uri=ap_firmware.rw_firmware.uri,
-                ec_image_uri=ec_firmware.ro_firmware.uri,
-                ec_rw_image_uri=ec_firmware.rw_firmware.uri,
+                main_image_source=ImageUriSource(
+                    ap_firmware.ro_firmware.uri, ap_firmware.ro_firmware.sha256
+                ),
+                main_rw_image_source=ImageUriSource(
+                    ap_firmware.rw_firmware.uri, ap_firmware.rw_firmware.sha256
+                ),
+                ec_image_source=ImageUriSource(
+                    ec_firmware.ro_firmware.uri, ec_firmware.ro_firmware.sha256
+                ),
+                ec_rw_image_source=ImageUriSource(
+                    ec_firmware.rw_firmware.uri, ec_firmware.rw_firmware.sha256
+                ),
                 brand_code=signing.brand_code,
             )
             firmware_info[message.model] = info

@@ -205,6 +205,19 @@ def uri_filename(uri: str) -> str:
     return uri.rsplit("/", 1)[1]
 
 
+def file_sha256(file_path: Path) -> str:
+    """Reture the digest of the given file."""
+    # Does this save memory? didn't explict reuse memory.
+    sha256 = hashlib.sha256()
+    with file_path.open("rb") as f:
+        while True:
+            data = f.read(2**18)
+            if not data:
+                break
+            sha256.update(data)
+    return sha256.hexdigest()
+
+
 # File execution permissions. We could use state.S_... but that's confusing.
 CHMOD_ALL_READ = 0o444
 CHMOD_ALL_EXEC = 0o555
@@ -280,7 +293,7 @@ class FirmwarePacker:
         parser.add_bool_argument(
             "--download",
             default=False,
-            enabled_desc="Download the tarball of firmware blobs.",
+            enabled_desc="Download the tarball of firmware blobs if missing.",
             disabled_desc="Do not download the tarballs of firmware blobs.",
         )
         parser.add_argument(
@@ -1427,7 +1440,7 @@ class FirmwarePacker:
         self,
         build_target: str,
         fname_template: str,
-        uri: str,
+        source: config_parser.ImageUriSource,
         dirname: str,
         suffix: str = "",
         fname: str = None,
@@ -1440,7 +1453,7 @@ class FirmwarePacker:
         - If we are building local firmware (--local), it creates an image
             source using `fname_template`, with BUILD_TARGET replaced with the
             current build target name.
-        - Otherwise, it finds a tar file specified in `uri`, unpacks it, and
+        - Otherwise, it finds a tar file specified in `source`, unpacks it, and
             returns an image source of the resulting unpacked file. This is used
             to build the official firmware updater from the firmware images.
 
@@ -1448,12 +1461,12 @@ class FirmwarePacker:
             build_target: The name of the build target uses, driving the file
                 output.
             fname_template: Filename template to use in local model.
-            uri: URI of the tar file containing the image file.
+            source: Source of the tar file containing the image file.
             dirname: Output directory where the unpacked file should be placed.
             suffix: String to append to output filename.
-            fname: The filename contained in `uri` to be extracted. This is
-                required when there are multiple files in `uri`.
-            required: Whether the `fname` must exist in `uri`.
+            fname: The filename contained in `source` to be extracted. This is
+                required when there are multiple files in `source`.
+            required: Whether the `fname` must exist in `source`.
             extract_fwid: Whether to extract FWIDs.
 
         Returns:
@@ -1469,13 +1482,15 @@ class FirmwarePacker:
             firmware_ids = self._extract_firmware_ids(real_path)
             return ImageSource(real_path, None, firmware_ids)
 
-        if not uri:
+        if not source.uri:
             return None
 
-        output_path = os.path.join(self._args.imagedir, uri_filename(uri))
+        output_path = os.path.join(
+            self._args.imagedir, uri_filename(source.uri)
+        )
 
         if self._args.download:
-            self._download_uri(uri, Path(output_path))
+            self._download_uri(source, Path(output_path))
 
         path = self._untar_file(
             output_path,
@@ -1487,7 +1502,7 @@ class FirmwarePacker:
         if not path:
             return None
 
-        version = self._extract_uri_version(uri)
+        version = self._extract_uri_version(source.uri)
         firmware_ids = (
             self._extract_firmware_ids(path) if extract_fwid else None
         )
@@ -1550,27 +1565,27 @@ class FirmwarePacker:
         bios = self._extract_file(
             firmware.bios_build_target,
             self._args.bios_image,
-            firmware.main_image_uri,
+            firmware.main_image_source,
             dirname,
         )
         bios_rw = self._extract_file(
             firmware.bios_build_target,
             None,
-            firmware.main_rw_image_uri,
+            firmware.main_rw_image_source,
             dirname,
             suffix="rw",
         )
         ec = self._extract_file(
             firmware.ec_build_target,
             self._args.ec_image,
-            firmware.ec_image_uri,
+            firmware.ec_image_source,
             dirname,
             fname=EC_IMAGE,
         )
         ec_rw = self._extract_file(
             firmware.ec_build_target,
             self._args.ec_rw_image,
-            firmware.ec_rw_image_uri,
+            firmware.ec_rw_image_source,
             dirname,
             suffix="rw",
             fname=EC_IMAGE,
@@ -1578,15 +1593,15 @@ class FirmwarePacker:
 
         # EC component manifest, which must be in sync with EC RW
         if ec_rw:
-            ec_comp_uri = firmware.ec_rw_image_uri
+            ec_comp_source = firmware.ec_rw_image_source
             effective_ec_rw = ec_rw
         else:
-            ec_comp_uri = firmware.ec_image_uri
+            ec_comp_source = firmware.ec_image_source
             effective_ec_rw = ec
         ec_comp = self._extract_file(
             firmware.ec_build_target,
             None,  # Not supported for local updater (self._args.local)
-            ec_comp_uri,
+            ec_comp_source,
             dirname,
             fname=EC_COMPONENT_MANIFEST,
             required=False,
@@ -1597,13 +1612,14 @@ class FirmwarePacker:
             self._verify_ec_component_manifest(ec_comp.file, ec_rw_id)
         elif (
             not self._args.local
-            and ec_comp_uri
-            and self._require_ec_component_manifest(ec_comp_uri)
+            and ec_comp_source.uri
+            and self._require_ec_component_manifest(ec_comp_source.uri)
         ):
             # Component manifest is required only for Zephyr EC
             if EC_ZEPHYR_RW_FMAP_SECTION_NAME in self._get_fmap(ec.file):
                 raise PackError(
-                    f"Missing {EC_COMPONENT_MANIFEST!r} in {ec_comp_uri}\n"
+                    f"Missing {EC_COMPONENT_MANIFEST!r} in"
+                    f" {ec_comp_source.uri}\n"
                 )
 
         return FirmwareSource(bios, bios_rw, ec, ec_rw, ec_comp)
@@ -1830,22 +1846,42 @@ class FirmwarePacker:
 
     def _download_uri(
         self,
-        uri: str,
+        source: config_parser.ImageUriSource,
         output_path: Path,
     ) -> Path:
-        """Download a file from the URI.
+        """Download a file from the URI and verify the sha256.
 
         Args:
-            uri: The URI spec to download.
+            source: The URI spec to download.
             output_path: The destination path.
 
         Returns:
             The path to the downloaded file.
         """
+
+        if not source.sha256:
+            raise PackError("Cannot download files without sha256.")
+
+        if output_path.is_file():
+            if file_sha256(output_path) == source.sha256:
+                logging.info("%s already downloaded and SHA256 OK!", source.uri)
+                return output_path
+            else:
+                logging.warning(
+                    "%s already downloaded, but SHA256 is bad. Re-downloading.",
+                    source.uri,
+                )
+
         if not self._gs_context:
             self._gs_context = gs.GSContext()
-        self._gs_context.Copy(uri, output_path)
+        self._gs_context.Copy(source.uri, output_path)
 
+        sha256 = file_sha256(output_path)
+        if sha256 != source.sha256:
+            raise PackError(
+                f"{source.uri} has sha256 mismatch "
+                f"(expected={source.sha256!r}, actual={sha256!r})!"
+            )
         return output_path
 
     def start(self, argv, remove_tmpdirs=True):
@@ -1924,10 +1960,10 @@ class FirmwarePacker:
                     )
                     assert not any(
                         (
-                            fw.main_image_uri,
-                            fw.main_rw_image_uri,
-                            fw.ec_image_uri,
-                            fw.ec_rw_image_uri,
+                            fw.main_image_source.uri,
+                            fw.main_rw_image_source.uri,
+                            fw.ec_image_source.uri,
+                            fw.ec_rw_image_source.uri,
                         )
                     ), (
                         "Expected an image for %s if any image_uri is set."
