@@ -146,6 +146,21 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             expected_files.add(os.path.join(IMG_DIR, EC_IMAGES[model]))
         return sorted(expected_files)
 
+    @staticmethod
+    def _get_full_model(model, customlabel_tag):
+        """Get the model descriptor combining the customlabel_tag.
+
+        Args:
+            model: A string of the model name.
+            customlabel_tag: A string as the tag for the custom label model.
+
+        Returns:
+            A string representing the custom label model name.
+        """
+        if customlabel_tag:
+            return f"{model}-{customlabel_tag}"
+        return model
+
     def _run_script(self, outfile, model, mode="output", customlabel_tag=""):
         """Run an autoupdate with the shellball and check that it works.
 
@@ -312,7 +327,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.assertEqual("reef_v1.1.5857-77f6ed7", versions["EC_RO_FWID"])
         self.assertEqual("reef_v1.1.5857-77f6ed7", versions["EC_RW_FWID"])
 
-    def _check_vars(self, model, versions, signature_id):
+    def _check_vars(self, model, versions):
         """Check the versions match expectations.
 
         Args:
@@ -320,12 +335,10 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             versions: Dict of version information:
                 key: Shell variable name..
                 value: Value of that variable.
-            signature_id: Expected signature ID.
         """
         base = "images/%s"
         self.assertEqual(base % BIOS_IMAGES[model], versions["IMAGE_MAIN"])
         self.assertEqual(base % EC_IMAGES[model], versions["IMAGE_EC"])
-        self.assertEqual(signature_id, versions["SIGNATURE_ID"])
 
     def _setup_args(self, extra_models=None):
         """Set up the arguments to execute a functional test.
@@ -422,15 +435,15 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         manifest = pack_firmware_utils.read_manifest(self.unpackdir)
         versions = manifest["reef"]
         self._check_versions_reef(versions)
-        self._check_vars("reef", versions, "reef")
+        self._check_vars("reef", versions)
 
         versions = manifest["electro"]
         self._check_versions_reef(versions)
-        self._check_vars("electro", versions, "electro")
+        self._check_vars("electro", versions)
 
         versions = manifest["pyro"]
         self.assertEqual("Google_Pyro.9042.41.0", versions["MAIN_RW_FWID"])
-        self._check_vars("pyro", versions, "pyro")
+        self._check_vars("pyro", versions)
 
         lines = osutils.ReadFile(
             os.path.join(self.unpackdir, "signer_config.csv")
@@ -821,9 +834,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         #   Key sha1sum:         ac7c01b1bea84da486f30a52bba5eb67ff45f50f
         return result.stdout.splitlines()[-1].split()[2]
 
-    def _check_output(
-        self, outfile, model, rootkey_sum, signature_id="", customlabel_tag=""
-    ):
+    def _check_output(self, outfile, model, rootkey_sum, customlabel_tag=""):
         """Check that the firmware updater can generate the correct output.
 
         This runs the firmware in 'output' mode with the given model and checks
@@ -833,14 +844,15 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             outfile: Firmware update shellball filename
             model: Name of model to generate firmware for
             rootkey_sum: SHA1 sum of the root key (as a string)
-            signature_id: Value to return for signature_id from the fake mosys
             customlabel_tag: Value to return from the fake vpd
         """
         self._run_script(outfile, model, customlabel_tag=customlabel_tag)
-        expected_sig_id = signature_id or model
         bios_file = os.path.join(self.outdir, "bios.bin")
         regions = self._get_unequal_regions(
-            "%s/image.bin" % self.indir, bios_file, expected_sig_id, rootkey_sum
+            "%s/image.bin" % self.indir,
+            bios_file,
+            self._get_full_model(model, customlabel_tag),
+            rootkey_sum,
         )
         self.assertEqual([], regions)
 
@@ -900,7 +912,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             "customlabel_test"
         ]
         self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RW_FWID"])
-        self._check_vars("sand", versions, "customlabel_test")
+        self._check_vars("sand", versions)
 
         # Check the signer instructions - the last line should be for
         # customlabel.
@@ -949,7 +961,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         # Check that the manifest is correct (points to sand).
         versions = pack_firmware_utils.read_manifest(self.unpackdir)[model]
         self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RW_FWID"])
-        self._check_vars("reef", versions, "sig-id-in-customization-id")
+        self._check_vars("reef", versions)
 
         # Check the signer instructions - we should get keys for the two
         # zero-touch customlabels.
@@ -976,9 +988,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         sums = self.add_fake_keys(outfile, cl_models)
 
         for i, cl_tag in enumerate(cl_tags):
-            self._check_output(
-                outfile, model, sums[i], "%s-%s" % (model, cl_tag), cl_tag
-            )
+            self._check_output(outfile, model, sums[i], cl_tag)
 
     def test_zero_touch_custom_label(self):
         """Test generation of firmware for a 'zero-touch' customlabel model.

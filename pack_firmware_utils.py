@@ -51,7 +51,6 @@ def read_manifest(folder):
 
         model["IMAGE_MAIN"] = v["host"]["image"]
         model["IMAGE_EC"] = v.get("ec", {}).get("image", "")
-        model["SIGNATURE_ID"] = v.get("signature_id", k or "")
         result[k] = model
     return result
 
