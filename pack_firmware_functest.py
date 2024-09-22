@@ -188,7 +188,12 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         cmd = [SHELL, outfile]
         cmd += ["--mode", mode]
         if mode == "output":
-            cmd += ["--model", model, "--output_dir", self.outdir]
+            cmd += [
+                "--model",
+                self._get_full_model(model, customlabel_tag),
+                "--output_dir",
+                self.outdir,
+            ]
         cmd += [
             "-p",
             "dummy:emulate=VARIABLE_SIZE,image=%s,size=%d"
