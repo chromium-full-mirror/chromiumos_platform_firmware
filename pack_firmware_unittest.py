@@ -121,6 +121,23 @@ class ModuleTestUnit(cros_test_lib.TestCase):
             filename, pack_firmware.uri_filename(gs_scheme + filename)
         )
 
+    def test_extract_uri_version(self):
+        """Test extract_uri_version."""
+        legacy_bcs_uri = "bcs://Brya.12345.67.tbz2"
+        legacy_version = pack_firmware.FirmwareVersion(12345, 67, 0)
+
+        bcs_uri = "bcs://Brya.12345.67.89.tbz2"
+        gs_uri = "gs://path/Brya.12345.67.89.tar.bz2"
+        gs_ec_uri = "gs://path/Brya.EC.12345.67.89.tar.bz2"
+        version = pack_firmware.FirmwareVersion(12345, 67, 89)
+
+        self.assertEqual(
+            legacy_version, pack_firmware.extract_uri_version(legacy_bcs_uri)
+        )
+        self.assertEqual(version, pack_firmware.extract_uri_version(bcs_uri))
+        self.assertEqual(version, pack_firmware.extract_uri_version(gs_uri))
+        self.assertEqual(version, pack_firmware.extract_uri_version(gs_ec_uri))
+
 
 class TestUnit(cros_test_lib.MockTempDirTestCase):
     """Test cases for common program flows."""

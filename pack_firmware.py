@@ -22,7 +22,6 @@ import io
 import json
 import logging
 import os
-import pathlib
 from pathlib import Path
 import re
 import shutil
@@ -41,7 +40,7 @@ from typing import Callable, Dict, Optional
 # where chromite is expected to be found in one of the parent directories.
 for search_path in [
     Path("/mnt/host/source"),
-    *pathlib.Path(__file__).resolve().parents,
+    *Path(__file__).resolve().parents,
 ]:
     if (search_path / "chromite" / "__init__.py").is_file():
         site.addsitedir(search_path)
@@ -216,6 +215,40 @@ def file_sha256(file_path: Path) -> str:
                 break
             sha256.update(data)
     return sha256.hexdigest()
+
+
+def extract_uri_version(uri: str) -> FirmwareVersion:
+    """Extract the firmware version from `uri`.
+
+    `uri` is expected to be one of the form:
+    1. bcs://Name.xxxxx.yy.tbz2
+    2. bcs://Name.xxxxx.yy.z.tbz2
+    3. gs://path/name.xxxxx.yy.zz.tar.bz2
+    4. gs://path/name.EC.xxxxx.yy.zz.tar.bz2
+    """
+    filename = uri_filename(uri)
+    match = re.fullmatch(
+        r"[_.\w]+\.(\d+)\.(\d+)\.(\d+)\.[\w.]+",
+        filename,
+        flags=re.ASCII,
+    )
+    if match:
+        version = [int(x) for x in match.group(1, 2, 3)]
+        return FirmwareVersion(*version)
+
+    if uri.startswith("bcs://"):
+        match = re.fullmatch(
+            r"[_\w]+\.(\d+)\.(\d+)\.[\w.]+",
+            filename,
+            flags=re.ASCII,
+        )
+        if match:
+            version = [int(x) for x in match.group(1, 2)]
+            # Append the optional "patch"
+            version.append(0)
+            return FirmwareVersion(*version)
+
+    raise PackError(f"Failed to extract version from URI {uri}")
 
 
 # File execution permissions. We could use state.S_... but that's confusing.
@@ -1419,23 +1452,6 @@ class FirmwarePacker:
         self._copy_firmware_files(image_files, target_dir)
         return image_files
 
-    def _extract_uri_version(self, uri):
-        """Extract the firmware version from `uri`.
-
-        `uri` is expected to be one of the form:
-        1. bcs://Name.xxxxx.yy.tbz2
-        2. bcs://Name.xxxxx.yy.z.tbz2
-        3. gs://path/name.xxxxx.yy.zz.tar.bz2
-        """
-        stem = pathlib.PosixPath(uri).stem
-        version = [int(x) for x in stem.split(".")[1:]]
-        if len(version) == 2:
-            # Append the optional "patch"
-            version.append(0)
-        if len(version) != 3:
-            raise PackError(f"Failed to extract version from URI {uri}")
-        return FirmwareVersion(*version)
-
     def _extract_file(
         self,
         build_target: str,
@@ -1502,7 +1518,7 @@ class FirmwarePacker:
         if not path:
             return None
 
-        version = self._extract_uri_version(source.uri)
+        version = extract_uri_version(source.uri)
         firmware_ids = (
             self._extract_firmware_ids(path) if extract_fwid else None
         )
@@ -1534,7 +1550,7 @@ class FirmwarePacker:
         - 15217.397.0 (nissa)
         - 15696.0.0
         """
-        version = self._extract_uri_version(ec_comp_uri)
+        version = extract_uri_version(ec_comp_uri)
 
         # There are existing BCS EC tarballs (>= the landed versions) missing
         # the component manifest. Therefore, rule them out by increasing the
