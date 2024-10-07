@@ -1,5 +1,6 @@
 # For updater format, contents and logic.
 hungte@chromium.org
+jjsu@chromium.org
 yupingso@chromium.org
 
 # For refactors that involve cros_config_host.  Not for anything which
