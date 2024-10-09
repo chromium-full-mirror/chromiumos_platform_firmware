@@ -1,0 +1,8 @@
+python_version: "3.11"
+
+# Required by pack_firmware.py
+# google.protobuf
+wheel: <
+  name: "infra/python/wheels/protobuf-py3"
+  version: "version:4.25.3"
+>
