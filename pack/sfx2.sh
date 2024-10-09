@@ -11,6 +11,11 @@
 # it can only invoke `futility` and should never depend on zip/unzip.
 
 : "${TMP_TEMPLATE="fwupdater.XXXXXX"}"
+: "${USE_LZMA:=}"
+# Use a standard timestamp for the version files so that we get the same
+# exact sharball each time. Otherwise the changing timestamps creates small
+# differences.
+: "${TOUCH_TS:=201701010000}"
 
 warn() {
   echo "$*" >&2
@@ -29,6 +34,22 @@ need_program() {
   has_program "$1" || die "Need program '$1' to continue."
 }
 
+is_lzma() {
+  [ -n "${USE_LZMA}" ] || [ -e "$1"/LZMA ]
+}
+
+do_compress() {
+  local archive="$1"
+  local src="$2"
+
+  if is_lzma "${src}"; then
+    touch -t "${TOUCH_TS}" "${src}/LZMA"
+    7z a -tzip -mm=lzma "${archive}" "${src}"
+  else
+    zip -r -X "${archive}" "${src}"
+  fi
+}
+
 repack() {
   local dest="$(readlink -f "$1")"
   local src="$2"
@@ -42,13 +63,11 @@ repack() {
   need_program futility
   futility update -a "${src}" --manifest > "${src}/manifest.json"
 
-  # Use a standard timestamp for the version files so that we get the same
-  # exact sharball each time. Otherwise the changing timestamps creates small
-  # differences.
-  touch -t 201701010000 "${src}/VERSION" "${src}/manifest.json"
+  touch -t "${TOUCH_TS}" "${src}/VERSION" "${src}/manifest.json"
 
   # TODO(hungte) Use futility to check content and initial repack in future.
   need_program zip
+  is_lzma "${src}" && need_program 7z
 
   # Currently the libzip inside futility will discard SFX if we try to update
   # so we need to always create a new archive.
@@ -62,7 +81,7 @@ repack() {
   # We need some extra work to get reproducible zip archives.
   # -X: Disable extra fields (e.g. atime).  We don't need them.
   # TZ=UTC: Force stable timezone for timestamps rather than the active one.
-  (cd "${src}" && TZ=UTC zip -r -X "${tmp}.zip" .) \
+  (cd "${src}" && TZ=UTC do_compress "${tmp}.zip" .) \
     || die "Failed archiving: ${dest}"
   cat "${tmp}.zip" >>"${dest}"
   rm -f "${tmp}" "${tmp}.zip"
