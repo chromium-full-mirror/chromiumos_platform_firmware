@@ -127,6 +127,9 @@ class TextprotoConfig:
     """Configs from textproto files."""
 
     def __init__(self, config_dir):
+        self.devices_fw_target = collections.OrderedDict()
+        self.firmware_info = collections.OrderedDict()
+
         txtpb_list = os.listdir(config_dir)
 
         configs = []
@@ -145,10 +148,9 @@ class TextprotoConfig:
         # greater than the end of string.
         configs = sorted(configs, key=lambda message: message.model)
 
-        self._hashs = {}
-        firmware_info = collections.OrderedDict()
         for message in configs:
             device = message.model
+            base_device = device.split("-")[0]
 
             signing = message.signing
             ap_firmware = message.ap_firmware
@@ -166,11 +168,9 @@ class TextprotoConfig:
 
             info = FirmwareUpdateInfo(
                 device=device,
-                # TODO(jjsu): Add support for custom label device.
-                # For non-custom label device, device == base_device.
-                base_device=device,
+                base_device=base_device,
                 key_id=signing.key_id,
-                have_image=True,
+                have_image=(device == base_device),
                 bios_build_target=bios_build_target,
                 ec_build_target=ec_build_target,
                 main_image_source=ImageUriSource(
@@ -187,23 +187,35 @@ class TextprotoConfig:
                 ),
                 brand_code=signing.brand_code,
             )
-            firmware_info[message.model] = info
+            self.firmware_info[device] = info
+            self.devices_fw_target[device] = base_device
 
-            self._hashs[message.model] = (
-                message.ap_firmware,
-                message.ec_firmware,
-            )
+        source_fields = [
+            "main_image_source",
+            "main_rw_image_source",
+            "ec_image_source",
+            "ec_rw_image_source",
+        ]
 
-        self.firmware_info = firmware_info
+        for device, info in self.firmware_info.items():
+            if device != info.base_device:
+                base_info = self.firmware_info[info.base_device]
+                for field in source_fields:
+                    if getattr(info, field) != getattr(base_info, field):
+                        raise ConfigParserError(
+                            f"Custom label device should use the same images "
+                            f"as base device. On {field} field:\n"
+                            f"Custom label device ({device}):\n"
+                            f"{getattr(info, field)}\n"
+                            f"Base device ({base_info.device}):\n"
+                            f"{getattr(base_info, field)}\n"
+                        )
 
     def get_firmware_info(self):
         return self.firmware_info
 
     def get_firmware_configs_by_device(self):
-        devices_fw_target = collections.OrderedDict()
-        for value in self.get_firmware_info().values():
-            devices_fw_target[value.device] = value.base_device
-        return devices_fw_target
+        return self.devices_fw_target
 
 
 def parse_cros_config(config):
