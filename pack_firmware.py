@@ -1669,12 +1669,19 @@ class FirmwarePacker:
         # FWID in old EC image doesn't contain the ChromeOS version.
         if not uri_version or not fwid_version:
             return
-        # The "patch" versions are allowed to be different, because the URI
-        # patch version is incremented whenever people need to re-upload the
-        # tarball to fix issues such as missing component_manifest.json.
+        # The "patch" version is usually 0 on firmware and release branches.
+        # When a wrong tarball (such as missing component_manifest.json) is
+        # uploaded, people may re-upload it by incrementing the URI patch
+        # version. In that case, the "patch" version won't match. However, on
+        # some special branches where the "patch" version is not 0, we can check
+        # it against the URI patch version.
         if (
             fwid_version.major != uri_version.major
             or fwid_version.minor != uri_version.minor
+            or (
+                fwid_version.patch > 0
+                and fwid_version.patch != uri_version.patch
+            )
         ):
             raise PackError(
                 f"FWID {ro_id} doesn't match URI version {uri_version}"
