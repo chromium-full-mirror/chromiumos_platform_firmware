@@ -1,0 +1,22 @@
+model: "first-variant"
+signing {
+  key_id: "DEFAULT"
+  brand_code: "ABCD"
+}
+ap_firmware {
+  ro_firmware {
+    uri: "gs://path/First.12345.123.0.tbz2"
+    sha256: "1111111111111111111111111111111111111111111111111111111111111111"
+
+  }
+  rw_firmware {
+    uri: "gs://path/First.12345.123.0.tbz2"
+    sha256: "1111111111111111111111111111111111111111111111111111111111111111"
+  }
+}
+ec_firmware {
+  ro_firmware {
+    uri: "gs://path/First_EC.12345.123.0.tbz2"
+    sha256: "2222222222222222222222222222222222222222222222222222222222222222"
+  }
+}

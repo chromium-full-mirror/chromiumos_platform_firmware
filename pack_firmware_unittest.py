@@ -8,6 +8,7 @@
 This mocks out all tools so it can run fairly quickly.
 """
 
+import collections
 import contextlib
 import glob
 import io
@@ -104,6 +105,63 @@ def capture_sys_output():
         yield capture_out, capture_err
     finally:
         sys.stdout, sys.stderr = old_out, old_err
+
+
+class ConfigParserTestUnit(cros_test_lib.TestCase):
+    """Test cases for config_parser."""
+
+    def test_parse_textproto_config(self):
+        """Test parse_textproto_config."""
+        firmware_info = collections.OrderedDict()
+        firmware_configs_by_device = collections.OrderedDict()
+
+        firmware_info["first"] = config_parser.FirmwareUpdateInfo(
+            device="first",
+            base_device="first",
+            key_id="DEFAULT",
+            have_image=True,
+            bios_build_target="first",
+            ec_build_target="first_ec",
+            main_image_source=config_parser.ImageUriSource(
+                "gs://path/First.12345.123.0.tbz2", "1" * 64
+            ),
+            main_rw_image_source=config_parser.ImageUriSource(
+                "gs://path/First.12345.123.0.tbz2", "1" * 64
+            ),
+            ec_image_source=config_parser.ImageUriSource(
+                "gs://path/First_EC.12345.123.0.tbz2", "2" * 64
+            ),
+            ec_rw_image_source=config_parser.ImageUriSource("", ""),
+            brand_code="ABCD",
+        )
+        firmware_configs_by_device["first"] = "first"
+
+        firmware_info["first-variant"] = config_parser.FirmwareUpdateInfo(
+            device="first-variant",
+            base_device="first",
+            key_id="DEFAULT",
+            have_image=False,
+            bios_build_target="first",
+            ec_build_target="first_ec",
+            main_image_source=config_parser.ImageUriSource(
+                "gs://path/First.12345.123.0.tbz2", "1" * 64
+            ),
+            main_rw_image_source=config_parser.ImageUriSource(
+                "gs://path/First.12345.123.0.tbz2", "1" * 64
+            ),
+            ec_image_source=config_parser.ImageUriSource(
+                "gs://path/First_EC.12345.123.0.tbz2", "2" * 64
+            ),
+            ec_rw_image_source=config_parser.ImageUriSource("", ""),
+            brand_code="ABCD",
+        )
+        firmware_configs_by_device["first-variant"] = "first"
+
+        conf = config_parser.parse_textproto_config("test/textproto_config")
+        self.assertEqual(conf.get_firmware_info(), firmware_info)
+        self.assertEqual(
+            conf.get_firmware_configs_by_device(), firmware_configs_by_device
+        )
 
 
 class ModuleTestUnit(cros_test_lib.TestCase):
