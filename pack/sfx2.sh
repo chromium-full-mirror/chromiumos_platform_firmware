@@ -11,7 +11,7 @@
 # it can only invoke `futility` and should never depend on zip/unzip.
 
 : "${TMP_TEMPLATE="fwupdater.XXXXXX"}"
-: "${USE_LZMA:=}"
+: "${USE_LZMA_ZIP:=}"
 # Use a standard timestamp for the version files so that we get the same
 # exact sharball each time. Otherwise the changing timestamps creates small
 # differences.
@@ -34,19 +34,36 @@ need_program() {
   has_program "$1" || die "Need program '$1' to continue."
 }
 
-is_lzma() {
-  [ -n "${USE_LZMA}" ] || [ -e "$1"/LZMA ]
+is_lzma_zip() {
+  [ -n "${USE_LZMA_ZIP}" ] || [ -e "$1"/LZMA_ZIP ]
 }
 
 do_compress() {
   local archive="$1"
   local src="$2"
 
-  if is_lzma "${src}"; then
-    touch -t "${TOUCH_TS}" "${src}/LZMA"
+  if is_lzma_zip "${src}"; then
+    echo 1 > "${src}/LZMA_ZIP"
+    touch -t "${TOUCH_TS}" "${src}/LZMA_ZIP"
     7z a -tzip -mm=lzma "${archive}" "${src}"
   else
     zip -r -X "${archive}" "${src}"
+  fi
+}
+
+do_decompress() {
+  local archive="$1"
+  local dest="$2"
+
+  # We don't know the archive format without unpacking first.  Try 7z first
+  # because it supports more formats.
+  if has_program 7z; then
+    7z x "${archive}" -o"${dest}"
+  else
+    need_program unzip
+    if ! unzip -o "${archive}" -d "${dest}"; then
+      die "Need 7z to unpack this archive."
+    fi
   fi
 }
 
@@ -67,7 +84,7 @@ repack() {
 
   # TODO(hungte) Use futility to check content and initial repack in future.
   need_program zip
-  is_lzma "${src}" && need_program 7z
+  is_lzma_zip "${src}" && need_program 7z
 
   # Currently the libzip inside futility will discard SFX if we try to update
   # so we need to always create a new archive.
@@ -103,8 +120,7 @@ unpack() {
   # Force a stable timezone rather than the active one.
   if ! has_program futility ||
      ! TZ=UTC futility update -a "${src}" --unpack "${dest}"; then
-    need_program unzip
-    TZ=UTC unzip -o "${src}" -d "${dest}"
+    TZ=UTC do_decompress "${src}" "${dest}"
   fi
   echo "OK: Unpacked: ${dest}"
 }
