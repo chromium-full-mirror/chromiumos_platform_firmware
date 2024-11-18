@@ -345,6 +345,11 @@ class FirmwarePacker:
             '-b "${root}/firmware/image-BUILD_TARGET.bin"',
         )
         parser.add_argument(
+            "--lzma_zip",
+            action="store_true",
+            help="Use LZMA compresssion with zip format.",
+        )
+        parser.add_argument(
             "-i",
             "--imagedir",
             type="str_path",
@@ -1386,6 +1391,14 @@ class FirmwarePacker:
             self._base_dir_path("VERSION"), self._versions.getvalue()
         )
 
+    def _write_archive_format_file(self, use_lzma_zip: bool):
+        """Write the indication file for archive format."""
+        lzma_zip_file = self._base_dir_path("LZMA_ZIP")
+        if use_lzma_zip:
+            osutils.WriteFile(lzma_zip_file, "1")
+        else:
+            osutils.SafeUnlink(lzma_zip_file)
+
     def _build_shellball(self):
         """Build a shell-ball containing the firmware update.
 
@@ -2017,6 +2030,7 @@ class FirmwarePacker:
 
             if model_details:
                 self._write_signer_instructions(model_details)
+            self._write_archive_format_file(use_lzma_zip=args.lzma_zip)
             self._build_shellball()
             if not args.quiet:
                 print("Packed output image is: %s" % args.output)

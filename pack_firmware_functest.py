@@ -1018,6 +1018,15 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         files = glob.glob("%s/*" % self.outdir)
         self.assertListEqual(files, [], "Expected outdir to be empty")
 
+    def test_lzma_zip_format(self):
+        """Test packing and unpacking of LZMA zip format firmware updater."""
+        extra_args, expected_files = self._setup_args()
+        extra_args.append("--lzma_zip")
+        expected_files.append("LZMA_ZIP")
+        expected_files = sorted(expected_files)
+        result = self._run_pack_firmware(extra_args)
+        self.assertEqual(expected_files, result.files)
+
 
 if __name__ == "__main__":
     cros_test_lib.main(module=__name__)
