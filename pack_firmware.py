@@ -1313,12 +1313,8 @@ class FirmwarePacker:
             Path of unpacked file, or `None` if `fname` is absent.
         """
         with tarfile.open(tar_path) as tar:
-            members = tar.getmembers()
-            if not members:
-                raise PackError(f"No member found in {tar_path!r} ({fname=})")
-
-            matched_members = []
-            for member in members:
+            matched_name = None
+            for member in tar:
                 name = member.name
                 if name.startswith("./"):
                     name = name[2:]
@@ -1327,35 +1323,31 @@ class FirmwarePacker:
                         f"Tar file {tar_path!r} member {member.name!r} "
                         "should be a simple name"
                     )
-                if not fname or name == fname:
-                    matched_members.append((member, name))
+                if fname and name != fname:
+                    continue
+                if matched_name:
+                    if fname:
+                        raise PackError(
+                            f"Multiple matched members found in {tar_path!r}."
+                        )
+                    else:
+                        raise PackError(
+                            f"Expected 1 member in {tar_path!r} "
+                            f"but found at least 2."
+                        )
+                tar.extract(member, self._tmpdir)
+                matched_name = name
 
-            if not matched_members:
+            if not matched_name:
                 if not required:
                     return None
                 raise PackError(
                     f"No matched member {fname!r} found in {tar_path!r}"
                 )
-
-            if len(matched_members) > 1:
-                if fname:
-                    raise PackError(
-                        f"Multiple matched members found in {tar_path!r}: "
-                        f"{[x[0] for x in matched_members]}"
-                    )
-                else:
-                    raise PackError(
-                        f"Expected 1 member in {tar_path!r} "
-                        f"but found {len(matched_members)}"
-                    )
-
-            matched_member, matched_name = matched_members[0]
-            tar.extract(matched_member, self._tmpdir)
-
         out_file = os.path.join(dst_dirname, matched_name + suffix)
         if os.path.exists(out_file):
             raise PackError(f"Output file {out_file!r} already exists")
-        os.rename(os.path.join(self._tmpdir, matched_member.name), out_file)
+        os.rename(os.path.join(self._tmpdir, matched_name), out_file)
         return out_file
 
     @staticmethod
