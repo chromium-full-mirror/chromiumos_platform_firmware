@@ -228,7 +228,7 @@ def extract_uri_version(uri: str) -> FirmwareVersion:
     """
     filename = uri_filename(uri)
     match = re.fullmatch(
-        r"[_.\w]+\.(\d+)\.(\d+)\.(\d+)\.[\w.]+",
+        r"[-_.\w]+\.(\d+)\.(\d+)\.(\d+)\.[\w.]+",
         filename,
         flags=re.ASCII,
     )
@@ -238,7 +238,7 @@ def extract_uri_version(uri: str) -> FirmwareVersion:
 
     if uri.startswith("bcs://"):
         match = re.fullmatch(
-            r"[_\w]+\.(\d+)\.(\d+)\.[\w.]+",
+            r"[-_\w]+\.(\d+)\.(\d+)\.[\w.]+",
             filename,
             flags=re.ASCII,
         )
