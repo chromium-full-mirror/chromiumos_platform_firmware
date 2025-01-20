@@ -1,0 +1,21 @@
+model: "ciri"
+signing {
+  key_id: "DEFAULT"
+  brand_code: "LDPJ"
+}
+ap_firmware {
+  ro_firmware {
+    uri: "bcs://Ciri.15705.0.0.tbz2"
+    sha256: "5bc1e5486578baaa4186f729fe16b23162f77fe9ff8a19567f7c4d0f4963452d"
+  }
+}
+ec_firmware {
+  ro_firmware {
+    uri: "bcs://Ciri_EC.15705.0.0.tbz2"
+    sha256: "dbd7783aa94b634ce09c79f9c18ddcf198c77dc67e9c5c1dd74202df3f2c77cf"
+  }
+}
+ap_firmware_for_ec_rw {
+  uri: "bcs://Geralt.15663.0.0.tbz2"
+  sha256: "b80bc1d2b42985a7e28ef3effd545fedad5d9c6c972b5b1d981cdf349f277969"
+}

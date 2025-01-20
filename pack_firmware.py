@@ -160,6 +160,7 @@ class FirmwareSource:
     bios_rw: ImageSource
     ec: ImageSource
     ec_rw: Optional[ImageSource] = None
+    bios_for_ec_rw: Optional[ImageSource] = None
     ec_component: Optional[ImageSource] = None
 
 
@@ -215,6 +216,9 @@ class EcRwSource(enum.Enum):
 
     # Use EC RW in AP_RW image as single source.
     AP_RW = enum.auto()
+
+    # Use EC RW in AP_FOR_EC image as single source.
+    AP_FOR_EC = enum.auto()
 
 
 def uri_filename(uri: str) -> str:
@@ -804,13 +808,15 @@ class FirmwarePacker:
         else:
             self._extract_ec_rw_using_cbfs(fname, EC_RW_CBFS_NAME, ecrw_fname)
 
-    def _swap_ec_rw_in_bios(self, bios_fname, ec_fname):
+    def _swap_ec_rw_in_bios(self, bios_fname, ec_fname, source_bios_fname):
         """Swap out EC RW payload stored in BIOS.
 
         Args:
             bios_fname: Filename of BIOS image to be modified.
             ec_fname: Filename of EC image, whose RW will be added to BIOS RW to
                 replace the existing EC RW in BIOS.
+            source_bios_fname: Filename of source BIOS image, whose EC_RW will
+                be added to BIOS RW to replace the existing EC RW in BIOS.
         """
         # Use the copy installed in the SDK if we are in the SDK.  Otherwise use
         # the swap_ec_rw shell script in the source tree.
@@ -824,12 +830,12 @@ class FirmwarePacker:
                 / "image_signing"
                 / "swap_ec_rw"
             )
-
-        cros_build_lib.dbg_run(
-            [script_path, "-i", bios_fname, "-e", ec_fname],
-            capture_output=True,
-            cwd=self._tmpdir,
-        )
+        cmd = [script_path, "-i", bios_fname]
+        if ec_fname:
+            cmd += ["-e", ec_fname]
+        else:
+            cmd += ["-a", source_bios_fname]
+        cros_build_lib.dbg_run(cmd, capture_output=True, cwd=self._tmpdir)
 
     def _merge_ec_file(self, ec_fname, ec_rw_section_fname, check_size=False):
         """Merge EC RW section from `ec_rw_section_fname` to `ec_fname`.
@@ -926,7 +932,7 @@ class FirmwarePacker:
                 if ec_rw_source == EcRwSource.EC_RW
                 else fw_source.ec
             )
-            self._swap_ec_rw_in_bios(merged_file, effective_ec_rw.file)
+            ec_fname = effective_ec_rw.file
             bios_ecrw_id = effective_ec_rw.firmware_ids.rw_id
             # The "ecrw" CBFS file being placed into BIOS RW should come
             # from a release branch, where the EC FWID should contain the
@@ -937,6 +943,12 @@ class FirmwarePacker:
                     "Cannot extract CrOS version from bios_ecrw_id"
                     f" {bios_ecrw_id}"
                 )
+            self._swap_ec_rw_in_bios(merged_file, ec_fname, None)
+        elif ec_rw_source == EcRwSource.AP_FOR_EC:
+            source_bios_fname = fw_source.bios_for_ec_rw.file
+            bios_ecrw_id = fw_source.bios_for_ec_rw.firmware_ids.rw_id
+            bios_ecrw_version = self._extract_main_version(bios_ecrw_id)
+            self._swap_ec_rw_in_bios(merged_file, None, source_bios_fname)
         if bios_rw:
             self._copy_timestamp(bios_rw.file, merged_file)
 
@@ -986,18 +998,25 @@ class FirmwarePacker:
         rw_uri_version = ec.uri_version
         ec_rw_section = None
         ec_rw_fwid = None
-        ec_rw_source_file = None
+        effective_ec_rw_image_source = None
         if ec_rw_source == EcRwSource.EC_RW:
             ec_rw_section = os.path.join(self._tmpdir, "ecrw_from_ec")
             self._extract_fmap_section(ec_rw.file, "EC_RW", ec_rw_section)
             ec_rw_fwid = ec_rw.firmware_ids.rw_id
-            ec_rw_source_file = ec_rw.file
-        elif ec_rw_source == EcRwSource.AP_RW:
+            effective_ec_rw_image_source = ec_rw
+        elif ec_rw_source in (EcRwSource.AP_RW, EcRwSource.AP_FOR_EC):
+            effective_ap_for_ec_image_source = (
+                fw_source.bios_rw
+                if ec_rw_source == EcRwSource.AP_RW
+                else fw_source.bios_for_ec_rw
+            )
             ec_rw_section = os.path.join(self._tmpdir, "ecrw_from_bios")
             # The EC RW stored in BIOS might be either EC's EC_RW (CrOS EC)
             # or RW_FW (Zephyr EC) FMAP section.
-            self._extract_ec_rw_from_bios(fw_source.bios_rw.file, ec_rw_section)
-            ec_rw_source_file = fw_source.bios_rw.file
+            self._extract_ec_rw_from_bios(
+                effective_ap_for_ec_image_source.file, ec_rw_section
+            )
+            effective_ec_rw_image_source = effective_ap_for_ec_image_source
         if ec_rw_section:
             self._merge_ec_file(merged_file, ec_rw_section)
             if ec_rw_fwid:
@@ -1008,8 +1027,8 @@ class FirmwarePacker:
                 # FWIDs again from the merged EC image, because
                 # ec_rw_section doesn't contain the FMAP layout.
                 rw_fwid = self._extract_firmware_ids(merged_file).rw_id
-                rw_uri_version = fw_source.bios_rw.uri_version
-            self._copy_timestamp(ec_rw_source_file, merged_file)
+                rw_uri_version = effective_ec_rw_image_source.uri_version
+            self._copy_timestamp(effective_ec_rw_image_source.file, merged_file)
 
         firmware_ids = FirmwareIds(ro_fwid, rw_fwid)
         uri_versions = FirmwareVersions(ro_uri_version, rw_uri_version)
@@ -1056,6 +1075,7 @@ class FirmwarePacker:
         bios_rw = fw_source.bios_rw
         ec = fw_source.ec
         ec_rw = fw_source.ec_rw
+        bios_for_ec_rw = fw_source.bios_for_ec_rw
 
         # No need to swap EC RW for local images.
         if self._args.local:
@@ -1067,6 +1087,8 @@ class FirmwarePacker:
 
         if ec_rw:
             return EcRwSource.EC_RW
+        elif bios_for_ec_rw:
+            return EcRwSource.AP_FOR_EC
         elif not self._same_branch(bios, ec):
             return EcRwSource.EC_RO
         elif bios_rw:
@@ -1104,7 +1126,8 @@ class FirmwarePacker:
 
         # Verify BIOS RW CBFS where "ecrw" is stored.
         if (
-            ec_rw_source in (EcRwSource.EC_RO, EcRwSource.EC_RW)
+            ec_rw_source
+            in (EcRwSource.EC_RO, EcRwSource.EC_RW, EcRwSource.AP_FOR_EC)
             and fw_main_a_hash
         ):
             self._verify_bios_rw_cbfs(bios_image.filename, fw_main_a_hash)
@@ -1669,6 +1692,13 @@ class FirmwarePacker:
             suffix="rw",
             fname=EC_IMAGE,
         )
+        bios_for_ec_rw = self._extract_file(
+            None,
+            None,  # Not supported for local.
+            firmware.main_image_for_ec_rw_source,
+            dirname,
+            suffix="for_ec",
+        )
 
         # EC component manifest, which must be in sync with EC RW
         if ec_rw:
@@ -1701,7 +1731,7 @@ class FirmwarePacker:
                     f" {ec_comp_source.uri}\n"
                 )
 
-        return FirmwareSource(bios, bios_rw, ec, ec_rw, ec_comp)
+        return FirmwareSource(bios, bios_rw, ec, ec_rw, bios_for_ec_rw, ec_comp)
 
     def _check_firmware_ids(
         self,

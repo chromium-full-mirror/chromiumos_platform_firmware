@@ -76,6 +76,7 @@ class FirmwareUpdateInfo:
     main_rw_image_source: ImageUriSource
     ec_image_source: ImageUriSource
     ec_rw_image_source: ImageUriSource
+    main_image_for_ec_rw_source: ImageUriSource
 
     key_id: str
     brand_code: str
@@ -107,6 +108,7 @@ class CrOSConfig:
             ec_rw_image_source=ImageUriSource(
                 cros_firmware_info.ec_rw_image_uri
             ),
+            main_image_for_ec_rw_source=ImageUriSource(""),
             key_id=cros_firmware_info.key_id,
             brand_code=cros_firmware_info.brand_code,
             have_image=cros_firmware_info.have_image,
@@ -155,6 +157,7 @@ class TextprotoConfig:
             signing = message.signing
             ap_firmware = message.ap_firmware
             ec_firmware = message.ec_firmware
+            ap_firmware_for_ec_rw = message.ap_firmware_for_ec_rw
 
             bios_build_target = ap_firmware.ro_firmware.uri
             bios_build_target = (
@@ -185,6 +188,9 @@ class TextprotoConfig:
                 ec_rw_image_source=ImageUriSource(
                     ec_firmware.rw_firmware.uri, ec_firmware.rw_firmware.sha256
                 ),
+                main_image_for_ec_rw_source=ImageUriSource(
+                    ap_firmware_for_ec_rw.uri, ap_firmware_for_ec_rw.sha256
+                ),
                 brand_code=signing.brand_code,
             )
             self.firmware_info[device] = info
@@ -195,9 +201,18 @@ class TextprotoConfig:
             "main_rw_image_source",
             "ec_image_source",
             "ec_rw_image_source",
+            "main_image_for_ec_rw_source",
         ]
 
         for device, info in self.firmware_info.items():
+            if (
+                info.ec_rw_image_source.uri
+                and info.main_image_for_ec_rw_source.uri
+            ):
+                raise ConfigParserError(
+                    "ec_rw and main_image_for_ec_rw should not be set at the "
+                    "same time."
+                )
             if device != info.base_device:
                 base_info = self.firmware_info[info.base_device]
                 for field in source_fields:

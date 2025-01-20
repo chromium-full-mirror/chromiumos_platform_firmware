@@ -561,6 +561,29 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         }
         self.assertEqual(expected_versions, result.versions)
 
+    def test_firmware_update_ap_for_ec(self):
+        """Test the firmware packer with AP_FOR_EC."""
+        extra_args = [
+            "-c",
+            "test/config_geralt/",
+            "--textproto",
+            "-i",
+            self.IMAGE_DIR,
+        ]
+        result = self._run_pack_firmware(extra_args)
+
+        expected_versions = {
+            # main-ro-image and ec-ro-image have the same version.
+            # EC RW comes from ap-for-ec-image.
+            "ciri": pack_firmware_utils.ModelVersion(
+                "Google_Ciri.15705.0.0",
+                "Google_Ciri.15705.0.0",
+                "ciri-15705.0.0",
+                "geralt_v3.5.119161-ec:dc7985,os",
+            ),
+        }
+        self.assertEqual(expected_versions, result.versions)
+
     def test_firmware_update_wrong_firmware_version(self):
         """Test with firmware packer with mismatched FWID and URI versions."""
         extra_args = [

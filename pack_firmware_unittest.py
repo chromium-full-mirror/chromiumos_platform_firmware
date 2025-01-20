@@ -132,6 +132,7 @@ class ConfigParserTestUnit(cros_test_lib.TestCase):
                 "gs://path/First_EC.12345.123.0.tbz2", "2" * 64
             ),
             ec_rw_image_source=config_parser.ImageUriSource("", ""),
+            main_image_for_ec_rw_source=config_parser.ImageUriSource("", ""),
             brand_code="ABCD",
         )
         firmware_configs_by_device["first"] = "first"
@@ -153,6 +154,7 @@ class ConfigParserTestUnit(cros_test_lib.TestCase):
                 "gs://path/First_EC.12345.123.0.tbz2", "2" * 64
             ),
             ec_rw_image_source=config_parser.ImageUriSource("", ""),
+            main_image_for_ec_rw_source=config_parser.ImageUriSource("", ""),
             brand_code="ABCD",
         )
         firmware_configs_by_device["first-variant"] = "first"
