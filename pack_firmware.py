@@ -15,6 +15,7 @@ It requires:
 
 import collections
 import dataclasses
+import enum
 import filecmp
 import glob
 import hashlib
@@ -197,6 +198,22 @@ class ModelDetails:
     image_files: Dict[str, ImageFile]
     key_id: str
     brand_code: str
+
+
+class EcRwSource(enum.Enum):
+    """The source of EC RW."""
+
+    # Use EC RW in EC_RO image and AP_RO image. No merge required.
+    TWO_SOURCES = enum.auto()
+
+    # Use EC RW in EC_RO image as single source.
+    EC_RO = enum.auto()
+
+    # Use EC RW in EC_RW image as single source.
+    EC_RW = enum.auto()
+
+    # Use EC RW in AP_RW image as single source.
+    AP_RW = enum.auto()
 
 
 def uri_filename(uri: str) -> str:
@@ -865,7 +882,7 @@ class FirmwarePacker:
     def _merge_bios_firmware(
         self,
         fw_source: FirmwareSource,
-        use_ec_rw_from_ec_source: bool,
+        ec_rw_source: EcRwSource,
         build_target: str,
         merge_dir: str,
     ) -> Optional[ImageFile]:
@@ -873,11 +890,8 @@ class FirmwarePacker:
 
         Args:
             fw_source: Firmware source images.
-            use_ec_rw_from_ec_source: If true, the "ecrw" CBFS file stored in
-                BIOS RW will be swapped with a source EC image (either ec or
-                ec_rw). Otherwise, the source of truth of EC RW is the "ecrw"
-                file in the source BIOS RW image, and therefore there will be no
-                need to swap the "ecrw" file.
+            ec_rw_source: The source of EC_RW. If the source is AP_RW, there is
+                no need to swap the "ecrw" file.
             build_target: BIOS build target.
             merge_dir: Directory to put the merged image files.
 
@@ -905,11 +919,14 @@ class FirmwarePacker:
             self._merge_bios_file(merged_file, bios_rw.file)
             rw_fwid = bios_rw.firmware_ids.rw_id
             rw_uri_version = bios_rw.uri_version
-        if use_ec_rw_from_ec_source:
-            effective_ec_rw = fw_source.ec_rw or fw_source.ec
-            if effective_ec_rw:
-                self._swap_ec_rw_in_bios(merged_file, effective_ec_rw.file)
-                bios_ecrw_id = effective_ec_rw.firmware_ids.rw_id
+        if ec_rw_source in (EcRwSource.EC_RO, EcRwSource.EC_RW):
+            effective_ec_rw = (
+                fw_source.ec_rw
+                if ec_rw_source == EcRwSource.EC_RW
+                else fw_source.ec
+            )
+            self._swap_ec_rw_in_bios(merged_file, effective_ec_rw.file)
+            bios_ecrw_id = effective_ec_rw.firmware_ids.rw_id
         if bios_rw:
             self._copy_timestamp(bios_rw.file, merged_file)
 
@@ -922,7 +939,7 @@ class FirmwarePacker:
     def _merge_ec_firmware(
         self,
         fw_source: FirmwareSource,
-        use_ec_rw_from_ec_source: bool,
+        ec_rw_source: EcRwSource,
         build_target: str,
         merge_dir: str,
     ) -> Optional[ImageFile]:
@@ -930,8 +947,7 @@ class FirmwarePacker:
 
         Args:
             fw_source: Firmware source images.
-            use_ec_rw_from_ec_source: If true, the resulting EC RW will come
-                from a source EC image (either ec or ec_rw). Otherwise, the
+            ec_rw_source: The source of EC_RW. If the source is AP_RW, the
                 "ecrw" CBFS file stored in the source BIOS RW image will be used
                 for EC RW.
             build_target: EC build target.
@@ -956,19 +972,18 @@ class FirmwarePacker:
         rw_uri_version = ec.uri_version
         ec_rw_section = None
         ec_rw_fwid = None
-        ec_rw_source = None
-        if use_ec_rw_from_ec_source:
-            if ec_rw:
-                ec_rw_section = os.path.join(self._tmpdir, "ecrw_from_ec")
-                self._extract_fmap_section(ec_rw.file, "EC_RW", ec_rw_section)
-                ec_rw_fwid = ec_rw.firmware_ids.rw_id
-                ec_rw_source = ec_rw.file
-        elif fw_source.bios_rw:
+        ec_rw_source_file = None
+        if ec_rw_source == EcRwSource.EC_RW:
+            ec_rw_section = os.path.join(self._tmpdir, "ecrw_from_ec")
+            self._extract_fmap_section(ec_rw.file, "EC_RW", ec_rw_section)
+            ec_rw_fwid = ec_rw.firmware_ids.rw_id
+            ec_rw_source_file = ec_rw.file
+        elif ec_rw_source == EcRwSource.AP_RW:
             ec_rw_section = os.path.join(self._tmpdir, "ecrw_from_bios")
             # The EC RW stored in BIOS might be either EC's EC_RW (CrOS EC)
             # or RW_FW (Zephyr EC) FMAP section.
             self._extract_ec_rw_from_bios(fw_source.bios_rw.file, ec_rw_section)
-            ec_rw_source = fw_source.bios_rw.file
+            ec_rw_source_file = fw_source.bios_rw.file
         if ec_rw_section:
             self._merge_ec_file(merged_file, ec_rw_section)
             if ec_rw_fwid:
@@ -980,13 +995,70 @@ class FirmwarePacker:
                 # ec_rw_section doesn't contain the FMAP layout.
                 rw_fwid = self._extract_firmware_ids(merged_file).rw_id
                 rw_uri_version = fw_source.bios_rw.uri_version
-            self._copy_timestamp(ec_rw_source, merged_file)
+            self._copy_timestamp(ec_rw_source_file, merged_file)
 
         firmware_ids = FirmwareIds(ro_fwid, rw_fwid)
         uri_versions = FirmwareVersions(ro_uri_version, rw_uri_version)
         return ImageFile(
             merged_file, build_target, firmware_ids, uri_versions, None
         )
+
+    def _same_branch(self, bios: ImageSource, ec: ImageSource):
+        """Whether bios and ec are from the same branch.
+
+        Args:
+            bios: The ImageSource of bios image.
+            ec: The ImageSource of ec image.
+
+        Returns:
+            Whether bios and ec are from the same branch.
+        """
+        # The branch is determined by the major version.
+        if bios.uri_version.major != ec.uri_version.major:
+            return False
+        # If the major version is the same but not the minor version,
+        # that probably indicates an incorrect version. The patch
+        # versions, however, are allowed to be different, because
+        # people may increment the patch version in order to fix
+        # tarball issues (such missing component_manifest.json).
+        elif bios.uri_version.minor != ec.uri_version.minor:
+            raise PackError(
+                "AP and EC have same major version, "
+                "but different minor versions.\n"
+                f"AP {bios.uri_version}, EC {ec.uri_version}"
+            )
+        return True
+
+    def _select_ec_rw_source(self, fw_source):
+        """Select the EC RW source.
+
+        Args:
+            fw_source: Locations of original images.
+
+        Returns:
+            The source of EC RW.
+        """
+        bios = fw_source.bios
+        bios_rw = fw_source.bios_rw
+        ec = fw_source.ec
+        ec_rw = fw_source.ec_rw
+
+        # No need to swap EC RW for local images.
+        if self._args.local:
+            return EcRwSource.TWO_SOURCES
+
+        # No need to swap EC RW if one of BIOS and EC images is missing.
+        if not bios or not ec:
+            return EcRwSource.TWO_SOURCES
+
+        if ec_rw:
+            return EcRwSource.EC_RW
+        elif not self._same_branch(bios, ec):
+            return EcRwSource.EC_RO
+        elif bios_rw:
+            return EcRwSource.AP_RW
+
+        return EcRwSource.TWO_SOURCES
 
     def _merge_rw_firmware(
         self, fw_source, merge_dir, bios_target, ec_target, fw_main_a_hash
@@ -1007,41 +1079,20 @@ class FirmwarePacker:
                 bios_image: ImageFile of BIOS image.
                 ec_image: ImageFile of EC image.
         """
-        bios = fw_source.bios
-        ec = fw_source.ec
-
-        # Decide the source of truth for EC RW.
-        # - If ec_rw is specified, always use the EC RW from ec_rw.
-        # - If ec_rw is not specified, use the EC RW from ec if BIOS and EC came
-        #   from different branches. Otherwise use the EC RW stored in BIOS RW.
-        # The branch is determined by the major version.
-        use_ec_rw_from_ec_source = False
-        if fw_source.ec_rw:
-            use_ec_rw_from_ec_source = True
-        elif bios and bios.uri_version and ec and ec.uri_version:
-            if bios.uri_version.major != ec.uri_version.major:
-                use_ec_rw_from_ec_source = True
-            elif bios.uri_version.minor != ec.uri_version.minor:
-                # If the major version is the same but not the minor version,
-                # that probably indicates an incorrect version. The patch
-                # versions, however, are allowed to be different, because
-                # people may increment the patch version in order to fix
-                # tarball issues (such missing component_manifest.json).
-                raise PackError(
-                    "AP and EC have same major version, "
-                    "but different minor versions.\n"
-                    f"AP {bios.uri_version}, EC {ec.uri_version}"
-                )
+        ec_rw_source = self._select_ec_rw_source(fw_source)
 
         bios_image = self._merge_bios_firmware(
-            fw_source, use_ec_rw_from_ec_source, bios_target, merge_dir
+            fw_source, ec_rw_source, bios_target, merge_dir
         )
         ec_image = self._merge_ec_firmware(
-            fw_source, use_ec_rw_from_ec_source, ec_target, merge_dir
+            fw_source, ec_rw_source, ec_target, merge_dir
         )
 
         # Verify BIOS RW CBFS where "ecrw" is stored.
-        if use_ec_rw_from_ec_source and fw_main_a_hash:
+        if (
+            ec_rw_source in (EcRwSource.EC_RO, EcRwSource.EC_RW)
+            and fw_main_a_hash
+        ):
             self._verify_bios_rw_cbfs(bios_image.filename, fw_main_a_hash)
 
         return bios_image, ec_image
