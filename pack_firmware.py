@@ -172,8 +172,9 @@ class ImageFile:
         build_target: The build target for the firmware.
         firmware_ids: The FirmwareIds for the firmware.
         uri_versions: The FirmwareVersions for the original firmware sources.
-        bios_ecrw_id: For a BIOS image, this may be set to the FWID of the EC
-            firmware in CBFS.  Not applicable for EC images.
+        bios_ecrw_version: For a BIOS image, this may be set to the
+            FirmwareVersion of the EC firmware in CBFS.  Not applicable for
+            EC images.
     """
 
     # TODO: filename should be changed to Path type.
@@ -181,7 +182,7 @@ class ImageFile:
     build_target: str
     firmware_ids: FirmwareIds
     uri_versions: FirmwareVersions
-    bios_ecrw_id: Optional[str] = None
+    bios_ecrw_version: Optional[FirmwareVersion] = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -914,7 +915,7 @@ class FirmwarePacker:
         rw_fwid = bios.firmware_ids.rw_id
         ro_uri_version = bios.uri_version
         rw_uri_version = bios.uri_version
-        bios_ecrw_id = None
+        bios_ecrw_version = None
         if bios_rw:
             self._merge_bios_file(merged_file, bios_rw.file)
             rw_fwid = bios_rw.firmware_ids.rw_id
@@ -927,13 +928,26 @@ class FirmwarePacker:
             )
             self._swap_ec_rw_in_bios(merged_file, effective_ec_rw.file)
             bios_ecrw_id = effective_ec_rw.firmware_ids.rw_id
+            # The "ecrw" CBFS file being placed into BIOS RW should come
+            # from a release branch, where the EC FWID should contain the
+            # CrOS version.
+            bios_ecrw_version = self._extract_ec_version(bios_ecrw_id)
+            if not bios_ecrw_version:
+                raise PackError(
+                    "Cannot extract CrOS version from bios_ecrw_id"
+                    f" {bios_ecrw_id}"
+                )
         if bios_rw:
             self._copy_timestamp(bios_rw.file, merged_file)
 
         firmware_ids = FirmwareIds(ro_fwid, rw_fwid)
         uri_versions = FirmwareVersions(ro_uri_version, rw_uri_version)
         return ImageFile(
-            merged_file, build_target, firmware_ids, uri_versions, bios_ecrw_id
+            merged_file,
+            build_target,
+            firmware_ids,
+            uri_versions,
+            bios_ecrw_version,
         )
 
     def _merge_ec_firmware(
@@ -1172,7 +1186,7 @@ class FirmwarePacker:
         fw_ids: FirmwareIds = None,
         uri_versions: FirmwareVersions = None,
         extract_cros_version: Callable[[str], FirmwareVersion] = None,
-        bios_ecrw_id: str = None,
+        bios_ecrw_version: FirmwareVersion = None,
         target_dir: str = None,
     ) -> str:
         """Creates output file name for some firmware image.
@@ -1189,8 +1203,8 @@ class FirmwarePacker:
             uri_versions: The RO and RW URI versions of this image.
             extract_cros_version: Function to extract the ChromeOS version from
                 a FWID.
-            bios_ecrw_id: The firmware ID of "ecrw" CBFS file in BIOS, if it
-                has been swapped with the RW_FW section of an EC image.
+            bios_ecrw_version: The firmware version of "ecrw" CBFS file in BIOS,
+                if it has been swapped with the RW_FW section of an EC image.
             target_dir: Target directory to be prepended to filename.
 
         Returns:
@@ -1234,16 +1248,7 @@ class FirmwarePacker:
         parts.append(
             "rw-%s" % get_version_string(fw_ids.rw_id, uri_versions.rw)
         )
-        if bios_ecrw_id:
-            # The "ecrw" CBFS file being placed into BIOS RW should come
-            # from a release branch, where the EC FWID should contain the
-            # CrOS version.
-            bios_ecrw_version = self._extract_ec_version(bios_ecrw_id)
-            if not bios_ecrw_version:
-                raise PackError(
-                    "Cannot extract CrOS version from bios_ecrw_id"
-                    f" {bios_ecrw_id}"
-                )
+        if bios_ecrw_version:
             parts.append("ecrw-%s" % to_string(bios_ecrw_version))
         fname = ".".join(parts) + ".bin"
         return os.path.join(target_dir, fname) if target_dir else fname
@@ -1283,7 +1288,7 @@ class FirmwarePacker:
             fw_ids=image_file.firmware_ids,
             uri_versions=image_file.uri_versions,
             extract_cros_version=self._extract_main_version,
-            bios_ecrw_id=image_file.bios_ecrw_id,
+            bios_ecrw_version=image_file.bios_ecrw_version,
             target_dir=target_dir,
         )
 

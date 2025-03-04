@@ -458,7 +458,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
                 fw_ids=fw_ids,
                 uri_versions=uri_versions,
                 extract_cros_version=version_fn,
-                bios_ecrw_id=None,
+                bios_ecrw_version=None,
                 target_dir=self.packer._tmpdir,
             ),
             os.path.join(self.packer._tmpdir, expected_fname),
@@ -476,7 +476,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             "bios-rex.ro-15555-55-0.rw-15555-56-0.bin",
         )
 
-        # CrOS versions extracted from FWIDs, with bios_ecrw_id specified.
+        # CrOS versions extracted from FWIDs, with bios_ecrw_version specified.
         self.assertEqual(
             self.packer._firmware_image_output(
                 "bios",
@@ -485,7 +485,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
                     "Google_Rex.15555.55.0", "Google_Rex.15555.56.0"
                 ),
                 extract_cros_version=self.packer._extract_main_version,
-                bios_ecrw_id="rex-16666.66.0",
+                bios_ecrw_version=pack_firmware.FirmwareVersion(16666, 66, 0),
             ),
             "bios-rex.ro-15555-55-0.rw-15555-56-0.ecrw-16666-66-0.bin",
         )
