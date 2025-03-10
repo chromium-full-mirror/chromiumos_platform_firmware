@@ -159,7 +159,7 @@ class ConfigParserTestUnit(cros_test_lib.TestCase):
         )
         firmware_configs_by_device["first-variant"] = "first"
 
-        conf = config_parser.parse_textproto_config("test/textproto_config")
+        conf = config_parser.parse_textproto_config("test/config_textproto/")
         self.assertEqual(conf.get_firmware_info(), firmware_info)
         self.assertEqual(
             conf.get_firmware_configs_by_device(), firmware_configs_by_device

@@ -491,7 +491,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
 
     def test_firmware_update_merge(self):
         """Test the firmware packer with merging RW firmware."""
-        extra_args = ["-c", "test/geralt_config.yaml", "-i", self.IMAGE_DIR]
+        extra_args = ["-c", "test/config_geralt.yaml", "-i", self.IMAGE_DIR]
         result = self._run_pack_firmware(extra_args)
 
         expected_versions = {
@@ -609,7 +609,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
 
     def test_firmware_update_ec_component_manifests(self):
         """Check the extracted EC component manifests."""
-        extra_args = ["-c", "test/geralt_config.yaml", "-i", self.IMAGE_DIR]
+        extra_args = ["-c", "test/config_geralt.yaml", "-i", self.IMAGE_DIR]
         ec_comp_files = self._run_pack_firmware(extra_args).ec_comp_files
         expected_files = [
             "braenn/component_manifest.json",
