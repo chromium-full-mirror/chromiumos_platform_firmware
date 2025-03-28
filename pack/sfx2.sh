@@ -189,7 +189,14 @@ main() {
       # processing the output of --manifest.
       warn "WARNING: The output format of -V may change anytime."
       warn "WARNING: For machine-friendly version, please use --manifest"
-      if has_program unzip; then
+      if has_program 7z; then
+        7z e -so "$0" VERSION
+        echo "Package Contents:"
+        exec 7z l "$0"
+      elif has_program unzip; then
+        if ! is_lzma_zip "$0"; then
+          die "Need 7z to retrieves VERSION file."
+        fi
         unzip -p "$0" VERSION
         echo "Package Contents:"
         exec unzip -l "$0"
