@@ -18,6 +18,7 @@ import shutil
 import struct
 import sys
 from typing import Iterable, List
+import unittest
 from unittest import mock
 
 import config_parser
@@ -413,8 +414,8 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         uri_versions = pack_firmware.FirmwareVersions(
             ro_uri_version, rw_uri_version
         )
-        version_fn = (
-            lambda fwid: pack_firmware.FirmwareVersion(1, 1, 5857)
+        version_fn = lambda fwid: (
+            pack_firmware.FirmwareVersion(1, 1, 5857)
             if fwid == EC_RO_FRID
             else pack_firmware.FirmwareVersion(1, 1, 5858)
         )
@@ -876,4 +877,4 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
 
 
 if __name__ == "__main__":
-    cros_test_lib.main(module=__name__)
+    unittest.main(module=__name__)

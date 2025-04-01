@@ -19,6 +19,7 @@ import shutil
 import sys
 import tarfile
 import typing
+import unittest
 
 import pack_firmware
 import pack_firmware_utils
@@ -1052,4 +1053,4 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
 
 
 if __name__ == "__main__":
-    cros_test_lib.main(module=__name__)
+    unittest.main(module=__name__)
