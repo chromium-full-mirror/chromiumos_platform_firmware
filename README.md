@@ -56,7 +56,7 @@ updated, run:
 chromeos-firmwareupdate --mode=recovery --wp=1
 ```
 
-> The `--wp` argument will override you real write protection status.
+> The `--wp` argument will override your real write protection status.
 
 If your want *everything* (RO and RW) to be updated and would like the updater
 to check WP state for you:
