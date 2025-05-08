@@ -193,10 +193,11 @@ main() {
         7z e -so "$0" VERSION
         echo "Package Contents:"
         exec 7z l "$0"
-      elif has_program unzip; then
-        if ! is_lzma_zip "$0"; then
-          die "Need 7z to retrieves VERSION file."
-        fi
+      # We plan to support non-zip formats in the future.  When a file is not
+      # in zip format, the unzip command still writes error messages to
+      # stdout/stderr even with the `-qq` flag.  Therefore, we suppress output
+      # by redirecting to /dev/null.
+      elif has_program unzip && unzip -t "$0" >/dev/null 2>&1 ; then
         unzip -p "$0" VERSION
         echo "Package Contents:"
         exec unzip -l "$0"
@@ -208,7 +209,7 @@ main() {
         (cd "${tmp}" && find . -type f) || true
         rm -rf "${tmp}"
       else
-        die "Need program 'unzip' or 'futility' to continue."
+        die "Need program '7z', 'unzip' or 'futility' to continue."
       fi
       ;;
     --manifest)
