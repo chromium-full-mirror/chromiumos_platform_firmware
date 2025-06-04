@@ -493,6 +493,21 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             "bios-rex.ro-15555-55-0.rw-15555-56-0.ecrw-16666-66-0.bin",
         )
 
+        # Legacy format of ec version extracted from FWIDs, with
+        # bios_ecrw_version specified.
+        self.assertEqual(
+            self.packer._firmware_image_output(
+                "bios",
+                "reef",
+                fw_ids=pack_firmware.FirmwareIds(
+                    "Google_Reef.15555.55.0", "Google_Reef.15555.56.0"
+                ),
+                extract_cros_version=self.packer._extract_main_version,
+                bios_ecrw_version="reef_v1.1.5857-77f",
+            ),
+            "bios-reef.ro-15555-55-0.rw-15555-56-0.ecrw-reef_v1.1.5857-77f.bin",
+        )
+
         self.packer._remove_tmpdirs()
 
     def test_untar_file(self):

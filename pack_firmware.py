@@ -937,17 +937,14 @@ class FirmwarePacker:
             )
             ec_fname = effective_ec_rw.file
             bios_ecrw_id = effective_ec_rw.firmware_ids.rw_id
-            # The "ecrw" CBFS file being placed into BIOS RW should come
-            # from a release branch, where the EC FWID should contain the
-            # CrOS version.
             bios_ecrw_version = self._extract_ec_version(bios_ecrw_id)
-            if not bios_ecrw_version:
-                raise PackError(
-                    "Cannot extract CrOS version from bios_ecrw_id"
-                    f" {bios_ecrw_id}"
-                )
-            else:
+            if bios_ecrw_version:
                 bios_ecrw_version = str(bios_ecrw_version)
+            else:
+                logging.warning(
+                    "bios_ecrw_id is in legacy format: %s", bios_ecrw_id
+                )
+                bios_ecrw_version = bios_ecrw_id
             self._swap_ec_rw_in_bios(merged_file, ec_fname, None)
         elif ec_rw_source == EcRwSource.AP_FOR_EC:
             source_bios_fname = fw_source.bios_for_ec_rw.file
