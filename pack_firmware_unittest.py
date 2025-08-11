@@ -80,7 +80,7 @@ DEVICE_EXTENSION 16248832 524288
 UNUSED_HOLE 16773120 4096
 """
 
-# Size of dummy 'ecrw' file.
+# Size of placeholder 'ecrw' file.
 ECRW_SIZE = 0x38000
 
 # Expected output from 'futility dump_fmap -p' for EC image.
@@ -730,8 +730,8 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         """
         fname = os.path.join(_kwargs["cwd"], cmd.pop())
         with open(fname, "wb") as fd:
-            # Write a dummy header with image size = ECRW_SIZE, and payload of
-            # zeros
+            # Write a placeholder header with image size = ECRW_SIZE,
+            # and payload of zeros.
             fd.write(struct.pack("<III", 1, 12, ECRW_SIZE))
             fd.truncate(ECRW_SIZE + 12)
 
