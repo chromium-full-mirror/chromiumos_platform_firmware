@@ -195,11 +195,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
                 "--output_dir",
                 self.outdir,
             ]
-        cmd += [
-            "-p",
-            "dummy:emulate=VARIABLE_SIZE,image=%s,size=%d"
-            % (input_path, os.stat(input_path).st_size),
-        ]
+        cmd += ["--emulate", input_path]
         cmd += ["--verbose", "--debug"]
         result = cros_build_lib.run(
             cmd,
