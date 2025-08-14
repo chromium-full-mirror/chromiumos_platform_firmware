@@ -41,8 +41,17 @@ is_lzma_zip() {
 do_compress() {
   local archive="$1"
   local src="$2"
+  local use_7z="false"
 
   if is_lzma_zip "${src}"; then
+    if has_program 7z; then
+      use_7z="true"
+    else
+      warn "WARNING: 7z is not available. Repack without LZMA."
+    fi
+  fi
+
+  if ${use_7z}; then
     echo 1 > "${src}/LZMA_ZIP"
     touch -t "${TOUCH_TS}" "${src}/LZMA_ZIP"
     7z a -tzip -mm=lzma "${archive}" "${src}"
@@ -84,7 +93,6 @@ repack() {
 
   # TODO(hungte) Use futility to check content and initial repack in future.
   need_program zip
-  is_lzma_zip "${src}" && need_program 7z
 
   # Currently the libzip inside futility will discard SFX if we try to update
   # so we need to always create a new archive.
