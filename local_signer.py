@@ -61,7 +61,7 @@ class LocalSignerConfig:
 
         opts = parser.parse_args(argv)
 
-        opts.Freeze()
+        opts.freeze()
         return opts
 
     def generate_signer_config(self, fd, stderr):

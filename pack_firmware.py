@@ -443,7 +443,7 @@ class FirmwarePacker:
 
         opts = parser.parse_args(argv)
 
-        opts.Freeze()
+        opts.freeze()
         return opts
 
     @staticmethod
