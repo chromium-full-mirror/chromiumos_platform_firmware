@@ -139,12 +139,14 @@ class ImageSource:
         file: File path to the firmware image.
         uri_version: Version information extracted from the image URIs.
         firmware_ids: FRID and FWID from the firmware image.
+        remote_image_uri_source: ImageUriSource if not local.
     """
 
     # TODO: file should be changed to Path type.
     file: str
     uri_version: FirmwareVersion
     firmware_ids: FirmwareIds
+    remote_image_uri_source: config_parser.ImageUriSource
 
 
 @dataclasses.dataclass(frozen=True)
@@ -328,6 +330,7 @@ class FirmwarePacker:
         self._versions = io.StringIO()
         self._force_dash = False
         self._gs_context = None
+        self._bill_of_materials = {}
 
     @staticmethod
     def parse_args(argv):
@@ -427,6 +430,12 @@ class FirmwarePacker:
             dest="ec_comp_output",
             default="cme",
             help="Output directory for EC component manifests",
+        )
+        parser.add_argument(
+            "--bill_of_materials",
+            dest="bill_of_materials_output",
+            type="str_path",
+            help="Output directory for bill of materials JSON summary",
         )
         parser.add_argument(
             "-t",
@@ -1471,6 +1480,18 @@ class FirmwarePacker:
             self._base_dir_path("VERSION"), self._versions.getvalue()
         )
 
+    def _write_bill_of_materials_file(self, path: str):
+        """Encode bill_of_materials to JSON and write to provided path."""
+        with open(path, "w", encoding="utf-8") as file:
+            json.dump(
+                [
+                    {"uri": m.uri, "sha256": m.sha256}
+                    for m in self._bill_of_materials.values()
+                ],
+                file,
+                indent=2,
+            )
+
     def _write_archive_format_file(self, use_lzma_zip: bool):
         """Write the indication file for archive format."""
         lzma_zip_file = self._base_dir_path("LZMA_ZIP")
@@ -1591,7 +1612,7 @@ class FirmwarePacker:
             if not os.path.exists(real_path):
                 return None
             firmware_ids = self._extract_firmware_ids(real_path)
-            return ImageSource(real_path, None, firmware_ids)
+            return ImageSource(real_path, None, firmware_ids, None)
 
         if not source.uri:
             return None
@@ -1617,7 +1638,7 @@ class FirmwarePacker:
         firmware_ids = (
             self._extract_firmware_ids(path) if extract_fwid else None
         )
-        return ImageSource(path, version, firmware_ids)
+        return ImageSource(path, version, firmware_ids, source)
 
     def _verify_ec_component_manifest(self, manifest_file, ec_version):
         """Verify the EC compoenent manifest file."""
@@ -1853,6 +1874,18 @@ class FirmwarePacker:
 
             if fw_source.ec and fw_source.ec_component:
                 ec_component_manifests[fw_target] = fw_source.ec_component.file
+
+            for field in dataclasses.fields(fw_source):
+                m = getattr(fw_source, field.name)
+                if isinstance(m, ImageSource):
+                    if m.remote_image_uri_source:
+                        self._bill_of_materials[
+                            m.remote_image_uri_source.uri
+                        ] = m.remote_image_uri_source
+                    elif m.file:
+                        self._bill_of_materials[m.file] = (
+                            config_parser.ImageUriSource(uri=m.file)
+                        )
 
         return images, ec_component_manifests
 
@@ -2119,6 +2152,14 @@ class FirmwarePacker:
                 self._write_signer_instructions(model_details)
             self._write_archive_format_file(use_lzma_zip=args.lzma_zip)
             self._build_shellball()
+            if args.bill_of_materials_output and self._bill_of_materials:
+                self._write_bill_of_materials_file(
+                    args.bill_of_materials_output
+                )
+                logging.info(
+                    "wrote bill of materials to: %s",
+                    args.bill_of_materials_output,
+                )
             if not args.quiet:
                 print("Packed output image is: %s" % args.output)
         finally:
