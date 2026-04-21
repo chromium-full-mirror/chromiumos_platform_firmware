@@ -128,6 +128,7 @@ class FirmwareVersions:
 
 # File names in firmware tarball
 EC_IMAGE = "ec.bin"
+EC_CONFIG = "ec.config"
 EC_COMPONENT_MANIFEST = "component_manifest.json"
 
 
@@ -140,6 +141,7 @@ class ImageSource:
         uri_version: Version information extracted from the image URIs.
         firmware_ids: FRID and FWID from the firmware image.
         remote_image_uri_source: ImageUriSource if not local.
+        ec_config_file: The location of the ec.config file, if present.
     """
 
     # TODO: file should be changed to Path type.
@@ -147,6 +149,7 @@ class ImageSource:
     uri_version: FirmwareVersion
     firmware_ids: FirmwareIds
     remote_image_uri_source: config_parser.ImageUriSource
+    ec_config_file: Optional[str] = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -830,7 +833,9 @@ class FirmwarePacker:
         else:
             self._extract_ec_rw_using_cbfs(fname, EC_RW_CBFS_NAME, ecrw_fname)
 
-    def _swap_ec_rw_in_bios(self, bios_fname, ec_fname, source_bios_fname):
+    def _swap_ec_rw_in_bios(
+        self, bios_fname, ec_fname, source_bios_fname, ec_config_fname
+    ):
         """Swap out EC RW payload stored in BIOS.
 
         Args:
@@ -839,6 +844,7 @@ class FirmwarePacker:
                 replace the existing EC RW in BIOS.
             source_bios_fname: Filename of source BIOS image, whose EC_RW will
                 be added to BIOS RW to replace the existing EC RW in BIOS.
+            ec_config_fname: Filename of EC RW config, to be added to BIOS RW.
         """
         # Use the copy installed in the SDK if we are in the SDK.  Otherwise use
         # the swap_ec_rw shell script in the source tree.
@@ -854,7 +860,10 @@ class FirmwarePacker:
             )
         cmd = [script_path, "-i", bios_fname]
         if ec_fname:
+            if not ec_config_fname:
+                raise PackError("ec.config is required for swap_ec_rw!")
             cmd += ["-e", ec_fname]
+            cmd += ["--ec_config", ec_config_fname]
         else:
             cmd += ["-a", source_bios_fname]
         cros_build_lib.dbg_run(cmd, capture_output=True, cwd=self._tmpdir)
@@ -964,12 +973,14 @@ class FirmwarePacker:
                     "bios_ecrw_id is in legacy format: %s", bios_ecrw_id
                 )
                 bios_ecrw_version = bios_ecrw_id
-            self._swap_ec_rw_in_bios(merged_file, ec_fname, None)
+            self._swap_ec_rw_in_bios(
+                merged_file, ec_fname, None, effective_ec_rw.ec_config_file
+            )
         elif ec_rw_source == EcRwSource.AP_FOR_EC:
             source_bios_fname = fw_source.bios_for_ec_rw.file
             bios_ecrw_id = fw_source.bios_for_ec_rw.firmware_ids.rw_id
             bios_ecrw_version = str(self._extract_main_version(bios_ecrw_id))
-            self._swap_ec_rw_in_bios(merged_file, None, source_bios_fname)
+            self._swap_ec_rw_in_bios(merged_file, None, source_bios_fname, None)
         if bios_rw:
             self._copy_timestamp(bios_rw.file, merged_file)
 
@@ -1432,6 +1443,12 @@ class FirmwarePacker:
                             f"Expected 1 member in {tar_path!r} "
                             f"but found at least 2."
                         )
+                logging.debug(
+                    "Extracting %s from tar file %s to %s",
+                    member.name,
+                    tar_path,
+                    self._tmpdir,
+                )
                 tar.extract(member, self._tmpdir)
                 matched_name = name
 
@@ -1444,6 +1461,11 @@ class FirmwarePacker:
         out_file = os.path.join(dst_dirname, matched_name + suffix)
         if os.path.exists(out_file):
             raise PackError(f"Output file {out_file!r} already exists")
+        logging.debug(
+            "Renaming %s to %s",
+            os.path.join(self._tmpdir, matched_name),
+            out_file,
+        )
         os.rename(os.path.join(self._tmpdir, matched_name), out_file)
         return out_file
 
@@ -1578,6 +1600,7 @@ class FirmwarePacker:
         fname: str = None,
         required: bool = True,
         extract_fwid: bool = True,
+        extract_ec_config: bool = False,
     ) -> Optional[ImageSource]:
         """Obtain a file based on provided information.
 
@@ -1600,6 +1623,7 @@ class FirmwarePacker:
                 required when there are multiple files in `source`.
             required: Whether the `fname` must exist in `source`.
             extract_fwid: Whether to extract FWIDs.
+            extract_ec_config: Whether to extract ec.config.
 
         Returns:
             Image source object of the extracted image file, or None if the file
@@ -1612,7 +1636,18 @@ class FirmwarePacker:
             if not os.path.exists(real_path):
                 return None
             firmware_ids = self._extract_firmware_ids(real_path)
-            return ImageSource(real_path, None, firmware_ids, None)
+            ec_config_path = None
+            if extract_ec_config:
+                ec_config_path = Path(
+                    real_path.removesuffix(EC_IMAGE) + EC_CONFIG
+                )
+            return ImageSource(
+                real_path,
+                None,
+                firmware_ids,
+                None,
+                ec_config_path,
+            )
 
         if not source.uri:
             return None
@@ -1638,7 +1673,16 @@ class FirmwarePacker:
         firmware_ids = (
             self._extract_firmware_ids(path) if extract_fwid else None
         )
-        return ImageSource(path, version, firmware_ids, source)
+        ec_config_path = None
+        if extract_ec_config:
+            ec_config_path = self._untar_file(
+                output_path,
+                dirname,
+                suffix=suffix,
+                fname=EC_CONFIG,
+                required=False,
+            )
+        return ImageSource(path, version, firmware_ids, source, ec_config_path)
 
     def _verify_ec_component_manifest(self, manifest_file, ec_version):
         """Verify the EC compoenent manifest file."""
@@ -1713,6 +1757,7 @@ class FirmwarePacker:
             firmware.ec_image_source,
             dirname,
             fname=EC_IMAGE,
+            extract_ec_config=True,
         )
         ec_rw = self._extract_file(
             firmware.ec_build_target,
@@ -1721,6 +1766,7 @@ class FirmwarePacker:
             dirname,
             suffix="rw",
             fname=EC_IMAGE,
+            extract_ec_config=True,
         )
         bios_for_ec_rw = self._extract_file(
             None,
@@ -1851,41 +1897,51 @@ class FirmwarePacker:
         images = {}
         ec_component_manifests = {}
         for device, fw_target in devices_fw_target.items():
-            firmware = firmware_info[device]
-            if fw_target in images:
-                continue
+            try:
+                firmware = firmware_info[device]
+                if fw_target in images:
+                    continue
 
-            unpack_dir = self._tmp_dir_path(fw_target)
-            osutils.SafeMakedirs(unpack_dir)
-            fw_source = self._extract_firmware(firmware, unpack_dir)
+                unpack_dir = self._tmp_dir_path(fw_target)
+                osutils.SafeMakedirs(unpack_dir)
+                fw_source = self._extract_firmware(firmware, unpack_dir)
 
-            if not fw_source.bios and not fw_source.ec:
-                continue
+                if not fw_source.bios and not fw_source.ec:
+                    continue
 
-            self._check_firmware_source(fw_source)
-            images[fw_target] = self._process_firmware(
-                fw_source,
-                self._base_dir_path(IMG_DIR),
-                firmware.bios_build_target,
-                firmware.ec_build_target,
-                fw_target,
-                firmware.main_rw_a_hash,
-            )
+                self._check_firmware_source(fw_source)
+                images[fw_target] = self._process_firmware(
+                    fw_source,
+                    self._base_dir_path(IMG_DIR),
+                    firmware.bios_build_target,
+                    firmware.ec_build_target,
+                    fw_target,
+                    firmware.main_rw_a_hash,
+                )
 
-            if fw_source.ec and fw_source.ec_component:
-                ec_component_manifests[fw_target] = fw_source.ec_component.file
+                if fw_source.ec and fw_source.ec_component:
+                    ec_component_manifests[fw_target] = (
+                        fw_source.ec_component.file
+                    )
 
-            for field in dataclasses.fields(fw_source):
-                m = getattr(fw_source, field.name)
-                if isinstance(m, ImageSource):
-                    if m.remote_image_uri_source:
-                        self._bill_of_materials[
-                            m.remote_image_uri_source.uri
-                        ] = m.remote_image_uri_source
-                    elif m.file:
-                        self._bill_of_materials[m.file] = (
-                            config_parser.ImageUriSource(uri=m.file)
-                        )
+                for field in dataclasses.fields(fw_source):
+                    m = getattr(fw_source, field.name)
+                    if isinstance(m, ImageSource):
+                        if m.remote_image_uri_source:
+                            self._bill_of_materials[
+                                m.remote_image_uri_source.uri
+                            ] = m.remote_image_uri_source
+                        elif m.file:
+                            self._bill_of_materials[m.file] = (
+                                config_parser.ImageUriSource(uri=m.file)
+                            )
+            except PackError as e:
+                logging.error(
+                    "Failed to pack firmware for model %s fw target %s",
+                    device,
+                    fw_target,
+                )
+                raise e
 
         return images, ec_component_manifests
 
@@ -1981,7 +2037,7 @@ class FirmwarePacker:
             if ec_file:
                 ec_dir = os.path.join(output_dir, device)
                 os.mkdir(ec_dir)
-                ec_output = os.path.join(ec_dir, "ec.bin")
+                ec_output = os.path.join(ec_dir, EC_IMAGE)
                 self._copy_firmware_file(ec_file.filename, ec_output)
 
     def _save_ec_component_manifests(self, manifests: Dict[str, str]):
@@ -2022,7 +2078,9 @@ class FirmwarePacker:
 
         if output_path.is_file():
             if file_sha256(output_path) == source.sha256:
-                logging.info("%s already downloaded and SHA256 OK!", source.uri)
+                logging.debug(
+                    "%s already downloaded and SHA256 OK!", source.uri
+                )
                 return output_path
             else:
                 logging.warning(
