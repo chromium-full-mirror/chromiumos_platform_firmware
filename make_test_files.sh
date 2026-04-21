@@ -85,21 +85,23 @@ ln -sr "${FUNCTESTDIR}"/*.tbz2 "${IMAGEDIR}"
 # Generate the simple archives from compressed individual files
 gunzip -c "${FUNCTESTDIR}/image-ciri.bin.gz" >"${TMPDIR}/image-ciri.bin"
 gunzip -c "${FUNCTESTDIR}/ec.bin.gz" >"${TMPDIR}/ec.bin"
+gunzip -c "${FUNCTESTDIR}/ec.config.gz" >"${TMPDIR}/ec.config"
 
 # AP 15705.0.0
 tar -C "${TMPDIR}" -cjf "${IMAGEDIR}/Ciri.15705.0.0.tbz2" image-ciri.bin
 tar -C "${TMPDIR}" -cjf "${IMAGEDIR}/Ciri_Wrong_Version.15555.0.0.tbz2" \
   image-ciri.bin
 # EC 15705.0.0 with no component_manifest.json
-tar -C "${TMPDIR}" -cjf "${IMAGEDIR}/Ciri_EC_No_CM.15705.0.0.tbz2" ec.bin
+tar -C "${TMPDIR}" -cjf "${IMAGEDIR}/Ciri_EC_No_CM.15705.0.0.tbz2" ec.bin \
+  ec.config
 # EC 15705.0.0 with an incorrect component_manifest.json
 cp "${FUNCTESTDIR}"/ec_cm-ciri.15820.json "${TMPDIR}/component_manifest.json"
 tar -C "${TMPDIR}" -cjf "${IMAGEDIR}/Ciri_EC_Wrong_Version.15705.0.0.tbz2" \
-  component_manifest.json ec.bin
+  component_manifest.json ec.bin ec.config
 # EC 15705.0.0 with a correct component_manifest.json
 cp "${FUNCTESTDIR}"/ec_cm-ciri.15705.json "${TMPDIR}/component_manifest.json"
 tar -C "${TMPDIR}" -cjf "${IMAGEDIR}/Ciri_EC.15705.0.0.tbz2" \
-  component_manifest.json ec.bin
+  component_manifest.json ec.bin ec.config
 
 # Generate Ciri.15706.0.0.tbz2
 update_version "${TMPDIR}/image-ciri.bin" "${TMPDIR}/ec.bin" 15706.0.0 \
@@ -112,13 +114,15 @@ update_version "${TMPDIR}/image-ciri.bin" "${TMPDIR}/ec.bin" 15821.0.0 \
   "${TMPDIR}/Ciri.15821.0.0"
 cp "${FUNCTESTDIR}"/ec_cm-ciri.15821.json \
   "${TMPDIR}/Ciri.15821.0.0/component_manifest.json"
+gunzip -c "${FUNCTESTDIR}/ec.config.gz" >"${TMPDIR}/Ciri.15821.0.0/ec.config"
 tar -C "${TMPDIR}/Ciri.15821.0.0" -cjf "${IMAGEDIR}/Ciri_EC.15821.0.0.tbz2" \
-  component_manifest.json ec.bin
+  component_manifest.json ec.bin ec.config
 
 # Generate Ciri_EC.15820.0.0.tbz2
 update_version "${TMPDIR}/image-ciri.bin" "${TMPDIR}/ec.bin" 15820.0.0 \
   "${TMPDIR}/Ciri.15820.0.0"
 cp "${FUNCTESTDIR}"/ec_cm-ciri.15820.json \
   "${TMPDIR}/Ciri.15820.0.0/component_manifest.json"
+gunzip -c "${FUNCTESTDIR}/ec.config.gz" >"${TMPDIR}/Ciri.15820.0.0/ec.config"
 tar -C "${TMPDIR}/Ciri.15820.0.0" -cjf "${IMAGEDIR}/Ciri_EC.15820.0.0.tbz2" \
-  component_manifest.json ec.bin
+  component_manifest.json ec.bin ec.config
