@@ -191,6 +191,10 @@ class ModuleTestUnit(cros_test_lib.TestCase):
         gs_uri = "gs://path/Brya.12345.67.89.tar.bz2"
         gs_ec_uri = "gs://path/Brya.EC.12345.67.89.tar.bz2"
         version = pack_firmware.FirmwareVersion(12345, 67, 89)
+        no_ver_in_filename = (
+            "gs://firmware-image-archive/"
+            "firmware-ec-R132-12345.67.B/12345.67.89/brox.EC.tar.bz2"
+        )
 
         self.assertEqual(
             legacy_version, pack_firmware.extract_uri_version(legacy_bcs_uri)
@@ -198,6 +202,9 @@ class ModuleTestUnit(cros_test_lib.TestCase):
         self.assertEqual(version, pack_firmware.extract_uri_version(bcs_uri))
         self.assertEqual(version, pack_firmware.extract_uri_version(gs_uri))
         self.assertEqual(version, pack_firmware.extract_uri_version(gs_ec_uri))
+        self.assertEqual(
+            version, pack_firmware.extract_uri_version(no_ver_in_filename)
+        )
 
 
 class TestUnit(cros_test_lib.MockTempDirTestCase):
