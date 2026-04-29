@@ -252,11 +252,21 @@ def extract_uri_version(uri: str) -> FirmwareVersion:
     2. bcs://Name.xxxxx.yy.z.tbz2
     3. gs://path/name.xxxxx.yy.zz.tar.bz2
     4. gs://path/name.EC.xxxxx.yy.zz.tar.bz2
+    5. gs://path/xxxxx.yy.zz/name.EC.tar.bz2
     """
     filename = uri_filename(uri)
     match = re.fullmatch(
         r"[-_.\w]+\.(\d+)\.(\d+)\.(\d+)\.[\w.]+",
         filename,
+        flags=re.ASCII,
+    )
+    if match:
+        version = [int(x) for x in match.group(1, 2, 3)]
+        return FirmwareVersion(*version)
+
+    match = re.fullmatch(
+        r".*/(\d+)\.(\d+)\.(\d+)/[-_.\w]+\.[\w.]+",
+        uri,
         flags=re.ASCII,
     )
     if match:
