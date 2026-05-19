@@ -455,7 +455,7 @@ class FirmwarePacker:
 
         opts = parser.parse_args(argv)
 
-        opts.freeze()
+        opts.Freeze()
         return opts
 
     @staticmethod
