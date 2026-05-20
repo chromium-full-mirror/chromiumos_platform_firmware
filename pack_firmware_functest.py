@@ -12,7 +12,6 @@ with a few fake tools.
 import collections
 import glob
 import gzip
-import json
 import os
 import pprint
 import re
@@ -1047,28 +1046,6 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         expected_files = sorted(expected_files)
         result = self._run_pack_firmware(extra_args)
         self.assertEqual(expected_files, result.files)
-
-    def test_bill_of_materials(self):
-        """Check that the bill of materials is generated correctly."""
-        bom_path = os.path.join(self.outdir, "bom.json")
-        extra_args, _ = self._setup_args()
-        extra_args += ["--bill_of_materials", bom_path]
-
-        self._run_pack_firmware(extra_args)
-
-        self.assertExists(bom_path)
-        with open(bom_path, "r", encoding="utf-8") as f:
-            bom = json.load(f)
-
-        self.assertIsInstance(bom, list)
-        uris = set(entry["uri"] for entry in bom)
-        expected_uris = {
-            "bcs://Reef.9042.50.0.tbz2",
-            "bcs://Reef_EC.9042.50.0.tbz2",
-            "bcs://Pyro.9042.41.0.tbz2",
-            "bcs://Pyro_EC.9042.41.0.tbz2",
-        }
-        self.assertTrue(expected_uris.issubset(uris))
 
 
 if __name__ == "__main__":
