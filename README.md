@@ -142,14 +142,6 @@ SFX script `pack/sfx2.sh`.
 
 For details about package format, check [pack/README.md](./pack/README.md).
 
-#### Run unit tests
-
-Before submitting changes to `pack_firmware.py`, please run the unit tests.
-
-```
-cros_sdk --working-dir=/mnt/host/source/src/platform/firmware -- python3 -m unittest *_unittest.py *_functest.py
-```
-
 ### Updater logic
 
 Here's a detailed list of how each updater mode works:

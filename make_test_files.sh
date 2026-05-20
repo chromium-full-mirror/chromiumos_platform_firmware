@@ -11,67 +11,6 @@ ROOTDIR="$(dirname "$(realpath "$0")")"
 FUNCTESTDIR="${ROOTDIR}/functest"
 IMAGEDIR="${FUNCTESTDIR}/images"
 TMPDIR="$(mktemp -d)"
-FMAP_REGIONS=( "FW_MAIN_A" "FW_MAIN_B" )
-
-trap 'rm -rf "${TMPDIR}"' EXIT
-
-# Replaces the ec rw in the ap_file with the ec rw from the ec_file.
-replace_ecrw() {
-  local ap_file
-  local ec_file
-  local region
-  ap_file="$1"
-  ec_file="$2"
-
-  futility dump_fmap "${ec_file}" -x RW_FW:"${TMPDIR}/ecrw"
-  openssl dgst -sha256 -binary "${TMPDIR}/ecrw" > "${TMPDIR}/ecrw.hash"
-  for region in "${FMAP_REGIONS[@]}"
-  do
-    cbfstool "${ap_file}" remove -r "${region}" -n ecrw
-    cbfstool "${ap_file}" remove -r "${region}" -n ecrw.hash
-    cbfstool "${ap_file}" expand -r "${region}"
-    cbfstool "${ap_file}" add -r "${region}" -t raw \
-      -c LZMA -f "${TMPDIR}/ecrw" -n ecrw
-    cbfstool "${ap_file}" add -r "${region}" -t raw \
-      -c none -f "${TMPDIR}/ecrw.hash" -n ecrw.hash
-  done
-}
-
-# Updates the version in both the ap_file and ec_file, and stores the result
-# in outdir.
-update_version() {
-  local ap_file
-  local ec_file
-  local version
-  local outdir
-  ap_file="$1"
-  ec_file="$2"
-  version="$3"
-  outdir="$4"
-
-  mkdir "${outdir}"
-  # Extract the old fwid for the size
-  futility dump_fmap "${ap_file}" -x RW_FWID_A:"${TMPDIR}/fwid_a"
-  # Set the fwid
-  echo -n "Google_Ciri.${version}" >"${TMPDIR}/fwid_new"
-  truncate -r "${TMPDIR}/fwid_a" "${TMPDIR}/fwid_new"
-  # Load into fmap for A and B
-  futility load_fmap "${ap_file}" -o "${outdir}/image-ciri.bin" \
-    RO_FRID:"${TMPDIR}/fwid_new" RW_FWID_A:"${TMPDIR}/fwid_new" \
-    RW_FWID_B:"${TMPDIR}/fwid_new"
-  # Extract the old ec fwid for the size
-  futility dump_fmap "${ec_file}" -x RW_FWID:"${TMPDIR}/ec_fwid"
-  # Set the ec fwid
-  echo -n "ciri-${version}" >"${TMPDIR}/ec_fwid_new"
-  truncate -r "${TMPDIR}/ec_fwid" "${TMPDIR}/ec_fwid_new"
-  # Load ec fwid into ec.bin
-  futility load_fmap "${ec_file}" -o "${outdir}/ec.bin" \
-    RO_FRID:"${TMPDIR}/ec_fwid_new" RW_FWID:"${TMPDIR}/ec_fwid_new"
-  # Replace the ecrw in the ap image
-  replace_ecrw "${outdir}/image-ciri.bin" "${outdir}/ec.bin"
-  # Print the versions
-  futility update --manifest -i "${outdir}/image-ciri.bin" -e "${outdir}/ec.bin"
-}
 
 # Merge yaml files for the rw/ro test case.
 cd test
@@ -82,43 +21,49 @@ mkdir -p "${IMAGEDIR}"
 rm -f "${IMAGEDIR}"/*
 ln -sr "${FUNCTESTDIR}"/*.tbz2 "${IMAGEDIR}"
 
-# Generate the simple archives from compressed individual files
-gunzip -c "${FUNCTESTDIR}/image-ciri.bin.gz" >"${TMPDIR}/image-ciri.bin"
-gunzip -c "${FUNCTESTDIR}/ec.bin.gz" >"${TMPDIR}/ec.bin"
+patch_tar() {
+  local oldtar="$1"
+  local newtar="$2"
+  local filename="$3"
+  local patchfile="$4"
+  local ec_component_manifest="${5:-}"
+  local tmpdir="${TMPDIR}/${newtar}"
 
-# AP 15705.0.0
-tar -C "${TMPDIR}" -cjf "${IMAGEDIR}/Ciri.15705.0.0.tbz2" image-ciri.bin
-tar -C "${TMPDIR}" -cjf "${IMAGEDIR}/Ciri_Wrong_Version.15555.0.0.tbz2" \
-  image-ciri.bin
-# EC 15705.0.0 with no component_manifest.json
-tar -C "${TMPDIR}" -cjf "${IMAGEDIR}/Ciri_EC_No_CM.15705.0.0.tbz2" ec.bin
-# EC 15705.0.0 with an incorrect component_manifest.json
-cp "${FUNCTESTDIR}"/ec_cm-ciri.15820.json "${TMPDIR}/component_manifest.json"
-tar -C "${TMPDIR}" -cjf "${IMAGEDIR}/Ciri_EC_Wrong_Version.15705.0.0.tbz2" \
-  component_manifest.json ec.bin
-# EC 15705.0.0 with a correct component_manifest.json
-cp "${FUNCTESTDIR}"/ec_cm-ciri.15705.json "${TMPDIR}/component_manifest.json"
-tar -C "${TMPDIR}" -cjf "${IMAGEDIR}/Ciri_EC.15705.0.0.tbz2" \
-  component_manifest.json ec.bin
+  if [[ -f "${IMAGEDIR}/${newtar}" ]]; then
+    echo "ERROR: Target ${IMAGEDIR}/${newtar}" already exists
+    exit 1
+  fi
 
-# Generate Ciri.15706.0.0.tbz2
-update_version "${TMPDIR}/image-ciri.bin" "${TMPDIR}/ec.bin" 15706.0.0 \
-  "${TMPDIR}/Ciri.15706.0.0"
-tar -C "${TMPDIR}/Ciri.15706.0.0" -cjf "${IMAGEDIR}/Ciri.15706.0.0.tbz2" \
-  image-ciri.bin
+  # cd to an empty dir because ${oldtar} may contain multiple files.
+  mkdir "${tmpdir}" && cd "${tmpdir}"
 
-# Generate Ciri_EC.15821.0.0.tbz2
-update_version "${TMPDIR}/image-ciri.bin" "${TMPDIR}/ec.bin" 15821.0.0 \
-  "${TMPDIR}/Ciri.15821.0.0"
-cp "${FUNCTESTDIR}"/ec_cm-ciri.15821.json \
-  "${TMPDIR}/Ciri.15821.0.0/component_manifest.json"
-tar -C "${TMPDIR}/Ciri.15821.0.0" -cjf "${IMAGEDIR}/Ciri_EC.15821.0.0.tbz2" \
-  component_manifest.json ec.bin
+  tar -xf "${FUNCTESTDIR}/${oldtar}"
+  if [[ -n "${patchfile}" ]]; then
+    bspatch "${filename}" "${filename}" "${FUNCTESTDIR}/${patchfile}"
+  fi
+  if [[ -n "${ec_component_manifest}" ]]; then
+    cp -f "${FUNCTESTDIR}/${ec_component_manifest}" ./component_manifest.json
+  fi
+  tar -jcf "${IMAGEDIR}/${newtar}" ./*
+}
 
-# Generate Ciri_EC.15820.0.0.tbz2
-update_version "${TMPDIR}/image-ciri.bin" "${TMPDIR}/ec.bin" 15820.0.0 \
-  "${TMPDIR}/Ciri.15820.0.0"
-cp "${FUNCTESTDIR}"/ec_cm-ciri.15820.json \
-  "${TMPDIR}/Ciri.15820.0.0/component_manifest.json"
-tar -C "${TMPDIR}/Ciri.15820.0.0" -cjf "${IMAGEDIR}/Ciri_EC.15820.0.0.tbz2" \
-  component_manifest.json ec.bin
+# Generate Ciri.15706.0.0.tbz2.
+patch_tar "Ciri.15705.0.0.tbz2" "Ciri.15706.0.0.tbz2" \
+  "image-ciri.bin" "image-ciri.15706.bspatch"
+
+# Generate Ciri_EC_Wrong_Version.15705.0.0.tbz2.
+patch_tar "Ciri_EC_No_CM.15705.0.0.tbz2" \
+  "Ciri_EC_Wrong_Version.15705.0.0.tbz2" \
+  "ec.bin" "" "ec_cm-ciri.15820.json"
+
+# Generate Ciri_EC.15705.0.0.tbz2.
+patch_tar "Ciri_EC_No_CM.15705.0.0.tbz2" "Ciri_EC.15705.0.0.tbz2" \
+  "ec.bin" "" "ec_cm-ciri.15705.json"
+
+# Generate Ciri_EC.15820.0.0.tbz2.
+patch_tar "Ciri_EC_base.15820.0.0.tbz2" "Ciri_EC.15820.0.0.tbz2" \
+  "ec.bin" "" "ec_cm-ciri.15820.json"
+
+# Generate Ciri_EC.15821.0.0.tbz2.
+patch_tar "Ciri_EC_base.15820.0.0.tbz2" "Ciri_EC.15821.0.0.tbz2" \
+  "ec.bin" "ec-ciri.15821.bspatch" "ec_cm-ciri.15821.json"
