@@ -1886,7 +1886,6 @@ class FirmwarePacker:
         """
         images = {}
         ec_component_manifests = {}
-        all_errors = []
         for device, fw_target in devices_fw_target.items():
             try:
                 firmware = firmware_info[device]
@@ -1928,21 +1927,12 @@ class FirmwarePacker:
                             )
             except PackError as e:
                 logging.error(
-                    "Failed to pack firmware for model %s fw target %s: %s",
+                    "Failed to pack firmware for model %s fw target %s",
                     device,
                     fw_target,
-                    e,
                 )
-                all_errors.append(
-                    PackError(
-                        f"Failed to pack firmware for model {device} "
-                        f"fw target {fw_target}: {e}"
-                    )
-                )
-        if len(all_errors) == 1:
-            raise all_errors[0]
-        if all_errors:
-            raise ExceptionGroup("Multiple models failed", all_errors)
+                raise e
+
         return images, ec_component_manifests
 
     def _write_signer_instructions(self, model_details):
