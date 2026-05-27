@@ -15,13 +15,13 @@ import subprocess
 
 @dataclasses.dataclass(frozen=True)
 class ModelVersion:
-    """BIOS and EC versions of a model."""
+    """AP and EC versions of a model."""
 
-    bios_ro_id: str
-    bios_rw_id: str
+    ap_ro_id: str
+    ap_rw_id: str
     ec_ro_id: str
     ec_rw_id: str
-    bios_ecrw_id: str = ""
+    ap_ecrw_id: str = ""
 
 
 def read_manifest(folder):
@@ -42,14 +42,14 @@ def read_manifest(folder):
         model = {}
 
         host_versions = v["host"]["versions"]
-        model["MAIN_RO_FWID"] = host_versions["ro"]
-        model["MAIN_RW_FWID"] = host_versions["rw"]
+        model["AP_RO_FWID"] = host_versions["ro"]
+        model["AP_RW_FWID"] = host_versions["rw"]
 
         ec_versions = v.get("ec", {}).get("versions", {})
         model["EC_RO_FWID"] = ec_versions.get("ro", "")
         model["EC_RW_FWID"] = ec_versions.get("rw", "")
 
-        model["IMAGE_MAIN"] = v["host"]["image"]
+        model["IMAGE_AP"] = v["host"]["image"]
         model["IMAGE_EC"] = v.get("ec", {}).get("image", "")
         result[k] = model
     return result
@@ -71,20 +71,20 @@ def read_versions(fname):
     versions = {}
     for k, v in data.items():
         host_versions = v["host"]["versions"]
-        main_ro_fwid = host_versions["ro"]
-        main_rw_fwid = host_versions["rw"]
-        main_ecrw_fwid = host_versions.get("ecrw", "")
+        ap_ro_fwid = host_versions["ro"]
+        ap_rw_fwid = host_versions["rw"]
+        ap_ecrw_fwid = host_versions.get("ecrw", "")
 
         ec_versions = v.get("ec", {}).get("versions", {})
         ec_ro_fwid = ec_versions.get("ro", "")
         ec_rw_fwid = ec_versions.get("rw", "")
 
         versions[k] = ModelVersion(
-            bios_ro_id=main_ro_fwid,
-            bios_rw_id=main_rw_fwid,
+            ap_ro_id=ap_ro_fwid,
+            ap_rw_id=ap_rw_fwid,
             ec_ro_id=ec_ro_fwid,
             ec_rw_id=ec_rw_fwid,
-            bios_ecrw_id=main_ecrw_fwid,
+            ap_ecrw_id=ap_ecrw_fwid,
         )
     return versions
 

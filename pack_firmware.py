@@ -61,7 +61,7 @@ from chromite.lib import osutils
 # pylint: enable=import-error
 
 
-MAIN = "BIOS"
+AP = "AP"
 EC = "EC"
 EC_RW_FMAP_SECTION_NAME = "EC_MAIN_A"
 EC_ZEPHYR_RW_FMAP_SECTION_NAME = "ZEPHYR_RW"
@@ -157,18 +157,18 @@ class FirmwareSource:
     """Sources for each of the firmware images.
 
     Attributes:
-        bios: ImageSource for the RO BIOS firmware.
-        bios_rw: ImageSource for the RW BIOS firmware.
+        ap: ImageSource for the RO AP firmware.
+        ap_rw: ImageSource for the RW AP firmware.
         ec: ImageSource for the RO EC firmware.
         ec_rw: ImageSource for the RW EC firmware.
         ec_component: ImageSource for the EC component manifest.
     """
 
-    bios: ImageSource
-    bios_rw: ImageSource
+    ap: ImageSource
+    ap_rw: ImageSource
     ec: ImageSource
     ec_rw: Optional[ImageSource] = None
-    bios_for_ec_rw: Optional[ImageSource] = None
+    ap_for_ec_rw: Optional[ImageSource] = None
     ec_component: Optional[ImageSource] = None
 
 
@@ -181,7 +181,7 @@ class ImageFile:
         build_target: The build target for the firmware.
         firmware_ids: The FirmwareIds for the firmware.
         uri_versions: The FirmwareVersions for the original firmware sources.
-        bios_ecrw_version: For a BIOS image, this may be set to the string
+        ap_ecrw_version: For an AP image, this may be set to the string
             representing the version of the EC firmware in CBFS.  Not applicable
             for EC images.
     """
@@ -191,7 +191,7 @@ class ImageFile:
     build_target: str
     firmware_ids: FirmwareIds
     uri_versions: FirmwareVersions
-    bios_ecrw_version: Optional[str] = None
+    ap_ecrw_version: Optional[str] = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -199,7 +199,7 @@ class ModelDetails:
     """Information about the output images for a specific model for signing.
 
     Attributes:
-        image_files: A dictionary mapping the type of image (e.g., "BIOS (RW)")
+        image_files: A dictionary mapping the type of image (e.g., "AP (RW)")
             to an ImageFile.
         key_id: Key used for signing.
         brand_code: RLZ brand code used for signing.
@@ -400,14 +400,16 @@ class FirmwarePacker:
         parser.add_argument(
             "-b",
             "--bios_image",
+            dest="ap_image",
             type="str_path",
             help="Path of input AP (BIOS) firmware image",
         )
         parser.add_argument(
             "-w",
             "--bios_rw_image",
+            dest="ap_rw_image",
             type="str_path",
-            help="Path of input BIOS RW firmware image",
+            help="Path of input AP RW firmware image",
         )
         parser.add_argument(
             "-e",
@@ -499,7 +501,7 @@ class FirmwarePacker:
         into the collection of version information.
 
         Args:
-            name: User-readable name of the file (e.g. 'BIOS').
+            name: User-readable name of the file (e.g. 'AP').
             fname: Filename to read.
             version: Version string (e.g. 'Google_Reef.9042.40.0').
         """
@@ -740,8 +742,8 @@ class FirmwarePacker:
             dst, src, dst_section.offset, src_section.offset, src_section.size
         )
 
-    def _merge_bios_file(self, ro_fname, rw_fname):
-        """Merge RW sections from main RW firmware to main RO firmware.
+    def _merge_ap_file(self, ro_fname, rw_fname):
+        """Merge RW sections from AP RW firmware to AP RO firmware.
 
         The RO image is cloned to a temporary directory before the RW image
         is merged.
@@ -811,15 +813,15 @@ class FirmwarePacker:
             cwd=self._tmpdir,
         )
 
-    def _extract_ec_rw_from_bios(self, fname, ecrw_fname):
-        """Extract the EC RW binary from BIOS image.
+    def _extract_ec_rw_from_ap(self, fname, ecrw_fname):
+        """Extract the EC RW binary from AP image.
 
-        If the BIOS image contains an FMAP section "EC_MAIN_A", then the EC
+        If the AP image contains an FMAP section "EC_MAIN_A", then the EC
         RW will be extracted from it. Otherwise, the EC RW is assumed to be
         stored as a CBFS file "ecrw".
 
         Args:
-            fname: Filename of BIOS image (relative or absolute path).
+            fname: Filename of AP image (relative or absolute path).
             ecrw_fname: Filename to put EC binary into (relative or absolute
                 path).
 
@@ -833,18 +835,18 @@ class FirmwarePacker:
         else:
             self._extract_ec_rw_using_cbfs(fname, EC_RW_CBFS_NAME, ecrw_fname)
 
-    def _swap_ec_rw_in_bios(
-        self, bios_fname, ec_fname, source_bios_fname, ec_config_fname
+    def _swap_ec_rw_in_ap(
+        self, ap_fname, ec_fname, source_ap_fname, ec_config_fname
     ):
-        """Swap out EC RW payload stored in BIOS.
+        """Swap out EC RW payload stored in AP.
 
         Args:
-            bios_fname: Filename of BIOS image to be modified.
-            ec_fname: Filename of EC image, whose RW will be added to BIOS RW to
-                replace the existing EC RW in BIOS.
-            source_bios_fname: Filename of source BIOS image, whose EC_RW will
-                be added to BIOS RW to replace the existing EC RW in BIOS.
-            ec_config_fname: Filename of EC RW config, to be added to BIOS RW.
+            ap_fname: Filename of AP image to be modified.
+            ec_fname: Filename of EC image, whose RW will be added to AP RW to
+                replace the existing EC RW in AP.
+            source_ap_fname: Filename of source AP image, whose EC_RW will
+                be added to AP RW to replace the existing EC RW in AP.
+            ec_config_fname: Filename of EC RW config, to be added to AP RW.
         """
         # Use the copy installed in the SDK if we are in the SDK.  Otherwise use
         # the swap_ec_rw shell script in the source tree.
@@ -858,14 +860,14 @@ class FirmwarePacker:
                 / "image_signing"
                 / "swap_ec_rw"
             )
-        cmd = [script_path, "-i", bios_fname]
+        cmd = [script_path, "-i", ap_fname]
         if ec_fname:
             if not ec_config_fname:
                 raise PackError("ec.config is required for swap_ec_rw!")
             cmd += ["-e", ec_fname]
             cmd += ["--ec_config", ec_config_fname]
         else:
-            cmd += ["-a", source_bios_fname]
+            cmd += ["-a", source_ap_fname]
         cros_build_lib.dbg_run(cmd, capture_output=True, cwd=self._tmpdir)
 
     def _merge_ec_file(self, ec_fname, ec_rw_section_fname, check_size=False):
@@ -900,10 +902,10 @@ class FirmwarePacker:
             padding=0xFF,
         )
 
-    def _verify_bios_rw_cbfs(self, bios_fname, rw_cbfs_hash):
-        """Verify RW CBFS (FW_MAIN_A and FW_MAIN_B) of `bios_fname`."""
+    def _verify_ap_rw_cbfs(self, ap_fname, rw_cbfs_hash):
+        """Verify RW CBFS (FW_MAIN_A and FW_MAIN_B) of `ap_fname`."""
         for section in ("FW_MAIN_A", "FW_MAIN_B"):
-            fname = self._extract_fmap_section(bios_fname, section)
+            fname = self._extract_fmap_section(ap_fname, section)
             if rw_cbfs_hash.algorithm != "md5sum":
                 raise PackError(
                     f"Unsupported hash algorithm {rw_cbfs_hash.algorithm}"
@@ -917,46 +919,44 @@ class FirmwarePacker:
                     f"expected {rw_cbfs_hash.digest}"
                 )
 
-    def _merge_bios_firmware(
+    def _merge_ap_firmware(
         self,
         fw_source: FirmwareSource,
         ec_rw_source: EcRwSource,
         build_target: str,
         merge_dir: str,
     ) -> Optional[ImageFile]:
-        """Merge BIOS RO and RW images into one.
+        """Merge AP RO and RW images into one.
 
         Args:
             fw_source: Firmware source images.
             ec_rw_source: The source of EC_RW. If the source is AP_RW, there is
                 no need to swap the "ecrw" file.
-            build_target: BIOS build target.
+            build_target: AP build target.
             merge_dir: Directory to put the merged image files.
 
         Returns:
-            Merged BIOS image file.
+            Merged AP image file.
         """
-        bios = fw_source.bios
-        bios_rw = fw_source.bios_rw
+        ap = fw_source.ap
+        ap_rw = fw_source.ap_rw
 
-        if not bios:
-            if bios_rw:
-                raise PackError(
-                    "Need main (RO) firmware image to merge BIOS RW"
-                )
+        if not ap:
+            if ap_rw:
+                raise PackError("Need AP (RO) firmware image to merge AP RW")
             return None
 
-        merged_file = self._copy_file(bios.file, merge_dir, preserve_path=True)
+        merged_file = self._copy_file(ap.file, merge_dir, preserve_path=True)
 
-        ro_fwid = bios.firmware_ids.ro_id
-        rw_fwid = bios.firmware_ids.rw_id
-        ro_uri_version = bios.uri_version
-        rw_uri_version = bios.uri_version
-        bios_ecrw_version = None
-        if bios_rw:
-            self._merge_bios_file(merged_file, bios_rw.file)
-            rw_fwid = bios_rw.firmware_ids.rw_id
-            rw_uri_version = bios_rw.uri_version
+        ro_fwid = ap.firmware_ids.ro_id
+        rw_fwid = ap.firmware_ids.rw_id
+        ro_uri_version = ap.uri_version
+        rw_uri_version = ap.uri_version
+        ap_ecrw_version = None
+        if ap_rw:
+            self._merge_ap_file(merged_file, ap_rw.file)
+            rw_fwid = ap_rw.firmware_ids.rw_id
+            rw_uri_version = ap_rw.uri_version
         if ec_rw_source in (EcRwSource.EC_RO, EcRwSource.EC_RW):
             effective_ec_rw = (
                 fw_source.ec_rw
@@ -964,25 +964,25 @@ class FirmwarePacker:
                 else fw_source.ec
             )
             ec_fname = effective_ec_rw.file
-            bios_ecrw_id = effective_ec_rw.firmware_ids.rw_id
-            bios_ecrw_version = self._extract_ec_version(bios_ecrw_id)
-            if bios_ecrw_version:
-                bios_ecrw_version = str(bios_ecrw_version)
+            ap_ecrw_id = effective_ec_rw.firmware_ids.rw_id
+            ap_ecrw_version = self._extract_ec_version(ap_ecrw_id)
+            if ap_ecrw_version:
+                ap_ecrw_version = str(ap_ecrw_version)
             else:
                 logging.warning(
-                    "bios_ecrw_id is in legacy format: %s", bios_ecrw_id
+                    "ap_ecrw_id is in legacy format: %s", ap_ecrw_id
                 )
-                bios_ecrw_version = bios_ecrw_id
-            self._swap_ec_rw_in_bios(
+                ap_ecrw_version = ap_ecrw_id
+            self._swap_ec_rw_in_ap(
                 merged_file, ec_fname, None, effective_ec_rw.ec_config_file
             )
         elif ec_rw_source == EcRwSource.AP_FOR_EC:
-            source_bios_fname = fw_source.bios_for_ec_rw.file
-            bios_ecrw_id = fw_source.bios_for_ec_rw.firmware_ids.rw_id
-            bios_ecrw_version = str(self._extract_main_version(bios_ecrw_id))
-            self._swap_ec_rw_in_bios(merged_file, None, source_bios_fname, None)
-        if bios_rw:
-            self._copy_timestamp(bios_rw.file, merged_file)
+            source_ap_fname = fw_source.ap_for_ec_rw.file
+            ap_ecrw_id = fw_source.ap_for_ec_rw.firmware_ids.rw_id
+            ap_ecrw_version = str(self._extract_ap_version(ap_ecrw_id))
+            self._swap_ec_rw_in_ap(merged_file, None, source_ap_fname, None)
+        if ap_rw:
+            self._copy_timestamp(ap_rw.file, merged_file)
 
         firmware_ids = FirmwareIds(ro_fwid, rw_fwid)
         uri_versions = FirmwareVersions(ro_uri_version, rw_uri_version)
@@ -991,7 +991,7 @@ class FirmwarePacker:
             build_target,
             firmware_ids,
             uri_versions,
-            bios_ecrw_version,
+            ap_ecrw_version,
         )
 
     def _merge_ec_firmware(
@@ -1006,7 +1006,7 @@ class FirmwarePacker:
         Args:
             fw_source: Firmware source images.
             ec_rw_source: The source of EC_RW. If the source is AP_RW, the
-                "ecrw" CBFS file stored in the source BIOS RW image will be used
+                "ecrw" CBFS file stored in the source AP RW image will be used
                 for EC RW.
             build_target: EC build target.
             merge_dir: Directory to put the merged image files.
@@ -1038,14 +1038,14 @@ class FirmwarePacker:
             effective_ec_rw_image_source = ec_rw
         elif ec_rw_source in (EcRwSource.AP_RW, EcRwSource.AP_FOR_EC):
             effective_ap_for_ec_image_source = (
-                fw_source.bios_rw
+                fw_source.ap_rw
                 if ec_rw_source == EcRwSource.AP_RW
-                else fw_source.bios_for_ec_rw
+                else fw_source.ap_for_ec_rw
             )
-            ec_rw_section = os.path.join(self._tmpdir, "ecrw_from_bios")
-            # The EC RW stored in BIOS might be either EC's EC_RW (CrOS EC)
+            ec_rw_section = os.path.join(self._tmpdir, "ecrw_from_ap")
+            # The EC RW stored in AP might be either EC's EC_RW (CrOS EC)
             # or RW_FW (Zephyr EC) FMAP section.
-            self._extract_ec_rw_from_bios(
+            self._extract_ec_rw_from_ap(
                 effective_ap_for_ec_image_source.file, ec_rw_section
             )
             effective_ec_rw_image_source = effective_ap_for_ec_image_source
@@ -1055,7 +1055,7 @@ class FirmwarePacker:
                 rw_fwid = ec_rw_fwid
                 rw_uri_version = ec_rw.uri_version
             else:
-                # When ec_rw_section comes from bios_rw, we need to extract
+                # When ec_rw_section comes from ap_rw, we need to extract
                 # FWIDs again from the merged EC image, because
                 # ec_rw_section doesn't contain the FMAP layout.
                 rw_fwid = self._extract_firmware_ids(merged_file).rw_id
@@ -1068,29 +1068,29 @@ class FirmwarePacker:
             merged_file, build_target, firmware_ids, uri_versions, None
         )
 
-    def _same_branch(self, bios: ImageSource, ec: ImageSource):
-        """Whether bios and ec are from the same branch.
+    def _same_branch(self, ap: ImageSource, ec: ImageSource):
+        """Whether AP and EC are from the same branch.
 
         Args:
-            bios: The ImageSource of bios image.
-            ec: The ImageSource of ec image.
+            ap: The ImageSource of AP image.
+            ec: The ImageSource of EC image.
 
         Returns:
-            Whether bios and ec are from the same branch.
+            Whether AP and EC are from the same branch.
         """
         # The branch is determined by the major version.
-        if bios.uri_version.major != ec.uri_version.major:
+        if ap.uri_version.major != ec.uri_version.major:
             return False
         # If the major version is the same but not the minor version,
         # that probably indicates an incorrect version. The patch
         # versions, however, are allowed to be different, because
         # people may increment the patch version in order to fix
         # tarball issues (such missing component_manifest.json).
-        elif bios.uri_version.minor != ec.uri_version.minor:
+        elif ap.uri_version.minor != ec.uri_version.minor:
             raise PackError(
                 "AP and EC have same major version, "
                 "but different minor versions.\n"
-                f"AP {bios.uri_version}, EC {ec.uri_version}"
+                f"AP {ap.uri_version}, EC {ec.uri_version}"
             )
         return True
 
@@ -1103,33 +1103,33 @@ class FirmwarePacker:
         Returns:
             The source of EC RW.
         """
-        bios = fw_source.bios
-        bios_rw = fw_source.bios_rw
+        ap = fw_source.ap
+        ap_rw = fw_source.ap_rw
         ec = fw_source.ec
         ec_rw = fw_source.ec_rw
-        bios_for_ec_rw = fw_source.bios_for_ec_rw
+        ap_for_ec_rw = fw_source.ap_for_ec_rw
 
         # No need to swap EC RW for local images.
         if self._args.local:
             return EcRwSource.TWO_SOURCES
 
-        # No need to swap EC RW if one of BIOS and EC images is missing.
-        if not bios or not ec:
+        # No need to swap EC RW if one of AP and EC images is missing.
+        if not ap or not ec:
             return EcRwSource.TWO_SOURCES
 
         if ec_rw:
             return EcRwSource.EC_RW
-        elif bios_for_ec_rw:
+        elif ap_for_ec_rw:
             return EcRwSource.AP_FOR_EC
-        elif not self._same_branch(bios, ec):
+        elif not self._same_branch(ap, ec):
             return EcRwSource.EC_RO
-        elif bios_rw:
+        elif ap_rw:
             return EcRwSource.AP_RW
 
         return EcRwSource.TWO_SOURCES
 
     def _merge_rw_firmware(
-        self, fw_source, merge_dir, bios_target, ec_target, fw_main_a_hash
+        self, fw_source, merge_dir, ap_target, ec_target, fw_main_a_hash
     ):
         """Merge all RW firmware into corresponding RO images.
 
@@ -1138,33 +1138,33 @@ class FirmwarePacker:
         Args:
             fw_source: Locations of original images.
             merge_dir: Directory to put the merged image files.
-            bios_target: BIOS build target.
+            ap_target: AP build target.
             ec_target: EC build target.
             fw_main_a_hash: Expected hash of FW_MAIN_A in hex.
 
         Returns:
-            tuple: (bios_image, ec_image)
-                bios_image: ImageFile of BIOS image.
+            tuple: (ap_image, ec_image)
+                ap_image: ImageFile of AP image.
                 ec_image: ImageFile of EC image.
         """
         ec_rw_source = self._select_ec_rw_source(fw_source)
 
-        bios_image = self._merge_bios_firmware(
-            fw_source, ec_rw_source, bios_target, merge_dir
+        ap_image = self._merge_ap_firmware(
+            fw_source, ec_rw_source, ap_target, merge_dir
         )
         ec_image = self._merge_ec_firmware(
             fw_source, ec_rw_source, ec_target, merge_dir
         )
 
-        # Verify BIOS RW CBFS where "ecrw" is stored.
+        # Verify AP RW CBFS where "ecrw" is stored.
         if (
             ec_rw_source
             in (EcRwSource.EC_RO, EcRwSource.EC_RW, EcRwSource.AP_FOR_EC)
             and fw_main_a_hash
         ):
-            self._verify_bios_rw_cbfs(bios_image.filename, fw_main_a_hash)
+            self._verify_ap_rw_cbfs(ap_image.filename, fw_main_a_hash)
 
-        return bios_image, ec_image
+        return ap_image, ec_image
 
     @staticmethod
     def _extract_ec_version(fw_id: str) -> Optional[FirmwareVersion]:
@@ -1202,8 +1202,8 @@ class FirmwarePacker:
         return None
 
     @staticmethod
-    def _extract_main_version(fw_id: str) -> FirmwareVersion:
-        """Extracts ChromeOS version from BIOS `fw_id`.
+    def _extract_ap_version(fw_id: str) -> FirmwareVersion:
+        """Extracts ChromeOS version from AP `fw_id`.
 
         Letting V denote [0-9], the expected version regex is "V+.V+.V+".
 
@@ -1227,7 +1227,7 @@ class FirmwarePacker:
             r"[\w -]+\.(\d+)\.(\d+)\.(\d+)(?:_\w+)?", fw_id, flags=re.ASCII
         )
         if not match:
-            raise PackError("Malformed BIOS firmware ID: %s" % fw_id)
+            raise PackError("Malformed AP firmware ID: %s" % fw_id)
         return FirmwareVersion(
             int(match.group(1)),
             int(match.group(2)),
@@ -1241,7 +1241,7 @@ class FirmwarePacker:
         fw_ids: FirmwareIds = None,
         uri_versions: FirmwareVersions = None,
         extract_cros_version: Callable[[str], FirmwareVersion] = None,
-        bios_ecrw_version: str = None,
+        ap_ecrw_version: str = None,
         target_dir: str = None,
     ) -> str:
         """Creates output file name for some firmware image.
@@ -1252,13 +1252,13 @@ class FirmwarePacker:
         If versions or model are not provided, returns empty string.
 
         Args:
-            tag: Type of image (e.g, "bios").
+            tag: Type of image (e.g, "ap").
             build_target: The build target for this image.
             fw_ids: The RO and RW FWIDs for this image.
             uri_versions: The RO and RW URI versions of this image.
             extract_cros_version: Function to extract the ChromeOS version from
                 a FWID.
-            bios_ecrw_version: The firmware version of "ecrw" CBFS file in BIOS,
+            ap_ecrw_version: The firmware version of "ecrw" CBFS file in AP,
                 if it has been swapped with the RW_FW section of an EC image.
             target_dir: Target directory to be prepended to filename.
 
@@ -1300,8 +1300,8 @@ class FirmwarePacker:
         parts.append(
             "rw-%s" % get_version_string(fw_ids.rw_id, uri_versions.rw)
         )
-        if bios_ecrw_version:
-            parts.append("ecrw-%s" % bios_ecrw_version)
+        if ap_ecrw_version:
+            parts.append("ecrw-%s" % ap_ecrw_version)
         fname = ".".join(parts) + ".bin"
         return os.path.join(target_dir, fname) if target_dir else fname
 
@@ -1324,8 +1324,8 @@ class FirmwarePacker:
             target_dir=target_dir,
         )
 
-    def _main_image_output(self, image_file=None, target_dir=None):
-        """Creates output file name for given main image.
+    def _ap_image_output(self, image_file=None, target_dir=None):
+        """Creates output file name for given AP image.
 
         Args:
             image_file: The input firmware image (ImageFile object).
@@ -1335,12 +1335,12 @@ class FirmwarePacker:
             Filename of the output image.
         """
         return self._firmware_image_output(
-            "bios",
+            "ap",
             build_target=image_file.build_target,
             fw_ids=image_file.firmware_ids,
             uri_versions=image_file.uri_versions,
-            extract_cros_version=self._extract_main_version,
-            bios_ecrw_version=image_file.bios_ecrw_version,
+            extract_cros_version=self._extract_ap_version,
+            ap_ecrw_version=image_file.ap_ecrw_version,
             target_dir=target_dir,
         )
 
@@ -1364,22 +1364,22 @@ class FirmwarePacker:
 
         Args:
             image_files: Dict:
-                key: Type of image (e.g. 'BIOS')
+                key: Type of image (e.g. 'AP')
                 value: Corresponding ImageFile object.
             target_dir: Target directory for output images.
 
         Returns:
-            Tuple of (bios_output, ec_output).
+            Tuple of (ap_output, ec_output).
         """
-        bios, ec = [image_files.get(label, None) for label in [MAIN, EC]]
-        bios_output, ec_output = None, None
-        if bios:
-            bios_output = self._main_image_output(bios, target_dir)
-            self._copy_firmware_file(bios.filename, bios_output)
+        ap, ec = [image_files.get(label, None) for label in [AP, EC]]
+        ap_output, ec_output = None, None
+        if ap:
+            ap_output = self._ap_image_output(ap, target_dir)
+            self._copy_firmware_file(ap.filename, ap_output)
         if ec:
             ec_output = self._ec_image_output(ec, target_dir)
             self._copy_firmware_file(ec.filename, ec_output)
-        return bios_output, ec_output
+        return ap_output, ec_output
 
     def _write_versions(self, model, image_files):
         """Write version information for all image files into the version file.
@@ -1387,7 +1387,7 @@ class FirmwarePacker:
         Args:
             model: Name of model these image files are for (or '' if none).
             image_files: Dict with:
-                key: Image type (e.g. 'BIOS').
+                key: Image type (e.g. 'AP').
                 value: ImageFile object containing filename and version.
         """
         print(file=self._versions)  # Blank line.
@@ -1542,7 +1542,7 @@ class FirmwarePacker:
         self,
         fw_source,
         target_dir,
-        main_target,
+        ap_target,
         ec_target,
         fw_name,
         fw_main_a_hash,
@@ -1554,19 +1554,19 @@ class FirmwarePacker:
         Args:
             fw_source: Locations of original images.
             target_dir: Output location for firmware images.
-            main_target: The build target for main firmware.
-            ec_target: The build target for ec firmware.
+            ap_target: The build target for AP firmware.
+            ec_target: The build target for EC firmware.
             fw_name: Name for this firmware.
             fw_main_a_hash: Expected hash of FW_MAIN_A in hex.
 
         Returns:
             Dict:
-                key: Type of firmware (e.g. 'BIOS')
+                key: Type of firmware (e.g. 'AP')
                 value: Corresponding ImageFile object.
         """
-        if not fw_source.bios and not fw_source.ec:
+        if not fw_source.ap and not fw_source.ec:
             raise PackError(
-                "Target '%s': Must assign at least one of BIOS or EC " % fw_name
+                "Target '%s': Must assign at least one of AP or EC " % fw_name
             )
 
         merge_dir = self._tmp_dir_path("%s-merged" % (fw_name or "images"))
@@ -1574,17 +1574,17 @@ class FirmwarePacker:
         # should not exist. If it does, something is broken and we want to know.
         # This prevents FirmwarePacker from silently reusing dirty images.
         os.mkdir(merge_dir)
-        bios_image, ec_image = self._merge_rw_firmware(
+        ap_image, ec_image = self._merge_rw_firmware(
             fw_source,
             merge_dir,
-            main_target,
+            ap_target,
             ec_target,
             fw_main_a_hash,
         )
 
         image_files = {}
-        if bios_image:
-            image_files[MAIN] = bios_image
+        if ap_image:
+            image_files[AP] = ap_image
         if ec_image:
             image_files[EC] = ec_image
         self._copy_firmware_files(image_files, target_dir)
@@ -1738,16 +1738,16 @@ class FirmwarePacker:
         Returns:
             FirmwareSource object containing filenames of extracted files.
         """
-        bios = self._extract_file(
-            firmware.bios_build_target,
-            self._args.bios_image,
-            firmware.main_image_source,
+        ap = self._extract_file(
+            firmware.ap_build_target,
+            self._args.ap_image,
+            firmware.ap_image_source,
             dirname,
         )
-        bios_rw = self._extract_file(
-            firmware.bios_build_target,
+        ap_rw = self._extract_file(
+            firmware.ap_build_target,
             None,
-            firmware.main_rw_image_source,
+            firmware.ap_rw_image_source,
             dirname,
             suffix="rw",
         )
@@ -1768,10 +1768,10 @@ class FirmwarePacker:
             fname=EC_IMAGE,
             extract_ec_config=True,
         )
-        bios_for_ec_rw = self._extract_file(
+        ap_for_ec_rw = self._extract_file(
             None,
             None,  # Not supported for local.
-            firmware.main_image_for_ec_rw_source,
+            firmware.ap_image_for_ec_rw_source,
             dirname,
             suffix="for_ec",
         )
@@ -1807,7 +1807,7 @@ class FirmwarePacker:
                     f" {ec_comp_source.uri}\n"
                 )
 
-        return FirmwareSource(bios, bios_rw, ec, ec_rw, bios_for_ec_rw, ec_comp)
+        return FirmwareSource(ap, ap_rw, ec, ec_rw, ap_for_ec_rw, ec_comp)
 
     def _check_firmware_ids(
         self,
@@ -1866,9 +1866,9 @@ class FirmwarePacker:
         if self._args.testing:
             return
 
-        for image in (fw_source.bios, fw_source.bios_rw):
+        for image in (fw_source.ap, fw_source.ap_rw):
             if image:
-                self._check_firmware_ids(image, self._extract_main_version)
+                self._check_firmware_ids(image, self._extract_ap_version)
 
         for image in (fw_source.ec, fw_source.ec_rw):
             if image:
@@ -1907,14 +1907,14 @@ class FirmwarePacker:
                 osutils.SafeMakedirs(unpack_dir)
                 fw_source = self._extract_firmware(firmware, unpack_dir)
 
-                if not fw_source.bios and not fw_source.ec:
+                if not fw_source.ap and not fw_source.ec:
                     continue
 
                 self._check_firmware_source(fw_source)
                 images[fw_target] = self._process_firmware(
                     fw_source,
                     self._base_dir_path(IMG_DIR),
-                    firmware.bios_build_target,
+                    firmware.ap_build_target,
                     firmware.ec_build_target,
                     fw_target,
                     firmware.main_rw_a_hash,
@@ -1984,8 +1984,8 @@ class FirmwarePacker:
                     # Some models will not have a key. At present this is
                     # normally just the zero-touch customlabel devices.
                     continue
-                image_fname = self._main_image_output(
-                    details.image_files[MAIN], IMG_DIR
+                image_fname = self._ap_image_output(
+                    details.image_files[AP], IMG_DIR
                 )
                 if EC in details.image_files:
                     ec_fname = self._ec_image_output(
@@ -2039,11 +2039,11 @@ class FirmwarePacker:
             image_files = images.get(fw_target)
             if not image_files:
                 continue
-            bios_file = image_files.get(MAIN)
+            ap_file = image_files.get(AP)
             ec_file = image_files.get(EC)
-            if bios_file:
-                bios_output = os.path.join(output_dir, f"image-{device}.bin")
-                self._copy_firmware_file(bios_file.filename, bios_output)
+            if ap_file:
+                ap_output = os.path.join(output_dir, f"image-{device}.bin")
+                self._copy_firmware_file(ap_file.filename, ap_output)
             if ec_file:
                 ec_dir = os.path.join(output_dir, device)
                 os.mkdir(ec_dir)
@@ -2136,7 +2136,7 @@ class FirmwarePacker:
             self._tmpdir = self._create_tmp_dir()
             model_details = collections.OrderedDict()
 
-            image_args = [args.bios_image, args.ec_image]
+            image_args = [args.ap_image, args.ec_image]
             if any(image_args) and not args.local:
                 raise PackError("Cannot use -b/-p/-e with -m")
             if args.local and not any(image_args):
@@ -2186,8 +2186,8 @@ class FirmwarePacker:
                     )
                     assert not any(
                         (
-                            fw.main_image_source.uri,
-                            fw.main_rw_image_source.uri,
+                            fw.ap_image_source.uri,
+                            fw.ap_rw_image_source.uri,
                             fw.ec_image_source.uri,
                             fw.ec_rw_image_source.uri,
                         )

@@ -52,10 +52,10 @@ class FirmwareUpdateInfo:
     Attributes:
         device: Device name.
         base_device: The base device for custom label devices.
-        bios_build_target: Build target to use to build the BIOS.
+        ap_build_target: Build target to use to build the AP.
         ec_build_target: Build target to use to build the EC.
-        main_image_source: URI to used to obtain the AP firmware image.
-        main_rw_image_source: URI used to obtain AP firmware RW image.
+        ap_image_source: URI used to obtain the AP firmware image.
+        ap_rw_image_source: URI used to obtain AP firmware RW image.
         ec_image_source: URI used to obtain the EC firmware image.
         ec_rw_image_source: URI used to obtain the EC RW firmware image.
         key_id: Key ID used to sign firmware for this device (e.g. "BRYAA").
@@ -70,13 +70,13 @@ class FirmwareUpdateInfo:
     device: str
     base_device: str
 
-    bios_build_target: str
+    ap_build_target: str
     ec_build_target: str
-    main_image_source: ImageUriSource
-    main_rw_image_source: ImageUriSource
+    ap_image_source: ImageUriSource
+    ap_rw_image_source: ImageUriSource
     ec_image_source: ImageUriSource
     ec_rw_image_source: ImageUriSource
-    main_image_for_ec_rw_source: ImageUriSource
+    ap_image_for_ec_rw_source: ImageUriSource
 
     key_id: str
     brand_code: str
@@ -98,17 +98,17 @@ class CrOSConfig:
         return FirmwareUpdateInfo(
             device=cros_firmware_info.model,
             base_device=cros_firmware_info.shared_model,
-            bios_build_target=cros_firmware_info.bios_build_target,
+            ap_build_target=cros_firmware_info.bios_build_target,
             ec_build_target=cros_firmware_info.ec_build_target,
-            main_image_source=ImageUriSource(cros_firmware_info.main_image_uri),
-            main_rw_image_source=ImageUriSource(
+            ap_image_source=ImageUriSource(cros_firmware_info.main_image_uri),
+            ap_rw_image_source=ImageUriSource(
                 cros_firmware_info.main_rw_image_uri
             ),
             ec_image_source=ImageUriSource(cros_firmware_info.ec_image_uri),
             ec_rw_image_source=ImageUriSource(
                 cros_firmware_info.ec_rw_image_uri
             ),
-            main_image_for_ec_rw_source=ImageUriSource(""),
+            ap_image_for_ec_rw_source=ImageUriSource(""),
             key_id=cros_firmware_info.key_id,
             brand_code=cros_firmware_info.brand_code,
             have_image=cros_firmware_info.have_image,
@@ -159,9 +159,9 @@ class TextprotoConfig:
             ec_firmware = message.ec_firmware
             ap_firmware_for_ec_rw = message.ap_firmware_for_ec_rw
 
-            bios_build_target = ap_firmware.ro_firmware.uri
-            bios_build_target = (
-                bios_build_target.split("/")[-1].split(".")[0].lower()
+            ap_build_target = ap_firmware.ro_firmware.uri
+            ap_build_target = (
+                ap_build_target.split("/")[-1].split(".")[0].lower()
             )
 
             ec_build_target = ec_firmware.ro_firmware.uri
@@ -174,12 +174,12 @@ class TextprotoConfig:
                 base_device=base_device,
                 key_id=signing.key_id,
                 have_image=(device == base_device),
-                bios_build_target=bios_build_target,
+                ap_build_target=ap_build_target,
                 ec_build_target=ec_build_target,
-                main_image_source=ImageUriSource(
+                ap_image_source=ImageUriSource(
                     ap_firmware.ro_firmware.uri, ap_firmware.ro_firmware.sha256
                 ),
-                main_rw_image_source=ImageUriSource(
+                ap_rw_image_source=ImageUriSource(
                     ap_firmware.rw_firmware.uri, ap_firmware.rw_firmware.sha256
                 ),
                 ec_image_source=ImageUriSource(
@@ -188,7 +188,7 @@ class TextprotoConfig:
                 ec_rw_image_source=ImageUriSource(
                     ec_firmware.rw_firmware.uri, ec_firmware.rw_firmware.sha256
                 ),
-                main_image_for_ec_rw_source=ImageUriSource(
+                ap_image_for_ec_rw_source=ImageUriSource(
                     ap_firmware_for_ec_rw.uri, ap_firmware_for_ec_rw.sha256
                 ),
                 brand_code=signing.brand_code,
@@ -197,20 +197,20 @@ class TextprotoConfig:
             self.devices_fw_target[device] = base_device
 
         source_fields = [
-            "main_image_source",
-            "main_rw_image_source",
+            "ap_image_source",
+            "ap_rw_image_source",
             "ec_image_source",
             "ec_rw_image_source",
-            "main_image_for_ec_rw_source",
+            "ap_image_for_ec_rw_source",
         ]
 
         for device, info in self.firmware_info.items():
             if (
                 info.ec_rw_image_source.uri
-                and info.main_image_for_ec_rw_source.uri
+                and info.ap_image_for_ec_rw_source.uri
             ):
                 raise ConfigParserError(
-                    "ec_rw and main_image_for_ec_rw should not be set at the "
+                    "ec_rw and ap_image_for_ec_rw should not be set at the "
                     "same time."
                 )
             if device != info.base_device:

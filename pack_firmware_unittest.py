@@ -43,7 +43,7 @@ EC_RO_FRID = "reef_v1.1.5857-77f6ed7"
 EC_RW_FWID = "reef_v1.1.5858-77f6ed7"
 
 
-# Expected output from 'futility dump_fmap -p' for main image.
+# Expected output from 'futility dump_fmap -p' for AP image.
 FMAP_OUTPUT = """WP_RO 0 4194304
 SI_DESC 0 4096
 IFWI 4096 2093056
@@ -121,19 +121,19 @@ class ConfigParserTestUnit(cros_test_lib.TestCase):
             base_device="first",
             key_id="DEFAULT",
             have_image=True,
-            bios_build_target="first",
+            ap_build_target="first",
             ec_build_target="first_ec",
-            main_image_source=config_parser.ImageUriSource(
+            ap_image_source=config_parser.ImageUriSource(
                 "gs://path/First.12345.123.0.tbz2", "1" * 64
             ),
-            main_rw_image_source=config_parser.ImageUriSource(
+            ap_rw_image_source=config_parser.ImageUriSource(
                 "gs://path/First.12345.123.0.tbz2", "1" * 64
             ),
             ec_image_source=config_parser.ImageUriSource(
                 "gs://path/First_EC.12345.123.0.tbz2", "2" * 64
             ),
             ec_rw_image_source=config_parser.ImageUriSource("", ""),
-            main_image_for_ec_rw_source=config_parser.ImageUriSource("", ""),
+            ap_image_for_ec_rw_source=config_parser.ImageUriSource("", ""),
             brand_code="ABCD",
         )
         firmware_configs_by_device["first"] = "first"
@@ -143,19 +143,19 @@ class ConfigParserTestUnit(cros_test_lib.TestCase):
             base_device="first",
             key_id="DEFAULT",
             have_image=False,
-            bios_build_target="first",
+            ap_build_target="first",
             ec_build_target="first_ec",
-            main_image_source=config_parser.ImageUriSource(
+            ap_image_source=config_parser.ImageUriSource(
                 "gs://path/First.12345.123.0.tbz2", "1" * 64
             ),
-            main_rw_image_source=config_parser.ImageUriSource(
+            ap_rw_image_source=config_parser.ImageUriSource(
                 "gs://path/First.12345.123.0.tbz2", "1" * 64
             ),
             ec_image_source=config_parser.ImageUriSource(
                 "gs://path/First_EC.12345.123.0.tbz2", "2" * 64
             ),
             ec_rw_image_source=config_parser.ImageUriSource("", ""),
-            main_image_for_ec_rw_source=config_parser.ImageUriSource("", ""),
+            ap_image_for_ec_rw_source=config_parser.ImageUriSource("", ""),
             brand_code="ABCD",
         )
         firmware_configs_by_device["first-variant"] = "first"
@@ -259,9 +259,9 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             with capture_sys_output():
                 self.assertIsNone(self.packer.parse_args(["--invalid"]))
 
-        self.assertIsNone(self.packer.parse_args([]).bios_image)
+        self.assertIsNone(self.packer.parse_args([]).ap_image)
         self.assertEqual(
-            "/bios.bin", self.packer.parse_args(["-b", "/bios.bin"]).bios_image
+            "/image.bin", self.packer.parse_args(["-b", "/image.bin"]).ap_image
         )
 
     def test_ensure_command(self):
@@ -284,42 +284,42 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
     def test_add_version_info_missing_file(self):
         """Trying to add version info for a missing file should be detected."""
         with self.assertRaises(IOError) as e:
-            self.packer._add_version_info("BIOS", "missing-file", "v123")
+            self.packer._add_version_info("AP", "missing-file", "v123")
         self.assertIn("'missing-file'", str(e.exception))
 
     def test_add_version_info_no_file(self):
         """Check adding version info with no filename."""
-        self.packer._add_version_info("BIOS", "", "v123")
+        self.packer._add_version_info("AP", "", "v123")
         self._assert_versions_equal(
             self.packer._versions.getvalue(),
-            ["BIOS version: v123"],
+            [r"AP version: +v123"],
         )
 
     def test_add_version_no_version(self):
         """Check adding version info with no version."""
-        self.packer._add_version_info("BIOS", "test/image.bin", "")
+        self.packer._add_version_info("AP", "test/image.bin", "")
         self._assert_versions_equal(
             self.packer._versions.getvalue(),
             [
-                "BIOS image:   8ce05b02847603aef6cfa01f1bab73d0 "
+                "AP image:     8ce05b02847603aef6cfa01f1bab73d0 "
                 r"\*test/image.bin"
             ],
         )
 
     def test_add_version_info(self):
         """Check adding version info with both a filename and version."""
-        self.packer._add_version_info("BIOS", "test/image.bin", "v123")
+        self.packer._add_version_info("AP", "test/image.bin", "v123")
         self._assert_versions_equal(
             self.packer._versions.getvalue(),
             [
-                "BIOS image:   8ce05b02847603aef6cfa01f1bab73d0 "
+                "AP image:     8ce05b02847603aef6cfa01f1bab73d0 "
                 r"\*test/image.bin",
-                "BIOS version: v123",
+                r"AP version: +v123",
             ],
         )
 
     def test_extract_frid(self):
-        """Check extracting the firmware ID from a bios image."""
+        """Check extracting the firmware ID from an AP image."""
         self.packer._tmpdir = "test"
         self.packer._args = self.packer.parse_args(
             ["--bios_image", "image.bin", "-t"]
@@ -376,36 +376,36 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             self.packer._extract_ec_version("a_bad_id")
         self.assertIn("Malformed EC firmware ID", str(e.exception))
 
-    def test_extract_main_version(self):
+    def test_extract_ap_version(self):
         """Check extracting version from firmware ID."""
         # Local build.
         self.assertEqual(
-            self.packer._extract_main_version(
+            self.packer._extract_ap_version(
                 "Google_Reef.9264.0.0_d2017_02_09_1240"
             ),
             pack_firmware.FirmwareVersion(9264, 0, 0),
         )
         # Official build.
         self.assertEqual(
-            self.packer._extract_main_version("Google_Reef.9264.0.1"),
+            self.packer._extract_ap_version("Google_Reef.9264.0.1"),
             pack_firmware.FirmwareVersion(9264, 0, 1),
         )
         # Official build for Volteer2.
         self.assertEqual(
-            self.packer._extract_main_version("Google_Volteer2.13672.328.0"),
+            self.packer._extract_ap_version("Google_Volteer2.13672.328.0"),
             pack_firmware.FirmwareVersion(13672, 328, 0),
         )
         # Official build for Alder Lake Client.
         self.assertEqual(
-            self.packer._extract_main_version(
+            self.packer._extract_ap_version(
                 "Google_Alder Lake Client.15920.0.0"
             ),
             pack_firmware.FirmwareVersion(15920, 0, 0),
         )
         # Malformed FWID.
         with self.assertRaises(pack_firmware.PackError) as e:
-            self.packer._extract_main_version("a_bad_id")
-        self.assertIn("Malformed BIOS firmware ID", str(e.exception))
+            self.packer._extract_ap_version("a_bad_id")
+        self.assertIn("Malformed AP firmware ID", str(e.exception))
 
     def test_firmware_image_output(self):
         """Check firmware image output name."""
@@ -468,7 +468,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
                 fw_ids=fw_ids,
                 uri_versions=uri_versions,
                 extract_cros_version=version_fn,
-                bios_ecrw_version=None,
+                ap_ecrw_version=None,
                 target_dir=self.packer._tmpdir,
             ),
             os.path.join(self.packer._tmpdir, expected_fname),
@@ -477,42 +477,42 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         # CrOS versions extracted from uri_versions.
         self.assertEqual(
             self.packer._firmware_image_output(
-                "bios",
+                "ap",
                 "rex",
                 fw_ids=fw_ids,
                 uri_versions=uri_versions,
                 extract_cros_version=lambda fwid: None,
             ),
-            "bios-rex.ro-15555-55-0.rw-15555-56-0.bin",
+            "ap-rex.ro-15555-55-0.rw-15555-56-0.bin",
         )
 
-        # CrOS versions extracted from FWIDs, with bios_ecrw_version specified.
+        # CrOS versions extracted from FWIDs, with ap_ecrw_version specified.
         self.assertEqual(
             self.packer._firmware_image_output(
-                "bios",
+                "ap",
                 "rex",
                 fw_ids=pack_firmware.FirmwareIds(
                     "Google_Rex.15555.55.0", "Google_Rex.15555.56.0"
                 ),
-                extract_cros_version=self.packer._extract_main_version,
-                bios_ecrw_version=pack_firmware.FirmwareVersion(16666, 66, 0),
+                extract_cros_version=self.packer._extract_ap_version,
+                ap_ecrw_version=pack_firmware.FirmwareVersion(16666, 66, 0),
             ),
-            "bios-rex.ro-15555-55-0.rw-15555-56-0.ecrw-16666-66-0.bin",
+            "ap-rex.ro-15555-55-0.rw-15555-56-0.ecrw-16666-66-0.bin",
         )
 
         # Legacy format of ec version extracted from FWIDs, with
-        # bios_ecrw_version specified.
+        # ap_ecrw_version specified.
         self.assertEqual(
             self.packer._firmware_image_output(
-                "bios",
+                "ap",
                 "reef",
                 fw_ids=pack_firmware.FirmwareIds(
                     "Google_Reef.15555.55.0", "Google_Reef.15555.56.0"
                 ),
-                extract_cros_version=self.packer._extract_main_version,
-                bios_ecrw_version="reef_v1.1.5857-77f",
+                extract_cros_version=self.packer._extract_ap_version,
+                ap_ecrw_version="reef_v1.1.5857-77f",
             ),
-            "bios-reef.ro-15555-55-0.rw-15555-56-0.ecrw-reef_v1.1.5857-77f.bin",
+            "ap-reef.ro-15555-55-0.rw-15555-56-0.ecrw-reef_v1.1.5857-77f.bin",
         )
 
         self.packer._remove_tmpdirs()
@@ -800,7 +800,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         config_fname: str,
         models: Iterable[str] = ("reef", "pyro"),
     ) -> List[str]:
-        """Set up to run with a valid updater script and BIOS.
+        """Set up to run with a valid updater script and AP.
 
         Args:
             config_fname: Model configuration file to use.
@@ -834,7 +834,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         return args
 
     def test_mocked_run(self):
-        """start up with a valid updater script and BIOS."""
+        """start up with a valid updater script and AP."""
         args = self.setup_run("config.yaml")
         with cros_test_lib.RunCommandMock() as rc:
             self._add_mocks(rc)
@@ -853,10 +853,10 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
                 pack_firmware.packer._versions.getvalue(),
                 [
                     "Model: +reef",
-                    "BIOS image: +99a6fc64e45596aa2c1a9911cddce952"
+                    "AP image: +99a6fc64e45596aa2c1a9911cddce952"
                     r" \*.*/reef/image.bin",
-                    f"BIOS version: +{RO_FRID}",
-                    rf"BIOS \(RW\) version: +{RW_FWID}",
+                    f"AP version: +{RO_FRID}",
+                    rf"AP \(RW\) version: +{RW_FWID}",
                     "EC image: +60c08e5aefa3a660687c7027d1358df0"
                     r" \*.*/reef/ec.bin",
                     f"EC version: +{EC_RO_FRID}",
@@ -865,7 +865,7 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             )
 
     def test_mocked_run_with_merge(self):
-        """start up with a valid updater script and both RO and RW BIOS."""
+        """start up with a valid updater script and both RO and RW AP."""
 
         # Due to a bug in the DT impl, the RW firmware image was never actually
         # present.
@@ -886,12 +886,12 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             self._add_mocks(rc)
             pack_firmware.main(args)
 
-        # There should be only BIOS version in the VERSION file.
+        # There should be only AP version in the VERSION file.
         expected_versions = [
             "Model: +fake",
-            r"BIOS image: +\w+ \*/.*/fake/image.bin",
-            f"BIOS version: +{RO_FRID}",
-            rf"BIOS \(RW\) version: +{RW_FWID}",
+            r"AP image: +\w+ \*/.*/fake/image.bin",
+            f"AP version: +{RO_FRID}",
+            rf"AP \(RW\) version: +{RW_FWID}",
         ]
         self._assert_versions_equal(
             pack_firmware.packer._versions.getvalue(), expected_versions

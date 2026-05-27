@@ -15,7 +15,7 @@ FMAP_REGIONS=( "FW_MAIN_A" "FW_MAIN_B" )
 
 trap 'rm -rf "${TMPDIR}"' EXIT
 
-# Replaces the ec rw in the ap_file with the ec rw from the ec_file.
+# Replaces the EC RW in the ap_file with the EC RW from the ec_file.
 replace_ecrw() {
   local ap_file
   local ec_file
@@ -59,15 +59,15 @@ update_version() {
   futility load_fmap "${ap_file}" -o "${outdir}/image-ciri.bin" \
     RO_FRID:"${TMPDIR}/fwid_new" RW_FWID_A:"${TMPDIR}/fwid_new" \
     RW_FWID_B:"${TMPDIR}/fwid_new"
-  # Extract the old ec fwid for the size
+  # Extract the old EC FWID for the size
   futility dump_fmap "${ec_file}" -x RW_FWID:"${TMPDIR}/ec_fwid"
-  # Set the ec fwid
+  # Set the EC FWID
   echo -n "ciri-${version}" >"${TMPDIR}/ec_fwid_new"
   truncate -r "${TMPDIR}/ec_fwid" "${TMPDIR}/ec_fwid_new"
-  # Load ec fwid into ec.bin
+  # Load EC FWID into ec.bin
   futility load_fmap "${ec_file}" -o "${outdir}/ec.bin" \
     RO_FRID:"${TMPDIR}/ec_fwid_new" RW_FWID:"${TMPDIR}/ec_fwid_new"
-  # Replace the ecrw in the ap image
+  # Replace the ecrw in the AP image
   replace_ecrw "${outdir}/image-ciri.bin" "${outdir}/ec.bin"
   # Print the versions
   futility update --manifest -i "${outdir}/image-ciri.bin" -e "${outdir}/ec.bin"

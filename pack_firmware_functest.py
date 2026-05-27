@@ -42,16 +42,16 @@ from chromite.lib import path_util
 
 REEF_HWID = "Reef A12-B3C-D5E-F6G-H7I"
 REEF_MODEL = "reef"
-REEF_RO_MAIN_VERSION = "Google_Reef.9042.43.0"
+REEF_RO_AP_VERSION = "Google_Reef.9042.43.0"
 
-BIOS_IMAGES = {
-    "reef": "bios-reef.ro-9042-50-0.rw-9042-50-0.bin",
-    "pyro": "bios-pyro.ro-9042-41-0.rw-9042-41-0.bin",
-    "sand": "bios-reef.ro-9042-50-0.rw-9042-50-0.bin",
+AP_IMAGES = {
+    "reef": "ap-reef.ro-9042-50-0.rw-9042-50-0.bin",
+    "pyro": "ap-pyro.ro-9042-41-0.rw-9042-41-0.bin",
+    "sand": "ap-reef.ro-9042-50-0.rw-9042-50-0.bin",
 }
-BIOS_IMAGES["electro"] = BIOS_IMAGES["reef"]
-BIOS_IMAGES["basking"] = BIOS_IMAGES["sand"]
-BIOS_IMAGES["clref"] = BIOS_IMAGES["reef"]
+AP_IMAGES["electro"] = AP_IMAGES["reef"]
+AP_IMAGES["basking"] = AP_IMAGES["sand"]
+AP_IMAGES["clref"] = AP_IMAGES["reef"]
 EC_IMAGES = {
     "reef": "ec-reef.ro-9042-50-0.rw-9042-50-0.bin",
     "pyro": "ec-pyro.ro-9042-41-0.rw-9042-41-0.bin",
@@ -144,7 +144,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         """
         expected_files = set(["manifest.json", "VERSION"] + extra_files)
         for model in models:
-            expected_files.add(os.path.join(IMG_DIR, BIOS_IMAGES[model]))
+            expected_files.add(os.path.join(IMG_DIR, AP_IMAGES[model]))
             expected_files.add(os.path.join(IMG_DIR, EC_IMAGES[model]))
         return sorted(expected_files)
 
@@ -325,8 +325,8 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
                 key: Shell variable name..
                 value: Value of that variable.
         """
-        self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RO_FWID"])
-        self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RW_FWID"])
+        self.assertEqual("Google_Reef.9042.50.0", versions["AP_RO_FWID"])
+        self.assertEqual("Google_Reef.9042.50.0", versions["AP_RW_FWID"])
         self.assertEqual("reef_v1.1.5857-77f6ed7", versions["EC_RO_FWID"])
         self.assertEqual("reef_v1.1.5857-77f6ed7", versions["EC_RW_FWID"])
 
@@ -340,7 +340,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
                 value: Value of that variable.
         """
         base = "images/%s"
-        self.assertEqual(base % BIOS_IMAGES[model], versions["IMAGE_MAIN"])
+        self.assertEqual(base % AP_IMAGES[model], versions["IMAGE_AP"])
         self.assertEqual(base % EC_IMAGES[model], versions["IMAGE_EC"])
 
     def _setup_args(self, extra_models=None):
@@ -386,7 +386,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         brand_code = "REEF" if brand_code is None else brand_code
         return "%s,images/%s,%s,images/%s,%s" % (
             model,
-            BIOS_IMAGES[fw_target],
+            AP_IMAGES[fw_target],
             key_id,
             EC_IMAGES[fw_target],
             brand_code,
@@ -404,31 +404,31 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             {
                 "reef": [
                     r"reef/image\.bin",
-                    r"BIOS version: +Google_Reef\.9042\.50\.0",
+                    r"AP version: +Google_Reef\.9042\.50\.0",
                     "/reef/ec.bin",
                     r"EC version: +reef_v1\.1\.5857-77f6ed7",
                 ],
                 "pyro": [
                     r"pyro/image\.bin",
-                    r"BIOS version: +Google_Pyro\.9042\.41\.0",
+                    r"AP version: +Google_Pyro\.9042\.41\.0",
                     "/pyro/ec.bin",
                     r"EC version: +pyro_v1\.1\.5840-f0d7761",
                 ],
                 "sand": [
                     r"sand/image\.bin",
-                    r"BIOS version: +Google_Reef\.9042\.50\.0",
+                    r"AP version: +Google_Reef\.9042\.50\.0",
                     "/sand/ec.bin",
                     r"EC version: +reef_v1\.1\.5857-77f6ed7",
                 ],
                 "electro": [
                     r"reef/image\.bin",
-                    r"BIOS version: +Google_Reef\.9042\.50\.0",
+                    r"AP version: +Google_Reef\.9042\.50\.0",
                     "/reef/ec.bin",
                     r"EC version: +reef_v1\.1\.5857-77f6ed7",
                 ],
                 "basking": [
                     r"sand/image\.bin",
-                    r"BIOS version: +Google_Reef\.9042\.50\.0",
+                    r"AP version: +Google_Reef\.9042\.50\.0",
                     "/sand/ec.bin",
                     r"EC version: +reef_v1\.1\.5857-77f6ed7",
                 ],
@@ -445,7 +445,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self._check_vars("electro", versions)
 
         versions = manifest["pyro"]
-        self.assertEqual("Google_Pyro.9042.41.0", versions["MAIN_RW_FWID"])
+        self.assertEqual("Google_Pyro.9042.41.0", versions["AP_RW_FWID"])
         self._check_vars("pyro", versions)
 
         lines = osutils.ReadFile(
@@ -461,7 +461,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         self.assertEqual(self._create_signer_line("basking", "sand"), lines[5])
 
         # Check the output image files.
-        expected_bios_files = (
+        expected_ap_files = (
             "image-basking.bin",
             "image-electro.bin",
             "image-pyro.bin",
@@ -476,7 +476,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             "sand/ec.bin",
         )
         for opt, expected_files in zip(
-            ("-i", "-e"), (expected_bios_files, expected_ec_files)
+            ("-i", "-e"), (expected_ap_files, expected_ec_files)
         ):
             for file in expected_files:
                 file_path = os.path.join(result.image_output, file)
@@ -675,7 +675,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         files = result.files
 
         # The shellball shows files in a comment with this format:
-        # 16777216 -rw-r--r-- bios.bin
+        # 16777216 -rw-r--r-- ap.bin
         re_files = re.compile(rb"^# +[0-9]+ [-rwx]+ \(.*\)$")
         for line in osutils.ReadFile(result.outfile, mode="rb").splitlines():
             m = re_files.match(line)
@@ -792,25 +792,25 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         lines = self._run_script(outfile, REEF_MODEL)
         # TODO(evanhernandez): Consider changing futility so the image
         # names below align with those in the shellball. For now, too
-        # much other code assumes the '{bios,ec,pd}.bin' naming  convention.
+        # much other code assumes the '{ap,ec}.bin' naming convention.
         self.assertIn(
-            "Firmware image saved in: %s/bios.bin" % self.outdir, lines
+            "Firmware image saved in: %s/image.bin" % self.outdir, lines
         )
 
         # Check that the files were written correctly
         files = glob.glob("%s/*" % self.outdir)
         ec_file = "%s/ec.bin" % self.outdir
-        bios_file = "%s/bios.bin" % self.outdir
+        ap_file = os.path.join(self.outdir, "image.bin")
         self.assertIn(ec_file, files)
-        self.assertIn(bios_file, files)
+        self.assertIn(ap_file, files)
 
         # Now check that the file contents match.
-        self._assert_file_equal(bios_file, "%s/image.bin" % self.indir)
+        self._assert_file_equal(ap_file, "%s/image.bin" % self.indir)
         self._assert_file_equal(ec_file, "%s/ec.bin" % self.indir)
 
         # Electro should be the same as reef
         self._run_script(outfile, "electro")
-        self._assert_file_equal(bios_file, "%s/image.bin" % self.indir)
+        self._assert_file_equal(ap_file, "%s/image.bin" % self.indir)
 
     def _get_vblock(self, sig_id, a_or_b):
         """Get the contents of an A or B vblock for a given signature ID.
@@ -873,10 +873,10 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             customlabel_tag: Value to return from the fake vpd
         """
         self._run_script(outfile, model, customlabel_tag=customlabel_tag)
-        bios_file = os.path.join(self.outdir, "bios.bin")
+        ap_file = os.path.join(self.outdir, "image.bin")
         regions = self._get_unequal_regions(
             "%s/image.bin" % self.indir,
-            bios_file,
+            ap_file,
             self._get_full_model(model, customlabel_tag),
             rootkey_sum,
         )
@@ -925,7 +925,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             {
                 "customlabel_test": [
                     r"sand/image\.bin",
-                    r"BIOS version: +Google_Reef\.9042\.50\.0",
+                    r"AP version: +Google_Reef\.9042\.50\.0",
                     r"/sand/ec\.bin",
                     r"EC version: +reef_v1\.1\.5857-77f6ed7",
                 ],
@@ -937,7 +937,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         versions = pack_firmware_utils.read_manifest(self.unpackdir)[
             "customlabel_test"
         ]
-        self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RW_FWID"])
+        self.assertEqual("Google_Reef.9042.50.0", versions["AP_RW_FWID"])
         self._check_vars("sand", versions)
 
         # Check the signer instructions - the last line should be for
@@ -958,7 +958,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
         customization_id.
 
         Args:
-            model: Main customlabel model to generate firmware for
+            model: AP customlabel model to generate firmware for
             cl_models: List of customlabel models to generate firmware for
             cl_tags: List of customlabel tags to generate firmware for
         """
@@ -976,7 +976,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
             {
                 model: [
                     r"reef/image\.bin",
-                    r"BIOS version: +Google_Reef\.9042\.50\.0",
+                    r"AP version: +Google_Reef\.9042\.50\.0",
                     r"/reef/ec\.bin",
                     r"EC version: +reef_v1\.1\.5857-77f6ed7",
                 ],
@@ -986,7 +986,7 @@ class TestFunctional(cros_test_lib.TempDirTestCase):
 
         # Check that the manifest is correct (points to sand).
         versions = pack_firmware_utils.read_manifest(self.unpackdir)[model]
-        self.assertEqual("Google_Reef.9042.50.0", versions["MAIN_RW_FWID"])
+        self.assertEqual("Google_Reef.9042.50.0", versions["AP_RW_FWID"])
         self._check_vars("reef", versions)
 
         # Check the signer instructions - we should get keys for the two

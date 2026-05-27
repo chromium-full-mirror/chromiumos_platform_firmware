@@ -2,7 +2,7 @@
 
 This repository contains the firmware updater (`chromeos-firmwareupdate`) that
 will update firmware images related to verified boot, usually host (also known
-as AP, BIOS or MAIN) and EC (Embedded Controller).
+as AP or MAIN) and EC (Embedded Controller).
 
 [TOC]
 
@@ -111,7 +111,7 @@ Usually there are few fields you have to fill:
 
 ### CROS_FIRMWARE_MAIN_IMAGE
 
-A reference to the Main (AP) firmware image, which usually comes from
+A reference to the AP firmware image, which usually comes from
 `emerge-${BOARD} chromeos-bootimage` then `/build/${BOARD}/firmware/image.bin`.
 
 Usually this implies both RO and RW. See `CROS_FIRMWARE_MAIN_RW_IMAGE` below for
@@ -122,7 +122,7 @@ more information.
 
 ### CROS_FIRMWARE_MAIN_RW_IMAGE
 
-A reference to the Main (AP) firmware image and only used for RW sections.
+A reference to the AP firmware image and only used for RW sections.
 
 If this value is set, `CROS_FIRMWARE_MAIN_IMAGE` will be used for RO and this
 will be used for RW.
