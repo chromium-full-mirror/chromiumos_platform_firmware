@@ -2,4 +2,4 @@
 chromiumos/infra/tools/cbfstool XRT3QijFr3zwXLyWFGQtq7D3MCk41PsgzpdHhO5Txn8C
 
 # futility
-chromiumos/infra/tools/futility TEJc_CL5bv67J9bV9z-jYfYdujWF58DD65pnWXm3sp8C
+chromiumos/infra/tools/futility WgdFCML1tt-WZQXfeFmC_nP_vaj-XTAm7dqJJkLc7VEC
