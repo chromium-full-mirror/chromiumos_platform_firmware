@@ -848,22 +848,19 @@ class FirmwarePacker:
                 be added to AP RW to replace the existing EC RW in AP.
             ec_config_fname: Filename of EC RW config, to be added to AP RW.
         """
-        # Use the copy installed in the SDK if we are in the SDK.  Otherwise use
-        # the swap_ec_rw shell script in the source tree.
-        if cros_build_lib.IsInsideChroot():
-            script_path = Path("/usr/share/vboot/bin/swap_ec_rw")
-        else:
-            script_path = (
+        cmd = ["futility", "swap_cbfs_file", "-i", ap_fname]
+        # futility finds the devkeys only where the SDK installs them.
+        if not cros_build_lib.IsInsideChroot():
+            cmd += [
+                "--keyset",
                 Path(self._script_base).resolve().parent
                 / "vboot_reference"
-                / "scripts"
-                / "image_signing"
-                / "swap_ec_rw"
-            )
-        cmd = [script_path, "-i", ap_fname]
+                / "tests"
+                / "devkeys",
+            ]
         if ec_fname:
             if not ec_config_fname:
-                raise PackError("ec.config is required for swap_ec_rw!")
+                raise PackError("ec.config is required for swapping EC RW!")
             cmd += ["-e", ec_fname]
             cmd += ["--ec_config", ec_config_fname]
         else:

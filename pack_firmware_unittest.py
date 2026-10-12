@@ -13,6 +13,7 @@ import contextlib
 import glob
 import io
 import os
+import pathlib
 import pprint
 import shutil
 import struct
@@ -351,6 +352,34 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
             )
             self.assertEqual("TESTING ", self.packer._extract_frid("image.bin"))
         self.packer._remove_tmpdirs()
+
+    def test_swap_ec_rw_in_ap_outside_sdk(self):
+        """Check that futility gets the source tree devkeys outside the SDK."""
+        devkeys = pathlib.Path.cwd().parent / "vboot_reference/tests/devkeys"
+        with (
+            mock.patch.object(
+                pack_firmware.cros_build_lib,
+                "IsInsideChroot",
+                return_value=False,
+            ),
+            cros_test_lib.RunCommandMock() as rc,
+        ):
+            rc.AddCmdResult(
+                partial_mock.ListRegex("futility swap_cbfs_file"), returncode=0
+            )
+            self.packer._swap_ec_rw_in_ap("ap.bin", None, "source_ap.bin", None)
+            rc.assertCommandContains(
+                [
+                    "futility",
+                    "swap_cbfs_file",
+                    "-i",
+                    "ap.bin",
+                    "--keyset",
+                    devkeys,
+                    "-a",
+                    "source_ap.bin",
+                ]
+            )
 
     def test_extract_ec_version(self):
         """Check extracting version from firmware ID."""
