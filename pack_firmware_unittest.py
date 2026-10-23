@@ -264,6 +264,13 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         self.assertEqual(
             "/image.bin", self.packer.parse_args(["-b", "/image.bin"]).ap_image
         )
+        self.assertEqual("", self.packer.parse_args([]).verify_bucket)
+        self.assertEqual(
+            "trusted-bucket",
+            self.packer.parse_args(
+                ["--verify_bucket", "trusted-bucket"]
+            ).verify_bucket,
+        )
 
     def test_ensure_command(self):
         """Check that we detect a missing command."""
@@ -684,6 +691,118 @@ class TestUnit(cros_test_lib.MockTempDirTestCase):
         )
 
         # Cleanup
+        self.packer._remove_tmpdirs()
+
+    def test_download_uri_verify_bucket(self):
+        """Test bucket verification in _download_uri."""
+        src_tarball = pathlib.Path(self.IMAGE_DIR) / "Reef.9042.50.0.tbz2"
+        sha256 = pack_firmware.file_sha256(src_tarball)
+        dest_dir = pathlib.Path(self.packer._create_tmp_dir())
+
+        def _fake_copy(_uri, dest):
+            shutil.copy2(src_tarball, dest)
+
+        with mock.patch.object(pack_firmware.gs, "GSContext") as mock_gs_cls:
+            mock_gs = mock_gs_cls.return_value
+            mock_gs.Copy.side_effect = _fake_copy
+
+            # Without verify_bucket, any bucket is allowed.
+            out_any = dest_dir / "any.tbz2"
+            res = self.packer._download_uri(
+                config_parser.ImageUriSource(
+                    "gs://any-bucket/Reef.9042.50.0.tbz2", sha256
+                ),
+                out_any,
+            )
+            self.assertEqual(res, out_any)
+            self.assertEqual(mock_gs.Copy.call_count, 1)
+
+            # Matching verify_bucket succeeds.
+            out_trusted = dest_dir / "trusted.tbz2"
+            res = self.packer._download_uri(
+                config_parser.ImageUriSource(
+                    "gs://trusted-bucket/path/Reef.9042.50.0.tbz2", sha256
+                ),
+                out_trusted,
+                verify_bucket="trusted-bucket",
+            )
+            self.assertEqual(res, out_trusted)
+            self.assertEqual(mock_gs.Copy.call_count, 2)
+
+            # Untrusted bucket, prefix collision, and non-gs:// URI all fail
+            # without invoking GSContext.Copy (even if output_path exists).
+            for bad_uri in (
+                "gs://untrusted-bucket/Reef.9042.50.0.tbz2",
+                "gs://trusted-bucket-extra/Reef.9042.50.0.tbz2",
+                "bcs://trusted-bucket/Reef.9042.50.0.tbz2",
+            ):
+                with self.assertRaises(pack_firmware.PackError) as e:
+                    self.packer._download_uri(
+                        config_parser.ImageUriSource(bad_uri, sha256),
+                        out_trusted,
+                        verify_bucket="trusted-bucket",
+                    )
+                self.assertIn(
+                    "Cannot download artifacts from untrusted bucket "
+                    f"(uri: {bad_uri}).",
+                    str(e.exception),
+                )
+            self.assertEqual(mock_gs.Copy.call_count, 2)
+
+        self.packer._remove_tmpdirs()
+
+    def test_extract_file_verify_bucket(self):
+        """Test --verify_bucket passed through _extract_file."""
+        src_tarball = pathlib.Path(self.IMAGE_DIR) / "Reef.9042.50.0.tbz2"
+        sha256 = pack_firmware.file_sha256(src_tarball)
+        self.packer._tmpdir = self.packer._create_tmp_dir()
+        imagedir = self.packer._create_tmp_dir()
+        dirname = self.packer._create_tmp_dir()
+        self.packer._args = self.packer.parse_args(
+            [
+                "--imagedir",
+                imagedir,
+                "--download",
+                "--verify_bucket",
+                "trusted-bucket",
+            ]
+        )
+
+        def _fake_copy(_uri, dest):
+            shutil.copy2(src_tarball, dest)
+
+        with mock.patch.object(pack_firmware.gs, "GSContext") as mock_gs_cls:
+            mock_gs = mock_gs_cls.return_value
+            mock_gs.Copy.side_effect = _fake_copy
+
+            bad_uri = "gs://other-bucket/Reef.9042.50.0.tbz2"
+            with self.assertRaises(pack_firmware.PackError) as e:
+                self.packer._extract_file(
+                    None,
+                    None,
+                    config_parser.ImageUriSource(bad_uri, sha256),
+                    dirname,
+                    extract_fwid=False,
+                )
+            self.assertIn(
+                "Cannot download artifacts from untrusted bucket "
+                f"(uri: {bad_uri}).",
+                str(e.exception),
+            )
+            mock_gs.Copy.assert_not_called()
+
+            image = self.packer._extract_file(
+                None,
+                None,
+                config_parser.ImageUriSource(
+                    "gs://trusted-bucket/Reef.9042.50.0.tbz2", sha256
+                ),
+                dirname,
+                extract_fwid=False,
+            )
+            self.assertEqual(image.file, os.path.join(dirname, "image.bin"))
+            mock_gs.Copy.assert_called_once()
+
         self.packer._remove_tmpdirs()
 
     @staticmethod

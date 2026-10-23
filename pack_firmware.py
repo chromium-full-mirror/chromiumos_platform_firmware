@@ -371,6 +371,13 @@ class FirmwarePacker:
             disabled_desc="Do not download the tarballs of firmware blobs.",
         )
         parser.add_argument(
+            "--verify_bucket",
+            type=str,
+            default="",
+            help="Verify that the tarball being downloaded comes from "
+            "the provided bucket.",
+        )
+        parser.add_argument(
             "--textproto",
             action="store_true",
             help="Use textproto config.",
@@ -1654,7 +1661,9 @@ class FirmwarePacker:
         )
 
         if self._args.download:
-            self._download_uri(source, Path(output_path))
+            self._download_uri(
+                source, Path(output_path), self._args.verify_bucket
+            )
 
         path = self._untar_file(
             output_path,
@@ -2069,12 +2078,14 @@ class FirmwarePacker:
         self,
         source: config_parser.ImageUriSource,
         output_path: Path,
+        verify_bucket: str = "",
     ) -> Path:
         """Download a file from the URI and verify the sha256.
 
         Args:
             source: The URI spec to download.
             output_path: The destination path.
+            verify_bucket: Verify that the uri is in a trusted bucket.
 
         Returns:
             The path to the downloaded file.
@@ -2082,6 +2093,14 @@ class FirmwarePacker:
 
         if not source.sha256:
             raise PackError("Cannot download files without sha256.")
+
+        if verify_bucket and not source.uri.startswith(
+            f"gs://{verify_bucket}/"
+        ):
+            raise PackError(
+                "Cannot download artifacts from untrusted bucket (uri: "
+                f"{source.uri})."
+            )
 
         if output_path.is_file():
             if file_sha256(output_path) == source.sha256:
